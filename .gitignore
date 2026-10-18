@@ -20,3 +20,4 @@ macos/DiffStoryApp/gen/
 macos/DiffStoryApp/icons/icon.png
 eval/results/
 .eval-worktrees/
+artifacts/browser-smoke/

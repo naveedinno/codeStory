@@ -932,7 +932,7 @@ test('every storyteller reference file is linked from SKILL.md, and every link r
 });
 
 test('the always-loaded SKILL.md stays small enough to survive long sessions', () => {
-  const lines = skillCore().split('\n').length;
+  const lines = skillCore().trimEnd().split('\n').length;
   assert.ok(lines <= 520, `SKILL.md grew to ${lines} lines; move detail into references/`);
 });
 

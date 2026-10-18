@@ -56,8 +56,8 @@ const RULE_LABELS: Record<string, string> = {
   "hotspot-not-a-doubt": "Vague hotspots",
   "import-only-highlight": "Import-only highlights",
   "landing-bare-opener": "Bare openers",
-  "landing-field-missing": "Missing landings",
-  "landing-missing-symbol": "Landings without symbols",
+  "landing-field-missing": "Explain where this code fits",
+  "landing-missing-symbol": "Name the code being explained",
   "line-pointer": "Line-number narration",
   "markdown-residue": "Markdown residue",
   "mermaid-label": "Diagram labels",
@@ -70,17 +70,25 @@ const RULE_LABELS: Record<string, string> = {
 };
 
 function FindingRow({ finding }: { finding: StoryHealthFinding }) {
+  const message = finding.rule === "landing-field-missing"
+    ? "Explain the function, its caller, and when this code runs."
+    : finding.rule === "landing-missing-symbol"
+      ? "Start by naming the function or rule on screen."
+      : finding.message;
+  const fix = finding.rule === "landing-field-missing" || finding.rule === "landing-missing-symbol"
+    ? "Use Improve this step to add the missing context."
+    : finding.fix;
   return (
     <li className="ds-health-finding">
       <span
         className={`ds-health-dot is-${finding.severity}`}
         aria-label={finding.severity === "error" ? "Error" : "Warning"}
       />
-      <span className="ds-health-copy">
-        <span className="ds-health-message">{finding.message}</span>{" "}
-        <span className="ds-health-where">{finding.where}</span>
-        {finding.fix ? <span className="ds-health-fix">{finding.fix}</span> : null}
-      </span>
+      <div className="ds-health-copy">
+        <span className="ds-health-message">{message}</span>{" "}
+        <details className="ds-health-location"><summary>Technical details</summary><code>{finding.where}: {finding.message}</code></details>
+        {fix ? <span className="ds-health-fix">{fix}</span> : null}
+      </div>
       <span className="ds-health-actions">
         {finding.panelIndex ? (
           <button type="button" data-goto-step={finding.panelIndex}>
@@ -93,7 +101,7 @@ function FindingRow({ finding }: { finding: StoryHealthFinding }) {
           data-story-step={finding.stepId}
           data-story-file={finding.file}
         >
-          Repair with agent
+          Improve this step
         </button>
       </span>
     </li>
@@ -156,7 +164,7 @@ export function StoryHealthRow({ health }: { health: StoryHealthView }) {
     : "No issues found";
 
   return (
-    <details className="ds-health" data-story-health open={total > 0}>
+    <details className="ds-health" data-story-health open={errors > 0}>
       <summary>
         <span>Story health</span>
         <small>

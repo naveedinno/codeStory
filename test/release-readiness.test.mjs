@@ -28,7 +28,8 @@ test('package exposes release checks and ships demo and browser assets with npm 
   assert.equal(pkg.scripts['build:browser-assets'], 'node scripts/build-browser-assets.mjs');
   assert.equal(pkg.scripts.dev, 'npm run build && node dist/app-server.js');
   assert.equal(pkg.bin, undefined);
-  assert.equal(pkg.scripts.check, 'npm run build && node --test test/*.test.mjs');
+  assert.equal(pkg.scripts.check, 'npm run build && npm run typecheck:client && node --test test/*.test.mjs');
+  assert.equal(pkg.scripts['test:browser'], 'npm run build && node scripts/browser-smoke.mjs');
   assert.equal(pkg.scripts['release:check'], 'npm run check && npm pack --dry-run --json');
   assert.equal(pkg.scripts.prepublishOnly, 'npm run check');
   assert.equal(pkg.license, 'SEE LICENSE IN LICENSE');

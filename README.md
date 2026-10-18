@@ -123,6 +123,21 @@ diffStory keeps long reviews oriented and makes comments portable:
   jump back to the code, or use **Copy all** when the review is ready.
 - **Review** keeps coverage, queued comments, challenge checks, and explicit
   actions on one page.
+- **Challenge** prioritizes author hotspots, permission checks, state changes,
+  boundary cases, and regression tests across the story, with a reason for each
+  suggested stop. These are review cues, not a correctness verdict.
+- **Verification evidence** distinguishes reported test results from local runs.
+  Use **Run locally…** to confirm and execute the displayed command in the
+  checkout. A receipt records output, exit status, time, and source identity on
+  this device; changing the source makes it out of date. Fixed-ref reviews can
+  run checks only when the checkout matches the reviewed revision.
+- **Caller evidence** exposes the source text behind a reported caller and can
+  open its exact location in the source editor. A text match does not establish
+  a call relationship or runtime reachability.
+- **Since story → Refresh affected steps** updates changed explanations and
+  connected steps. The app preserves existing IDs, independent steps, and the
+  comment queue, then checks the full story before capturing a new baseline.
+  An unsuccessful or interrupted refresh restores the previous story.
 - **File search and filters** narrow the sidebar to seen or unseen files, files with
   comments, unexplained changes, tests, or files changed since your review.
 - **Resume review** returns to the last file, line, and display mode on this

@@ -104,7 +104,7 @@ import {
   type StoryEvolution,
   type Tour,
 } from "./types.js";
-import { writeJsonAtomic } from "./atomic-json.js";
+import { writeJsonAtomic, writeTextAtomic } from "./atomic-json.js";
 import {
   evolutionPreservationErrors,
   normalizeEvolutionObject,
@@ -178,6 +178,11 @@ import {
   storyPathForId,
 } from "./stories.js";
 import { homedir } from "node:os";
+import { callerEvidence } from "./landing-verify.js";
+import { commentsPath } from "./config.js";
+import { planStoryRefresh, validateStoryRefresh, storyRefreshPrompt } from "./story-refresh.js";
+import { runStoryCheck, reportReady } from "./story-check.js";
+import { captureVerification, canRunVerification, loadVerificationReceipts, verificationWorkspace } from "./verification.js";
 import {
   createReadStream,
   existsSync,
@@ -735,6 +740,62 @@ function handle(
           editor: value,
           label: editorLabel(value),
         });
+      });
+    }
+    if (method === "GET" && url.pathname === "/api/verification") {
+      const page = validateReviewPageLease(session, url.searchParams.get("page"));
+      if (!page.ok) return sendReviewPageConflict(res, page.error);
+      try {
+        const receipts = loadVerificationReceipts(home, page.repo);
+        const workspace = receipts.length ? verificationWorkspace(page.repo, page.base) : "";
+        const revision = resolveCommit(page.repo, "HEAD") ?? "unborn";
+        return sendJson(res, 200, { checks: (page.tour.verification ?? []).map((entry) => {
+          const receipt = [...receipts].reverse().find((row) => row.check === entry.check);
+          return { receipt: receipt ?? null, current: !!receipt && receipt.sourceStable &&
+            receipt.fingerprint === page.lease.fingerprint && receipt.workspace === workspace && receipt.revision === revision };
+        }) });
+      } catch (error) { return sendJson(res, 409, { error: (error as Error).message }); }
+    }
+    if (method === "POST" && url.pathname === "/api/verification/run") {
+      return readBody(req, res, (body) => {
+        const page = validateReviewPageLease(session, url.searchParams.get("page"));
+        if (!page.ok) return sendReviewPageConflict(res, page.error);
+        if (historyMutationError(session, page.lease)) return sendJson(res, 409, { error: "History snapshots are read-only." });
+        if (agentBusy) return sendJson(res, 409, { error: "Another local run is already active." });
+        try {
+          const input = JSON.parse(body || "{}");
+          const entry = Number.isInteger(input.index) ? page.tour.verification?.[input.index] : undefined;
+          if (!entry || input.confirmed !== true) return sendJson(res, 400, { error: "Choose a check and confirm its exact command before running it." });
+          if (!canRunVerification(page.repo, page.head)) return sendJson(res, 409, { error: "The checkout differs from the reviewed revision. Open that revision in a clean checkout before running this check." });
+          const controller = new AbortController();
+          res.once("close", () => controller.abort());
+          agentBusy = true;
+          captureVerification({ repo: page.repo, home, base: page.base, head: page.head, check: entry.check,
+            fingerprint: page.lease.fingerprint, signal: controller.signal })
+            .then((receipt) => sendJson(res, 200, { receipt, current: receipt.sourceStable }))
+            .catch((error) => sendJson(res, 500, { error: (error as Error).message }))
+            .finally(() => { agentBusy = false; });
+        } catch (error) { return sendJson(res, 400, { error: (error as Error).message }); }
+      });
+    }
+    if (method === "POST" && url.pathname === "/api/editor/caller") {
+      return readBody(req, res, (body) => {
+        const page = validateReviewPageLease(session, url.searchParams.get("page"));
+        if (!page.ok) return sendReviewPageConflict(res, page.error);
+        try {
+          const input = JSON.parse(body || "{}");
+          const step = orderedSteps(page.tour).find((candidate) => candidate.id === input.stepId);
+          const landing = step && step.kind !== "concept" ? step.landing : undefined;
+          const caller = landing?.calledBy?.find((name) => narrativeText(name) === input.caller);
+          const evidence = landing && caller ? callerEvidence(page.repo, landing.symbol, caller, page.head) : null;
+          if (!evidence) return sendJson(res, 404, { error: "No source match is available for that caller." });
+          const currentLine = readWholeFile(page.repo, evidence.file)?.[evidence.line - 1]?.slice(0, 500);
+          if (currentLine !== evidence.text) return sendJson(res, 409, { error: "The current source differs from the reviewed caller. Inspect the captured text or open the reviewed revision." });
+          const target = editorNavigationTarget(page.repo, evidence.file, evidence.line, 1);
+          const editor = loadEditorPreferences(home).editor;
+          if (!target || !openEditor(target, editor)) return sendJson(res, 503, { error: "The caller source could not be opened in your editor." });
+          return sendJson(res, 200, { ok: true });
+        } catch (error) { return sendJson(res, 400, { error: (error as Error).message }); }
       });
     }
     if (method === "POST" && url.pathname === "/api/editor/open") {
@@ -1309,6 +1370,9 @@ function handle(
     }
     if (method === "POST" && url.pathname === "/api/story/repair") {
       return readBody(req, res, (body) => runStoryRepair(res, session, body));
+    }
+    if (method === "POST" && url.pathname === "/api/story/refresh") {
+      return readBody(req, res, (body) => runStoryRefresh(res, session, url, body));
     }
     if (method === "PATCH" && url.pathname.startsWith("/api/comments/")) {
       const lease = optionalRequestLease(session, url);
@@ -3002,9 +3066,9 @@ function runWorkflow(
     })
     .finally(() => {
       clearInterval(heart);
-      spec.cleanup?.();
-      res.end();
-      agentBusy = false;
+      try { spec.cleanup?.(); }
+      catch (error) { send(errorEvent("validation", "The previous story could not be restored", "The run failed and its saved artifact needs recovery before retrying.", (error as Error).message)); }
+      finally { res.end(); agentBusy = false; }
     });
 }
 
@@ -3261,6 +3325,65 @@ function finishWithStoryBaseline(
       ],
     };
   }
+}
+
+function runStoryRefresh(res: ServerResponse, session: Session, url: URL, body: string): void {
+  const page = validateReviewPageLease(session, url.searchParams.get("page"));
+  if (!page.ok) return sendReviewPageConflict(res, page.error);
+  if (historyMutationError(session, page.lease)) return sendJson(res, 409, { error: "History snapshots are read-only." });
+  try {
+    const input = JSON.parse(body || "{}");
+    const original = page.tour;
+    const binding = storyDriftBinding(page.base, page.head, original);
+    const drift = inspectStoryDrift({ repo: page.repo, snapshot: original.storySnapshot, expected: binding });
+    if (!drift.complete || !drift.inScopeCount || !drift.observationId || input.observation !== drift.observationId ||
+      drift.changes.some((change) => change.inStory && change.evidence !== "exact")) {
+      return sendJson(res, 409, { error: "Reload the changes since story. A focused refresh needs a current, exact observation of changed story files." });
+    }
+    const agents = availableAgents();
+    const pre = agentPreflight({ repo: page.repo, busy: agentBusy, agents });
+    if (!pre.ok) return sendJson(res, pre.status, errorEvent(pre.stage, pre.label, pre.detail));
+    const selected = selectAvailableAgent(input.agent, agents, pre.agent);
+    if (!selected.ok) return sendJson(res, selected.status, errorEvent(selected.stage, selected.label, selected.detail));
+    const plan = planStoryRefresh(original, drift.changes);
+    const storyPath = page.lease.storyPath;
+    const before = readFileSync(storyPath, "utf8");
+    const commentsBefore = existsSync(commentsPath(page.repo)) ? readFileSync(commentsPath(page.repo), "utf8") : null;
+    let accepted = false;
+    const sourceUnchanged = () => inspectStoryDrift({ repo: page.repo, snapshot: original.storySnapshot, expected: binding }).currentIdentity === drift.currentIdentity;
+    runWorkflow(res, page.repo, {
+      workflow: "guided_review", title: "Refreshing affected story steps", agent: selected.agent,
+      prompt: storyRefreshPrompt(plan, storyPath, page.base, page.head),
+      context: { repoName: basename(page.repo), repoPath: page.repo, workflow: "guided_review", agent: selected.agent, base: describeBase(page.repo, page.base), head: page.head ?? "working tree" },
+      isTargetWrite: (event) => event.type === "file" && event.action !== "read" && event.target.endsWith("story.json"),
+      finish: (result) => {
+        try {
+          if (!result.ok) throw new Error("The refresh agent did not finish successfully.");
+          const updated = loadTour(storyPath);
+          const errors = validateStoryRefresh(original, updated, plan);
+          if (errors.length) throw new Error(errors.join("\n"));
+          if (!sourceUnchanged()) throw new Error("The source changed during the refresh. Reload before trying again.");
+          const commentsNow = existsSync(commentsPath(page.repo)) ? readFileSync(commentsPath(page.repo), "utf8") : null;
+          if (commentsNow !== commentsBefore) throw new Error("The comment queue changed during refresh. It was left untouched by the app.");
+          const report = runStoryCheck(page.repo, storyPath);
+          if (!reportReady(report)) throw new Error([...report.errors, ...report.findings.filter((finding) => finding.severity === "error").map((finding) => finding.message)].join("\n"));
+          // Capture only after full coverage and preservation pass. Comments and
+          // their stable step anchors are never rewritten by this operation.
+          captureAndStampStoryBaseline(page.repo, storyPath, page.base, page.head);
+          if (!sourceUnchanged()) throw new Error("The source changed while the new baseline was captured.");
+          const finished = finishStoryGeneration(result, storyPath, { repo: page.repo, selectedStory: storyPath, chooseStory: false }, before, {
+            validateModern: true, requireStoryArc: false, originalStoryArc: original.storyArc, originalEvolution: original.evolution,
+          });
+          accepted = finished.status === "complete";
+          return { ...finished, result: { ...finished.result, refreshedStepIds: plan.stepIds, changedFiles: plan.changedFiles } };
+        } catch (error) {
+          return { status: "failed", result: { storyWritten: false, storyValid: false }, events: [errorEvent("validation", "The focused refresh was not accepted", "The previous story will be restored. Review the details, then retry.", (error as Error).message)] };
+        }
+      },
+      cleanup: () => { if (!accepted) writeTextAtomic(storyPath, before); },
+      fileScope: { repoPath: page.repo, changedFiles: plan.changedFiles },
+    });
+  } catch (error) { return sendJson(res, 400, { error: (error as Error).message }); }
 }
 
 function runStoryRepair(

@@ -2,13 +2,31 @@
 // in the step's file, every named caller shares a file with the symbol, and a
 // role's gate is written in the step's file. Read-only and deterministic. It
 // cannot prove a call, but a vague caller ("every review page") or an invented
-// one cannot pass, which is what the judges kept asking for: verified callers.
+// one cannot pass. Co-occurrence is text evidence, never proof of a call.
 import { execFileSync } from "node:child_process";
 import { readWholeFile } from "./git.js";
 import { orderedSteps } from "./tour.js";
 import { isCodeStep, type Tour } from "./types.js";
 
 const SYMBOL_NAME = /^[.#]?[A-Za-z_$][\w$-]*$/;
+
+export interface CallerEvidence { file: string; line: number; text: string; level: 'text-match'; }
+
+/** A source occurrence for inspection. Intentionally makes no call-graph claim. */
+export function callerEvidence(repo: string, symbol: string, caller: string, head?: string): CallerEvidence | null {
+  const symbolName = landingSearchName(symbol), name = landingSearchName(caller);
+  if (!SYMBOL_NAME.test(symbolName) || !SYMBOL_NAME.test(name)) return null;
+  const cache = new Map<string, Set<string>>();
+  const candidates = [...filesMentioning(repo, name, head, cache)].filter((file) =>
+    !/(^|\/)(\.diffstory|\.env[^/]*)($|\/)/.test(file) && filesMentioning(repo, symbolName, head, cache).has(file)).sort();
+  const word = new RegExp(`(?:^|[^\\w$])${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=$|[^\\w$])`);
+  for (const file of candidates.slice(0, 20)) {
+    const lines = readWholeFile(repo, file, head);
+    const index = lines?.findIndex((line) => word.test(line)) ?? -1;
+    if (lines && index >= 0) return { file, line: index + 1, text: lines[index].slice(0, 500), level: 'text-match' };
+  }
+  return null;
+}
 
 /** The name to search for: "GaslessLayer.relayBatch()" -> "relayBatch"; ".ds-main" stays. */
 export function landingSearchName(raw: string): string {

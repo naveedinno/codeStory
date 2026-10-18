@@ -15,7 +15,7 @@
 import { changedRanges, rangesOverlap } from './diff.js';
 import { readFileRange, readWholeFile } from './git.js';
 import { orderedSteps } from './tour.js';
-import { landingSearchName } from './landing-verify.js';
+import { landingSearchName, callerEvidence } from './landing-verify.js';
 import { claimedRanges } from './types.js';
 import { computeCoverage, filesForStoryCoverage, regeneratedCommandFor } from './coverage.js';
 import { matchGlob } from './noise.js';
@@ -302,7 +302,10 @@ function buildCodeStep(repo, step, files, headRef, hotspot, ordered, baseRef, de
                 landing: {
                     symbol: narrativeText(step.landing.symbol),
                     file: step.file.split('/').pop() ?? step.file,
-                    callers: (step.landing.calledBy ?? []).map((caller) => landingCaller(caller, step.id, landingGraph)),
+                    callers: (step.landing.calledBy ?? []).map((caller) => ({
+                        ...landingCaller(caller, step.id, landingGraph),
+                        ...(detailed ? { evidence: callerEvidence(repo, step.landing.symbol, caller, headRef) } : {}),
+                    })),
                     ...(step.landing.role
                         ? {
                             role: {

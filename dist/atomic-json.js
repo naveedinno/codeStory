@@ -4,6 +4,10 @@ import { dirname } from 'node:path';
 /** Atomically replace one local JSON artifact, skipping byte-identical writes. */
 export function writeJsonAtomic(path, value) {
     const next = `${JSON.stringify(value, null, 2)}\n`;
+    return writeTextAtomic(path, next);
+}
+/** The same atomic replacement, preserving an exact saved artifact on rollback. */
+export function writeTextAtomic(path, next) {
     if (existsSync(path)) {
         const stat = lstatSync(path);
         if (!stat.isFile() || stat.isSymbolicLink()) {

@@ -471,6 +471,7 @@ export interface ReviewPayload {
  steps: ReviewStepView[];
  files: ReviewFileRow[];
  hotspots: ReviewHotspotView[];
+ challengeTargets: Array<{ stepId: string; panelIndex: number; reasons: string[] }>;
  trust: ReviewTrustView;
 
  totalSteps: number;

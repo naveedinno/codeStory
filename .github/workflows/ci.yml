@@ -27,6 +27,26 @@ jobs:
       - name: Check
         run: npm run check
 
+  browser-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DIFFSTORY_SMOKE_OUT: artifacts/browser-smoke
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+      - run: npm ci
+      - run: npx --no-install playwright-core install --with-deps chromium
+      - run: npm run test:browser
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-smoke
+          path: artifacts/browser-smoke
+
   zed-extension:
     runs-on: ubuntu-latest
     steps:

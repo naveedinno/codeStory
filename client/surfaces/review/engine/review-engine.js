@@ -3446,8 +3446,8 @@ export function startReviewEngine(options){
         onDone:function(status){setBusy(false);agentBusy=false;acAbort=null;if(status!=='complete')return;var btn=el('button',progressPrimaryActionClass,'Reload story');btn.setAttribute('data-reload-diff','');panel.showFoot(btn);}
       });
       var payload={action:action,agent:agents[0]};
-      if(target&&target.file)payload.file=target.file;if(target&&target.line)payload.line=target.line;if(target&&target.stepId)payload.stepId=target.stepId;
-      panel.start();runProgress(panel,'/api/story/repair',payload,ctrl).then(function(){if(agentBusy){setBusy(false);agentBusy=false;acAbort=null;}});
+      if(target&&target.observation)payload.observation=target.observation;if(target&&target.file)payload.file=target.file;if(target&&target.line)payload.line=target.line;if(target&&target.stepId)payload.stepId=target.stepId;
+      panel.start();runProgress(panel,action==='refresh'?reviewPageUrl('/api/story/refresh'):'/api/story/repair',payload,ctrl).then(function(){if(agentBusy){setBusy(false);agentBusy=false;acAbort=null;}});
     }).catch(function(){toast('Could not start story repair.','error');});
   }
   function storyGenEls(){
@@ -3987,6 +3987,7 @@ export function startReviewEngine(options){
     b=closest(t,'[data-next-unviewed]');if(b){nextUnviewedFile();return;}
     b=closest(t,'[data-retry-file-panel]');if(b){var lazyPanel=closest(b,'.ds-filepanel');if(lazyPanel){replaceChildrenFromHtml(lazyPanel,'<div class="ds-filepanel-loading" data-file-panel-lazy role="status">Loading file review…</div>');loadFilePanel(lazyPanel);}return;}
     b=closest(t,'[data-retry-story-step]');if(b){var lazyStep=closest(b,'.ds-step'),stepIndex=Number(b.getAttribute('data-retry-story-step'));if(lazyStep){lazyStep.setAttribute('data-step-lazy','1');loadStoryStep(stepIndex,function(ok){if(ok&&active===stepIndex)activateStep(stepIndex,true);});}return;}
+    b=closest(t,'[data-drift-refresh]');if(b){var observation=driftDrawer&&driftDrawer.getAttribute('data-drift-observation');closeDriftDrawer();repairStory('refresh',{observation:observation});return;}
     b=closest(t,'[data-drift-open]');if(b){openDriftDrawer();return;}
     b=closest(t,'[data-drift-close]');if(b){closeDriftDrawer();return;}
     b=closest(t,'[data-drift-back]');if(b&&driftDrawer){showDriftList();return;}
@@ -4052,6 +4053,7 @@ export function startReviewEngine(options){
     b=closest(t,'[data-goto-step]');if(b){closeDriftDrawer();setView('tour');setActive(Number(b.getAttribute('data-goto-step')));collapseCompactSidebar();return;}
     b=closest(t,'[data-goto-file]');if(b){closeDriftDrawer();setView('files');selectFileByPath(b.getAttribute('data-goto-file'));collapseCompactSidebar();return;}
     b=closest(t,'[data-explain]');if(b){repairStory('explain',{file:b.getAttribute('data-story-file'),line:Number(b.getAttribute('data-story-line')||0)});return;}
+    b=closest(t,'[data-caller-source]');if(b){fetch(reviewPageUrl('/api/editor/caller'),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({stepId:b.getAttribute('data-caller-step'),caller:b.getAttribute('data-caller-name')})}).then(function(r){return r.json().then(function(data){if(!r.ok)throw new Error(data.error);toast('Opening caller source…');});}).catch(function(error){toast(error.message||'Could not open caller source.','error');});return;}
     b=closest(t,'[data-story-repair]');if(b){repairStory(b.getAttribute('data-story-repair'),{file:b.getAttribute('data-story-file'),stepId:b.getAttribute('data-story-step')});var det=closest(b,'details');if(det&&!det.hasAttribute('data-story-health'))det.open=false;return;}
     var cpf=closest(t,'[data-concept-page-fullscreen]');if(cpf){toggleConceptPageFullscreen(cpf);return;}
     b=closest(t,'.ds-stepcard');if(b){setActive(Number(b.getAttribute('data-step-index')));collapseCompactSidebar();return;}

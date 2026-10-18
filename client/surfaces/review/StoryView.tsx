@@ -308,17 +308,19 @@ function IntroPanel({ payload }: { payload: ReviewPayload }) {
                     ) : null}
                     {verification.length ? (
                       <div className="ds-intro-verification">
-                        <span className="ds-intro-block-kicker">What I ran</span>
+                        <span className="ds-intro-block-kicker">Verification evidence</span>
                         <ul>
                           {verification.map((entry, index) => (
-                            <li key={index} data-result={entry.result}>
+                            <li key={index} data-result={entry.result} data-verification-row={index}>
                               <span className="ds-verify-result">
-                                {entry.result === "passed" ? "Passed" : entry.result === "failed" ? "Failed" : "Not run"}
+                                {entry.result === "passed" ? "Reported passed" : entry.result === "failed" ? "Reported failed" : "Not run"}
                               </span>
                               <span className="ds-verify-check">{entry.check}</span>
                               {entry.detail ? (
                                 <span className="ds-verify-detail" dangerouslySetInnerHTML={html(entry.detail.html)} />
                               ) : null}
+                              {!payload.history ? <button type="button" className="ds-btn ds-btn-ghost" data-run-verification={index}>Run locally…</button> : null}
+                              <div className="ds-verification-receipt" data-verification-receipt aria-live="polite" />
                             </li>
                           ))}
                         </ul>

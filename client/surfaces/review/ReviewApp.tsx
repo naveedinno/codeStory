@@ -32,6 +32,7 @@ import { ThemeMenu } from "../../shared/theme-menu";
 import { SkipLink } from "../../shared/nav";
 import type { ReviewPayload } from "../../../src/payloads";
 import { startReviewEngine } from "./engine/review-engine";
+import { initVerification } from "./engine/verification";
 import { FilesView, ReviewPage } from "./ReviewView";
 import { Sidebar } from "./Sidebar";
 import { StoryView } from "./StoryView";
@@ -178,6 +179,9 @@ function DriftDrawer({ payload }: { payload: ReviewPayload }) {
             ×
           </button>
         </div>
+        {report.inScopeFiles > 0 && !payload.history ? (
+          <div className="ds-drift-refresh"><button type="button" className="ds-btn ds-btn-solid" data-drift-refresh>Refresh affected steps</button><span>Keep existing step IDs and comments; recheck the complete story.</span></div>
+        ) : null}
         <div className="ds-drift-body">
           <div
             className="ds-drift-list"
@@ -394,6 +398,10 @@ export function ReviewApp({ payload }: { payload: ReviewPayload }) {
       ),
     });
   }, [payload]);
+
+  useEffect(() => initVerification({
+    pageUrl: (path: string) => `${path}?page=${encodeURIComponent(payload.pageToken)}`,
+  }), [payload.pageToken]);
 
   const history = payload.history;
   const historyWhen = history

@@ -97,7 +97,7 @@ the two-line clamp and the button's accessible name.
 | `evolution.phases[].title` | The phase heading in commit evolution. |
 | `evolution.phases[].firstCommit` / `lastCommit` | Hex commit boundaries; generation accepts 7-40 characters and expands unique prefixes. |
 | `verification[].check` | What the author ran, as the reviewer would type it. At most 120 characters; rendered in the review-notes verification list. |
-| `steps[].landing.symbol`, `.calledBy[]`, `.role.who`, `.role.gate`, `.when` | Verified "where am I" facts shown under the step title. At most 80 characters each (`role.who` 40); callers must be symbols the checker can find alongside `symbol`. |
+| `steps[].landing.symbol`, `.calledBy[]`, `.role.who`, `.role.gate`, `.when` | Author-reported "where am I" facts shown under the step title. At most 80 characters each (`role.who` 40); callers must be symbols the checker can find alongside `symbol`. This is textual co-occurrence, not proof of a call or runtime reachability; the app exposes the matching source for inspection. |
 
 No markup at all. Tags are stripped to their text content. A `<table>` in a
 sidebar title is never the right answer, and attribute sinks can only ever show
@@ -271,3 +271,21 @@ handled.
   no SVG, no inline styles
 - if a story needs an element that is not on the allowlist, the story needs
   rewriting; the allowlist does not grow to accommodate one story
+
+## Captured verification and focused refresh
+
+`verification` entries are authored claims. A reported `passed` result never
+becomes an app-captured pass merely by appearing in story JSON. The reviewer
+can confirm **Run locally…** for the displayed command; diffStory records the
+command, output, exit status, time, checkout revision, and review/source
+fingerprints in its device-local app home. Receipts are not story fields and
+are not included in exported story bundles. Runs time out after two minutes;
+a source change during or after execution makes the receipt out of date.
+A fixed-ref review requires the checkout to match that revision before a run.
+
+A focused refresh starts from an exact **Since story** observation and changes
+only affected steps and their connected explanations. Existing IDs and relative
+reading order survive. Independent steps, intent, selected scope, verification
+claims, and history remain intact. The server verifies these invariants and
+complete changed-range coverage before capturing a new baseline; failure or
+interruption restores the original story. Comments are not rewritten.

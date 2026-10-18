@@ -365,10 +365,10 @@ export function ReviewPage({ payload }: { payload: ReviewPayload }) {
   const coverage = trust.pending
     ? { flag: "", label: "" }
     : coverageFlag(trust.uncoveredCount, excludedFiles.length + divergent.length);
-  const challengeTargets = payload.steps
-    .map((step, index) => ({ step, index }))
-    .filter((item) => item.step.kind !== "concept")
-    .slice(0, 5);
+  const challengeTargets = (payload.challengeTargets ?? []).flatMap((target) => {
+    const step = payload.steps[target.panelIndex - 1];
+    return step ? [{ ...target, step }] : [];
+  });
 
   return (
     <div className="ds-view" id="ds-view-review" role="tabpanel" aria-labelledby="ds-tab-review" hidden>
@@ -516,11 +516,11 @@ export function ReviewPage({ payload }: { payload: ReviewPayload }) {
               </div>
               {challengeTargets.length ? (
                 <div className="ds-challenge-targets">
-                  <span>Steps to re-read</span>
-                  {challengeTargets.map(({ step, index }) => (
-                    <button key={step.id} type="button" className="ds-challenge-target" data-goto-step={index + 1}>
+                  <span>Where to look closer</span>
+                  {challengeTargets.map(({ step, panelIndex, reasons }) => (
+                    <button key={step.id} type="button" className="ds-challenge-target" data-goto-step={panelIndex}>
                       <span>Step {step.order}</span>
-                      <strong dangerouslySetInnerHTML={html(step.title.html)} />
+                      <strong><span dangerouslySetInnerHTML={html(step.title.html)} /><small className="ds-challenge-reason">{reasons.join(" · ")}</small></strong>
                       <i aria-hidden="true">→</i>
                     </button>
                   ))}

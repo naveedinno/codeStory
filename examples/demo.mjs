@@ -6,6 +6,7 @@ import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { captureStorySnapshot } from '../dist/story-drift.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SERVER_ENTRY = join(ROOT, 'dist', 'app-server.js');
@@ -198,7 +199,7 @@ const TOUR = `{
       ],
       "why": "I keep the existing order boundary and stop over-cap requests before placeOrder() can mutate anything.",
       "beats": [
-        { "text": "Start here: this existing handler is where a customer order enters the app.", "highlights": [[4, 6]] },
+        { "text": "The client reaches <code>createOrder()</code> through POST /orders; this handler owns the request boundary.", "highlights": [[4, 6]] },
         { "text": "The new decision reads the limit and returns before placement when the request would cross it.", "highlights": [[8, 12]] },
         { "text": "The accepted path still reaches the same placeOrder() call and 201 response.", "highlights": [[14, 15]] }
       ],
@@ -225,7 +226,7 @@ const TOUR = `{
       ],
       "why": "I isolate the cap math here, with the exact-equality comparison as the review hinge.",
       "beats": [
-        { "text": "The API hands customerId and amount here, and this helper owns the fixed monthly cap.", "highlights": [[1, 5]] },
+        { "text": "<code>createOrder()</code> calls <code>checkSpendingLimit()</code> before placement; this helper owns the monthly cap.", "highlights": [[1, 5]] },
         { "text": "It derives remaining budget from stored spend; pause on amount < remaining because equal-to-remaining is the boundary risk.", "highlights": [[7, 10]] }
       ],
       "calls": ["s3"], "returnsTo": "s1", "tags": ["core"]
@@ -239,7 +240,7 @@ const TOUR = `{
       ],
       "why": "I show the extraction separately so its API source and helper destination are both readable instead of competing with the stored-data relationship.",
       "beats": [
-        { "text": "The old handler owned this calculation inline; the left pane keeps that source visible.", "highlights": [[6, 8]] },
+        { "text": "<code>checkSpendingLimit()</code> is reached from <code>createOrder()</code>; the left pane keeps the old inline calculation visible.", "highlights": [[6, 8]] },
         { "text": "The right pane shows the same decision in its reusable helper, while the API keeps only the call site.", "highlights": [[9, 10]] }
       ],
       "returnsTo": "s2", "tags": ["context"]
@@ -249,11 +250,11 @@ const TOUR = `{
       "file": "src/orders.ts", "range": [1, 13], "viewport": [1, 13],
       "highlights": [[3, 6], [10, 13]], "kind": "changed",
       "moves": [
-        { "id": "move-recorder", "kind": "moved", "before": { "file": "src/orders.ts", "range": [3, 6] }, "after": { "file": "src/orders.ts", "range": [10, 13] }, "label": "moved below", "hidden": { "as": "consequence", "tag": "spend now feeds back", "what": "accepted orders change the budget used by the next limit check" } }
+        { "id": "move-recorder", "kind": "moved", "before": { "file": "src/orders.ts", "range": [3, 6] }, "after": { "file": "src/orders.ts", "range": [10, 13] }, "label": "moved below", "hidden": { "as": "consequence", "tag": "spend is logged only", "what": "accepted orders log the amount; this demo does not persist a new budget" } }
       ],
-      "why": "Back on the accepted path, I record the spend after storing the order so the next limit check can see it.",
+      "why": "Back on the accepted path, I log the spend after storing the order; this demo does not update the next limit check.",
       "beats": [
-        { "text": "Now that the gate passed, the existing placeOrder() path still creates and stores the order.", "highlights": [[3, 5]] },
+        { "text": "<code>createOrder()</code> reaches <code>placeOrder()</code> after the gate passes; this function stores the accepted order.", "highlights": [[3, 5]] },
         { "text": "The new handoff records that accepted amount before the function returns.", "highlights": [[6, 6]] },
         { "text": "This demo helper is the downstream effect; its persistence limitation is deliberately visible here.", "highlights": [[10, 13]] }
       ],
@@ -268,7 +269,7 @@ const TOUR = `{
       ],
       "why": "The two changed runs swap semantic order, so their gutter arrows cross deliberately instead of pretending the mapping stayed linear.",
       "beats": [
-        { "text": "The entry now normalizes before authorization, changing which representation the guard receives.", "highlights": [[1, 4]] },
+        { "text": "The pipeline caller enters <code>prepare()</code>; it now normalizes before authorization, changing what the guard receives.", "highlights": [[1, 4]] },
         { "text": "The helper definitions move with that order; the crossed arrows make the reversal explicit across the hunk gap.", "highlights": [[19, 22]] }
       ],
       "tags": ["annotation-showcase"]
@@ -282,7 +283,7 @@ const TOUR = `{
       ],
       "why": "Both panes already teach this one-line move, so the story authors no label or hidden fact and the renderer adds no annotation ink.",
       "beats": [
-        { "text": "Skim this: the total calculation shifts by one line, and the unannotated diff is intentionally sufficient evidence.", "highlights": [[1, 5]] }
+        { "text": "The receipt caller enters <code>formatReceipt()</code> after placement; its total calculation shifts by one line.", "highlights": [[1, 5]] }
       ],
       "tags": ["annotation-showcase"]
     },
@@ -292,7 +293,7 @@ const TOUR = `{
       "highlights": [[1, 7]], "kind": "new-file",
       "why": "The test proves an over-cap request fails, while leaving equal-to-remaining as the missing case to review.",
       "beats": [
-        { "text": "Final proof: the test drives the same helper with a customer who only has 150 left.", "highlights": [[1, 3]] },
+        { "text": "The test runner reaches <code>checkSpendingLimit()</code> through the over-cap test with a customer who only has 150 left.", "highlights": [[1, 3]] },
         { "text": "It pins the over-cap rejection but does not settle the exact-equality behavior flagged above.", "highlights": [[4, 7]] }
       ],
       "tags": ["test"]
@@ -354,6 +355,22 @@ git(['commit', '-qm', 'test: prove over-cap rejection']);
 
 // the tour + a couple of pre-seeded comments
 const story = JSON.parse(TOUR);
+const landings = {
+  s1: { symbol: 'createOrder()', role: { who: 'API client' }, when: 'POST /orders' },
+  s2: { symbol: 'checkSpendingLimit()', calledBy: ['createOrder()'], when: 'before placing an order' },
+  s3: { symbol: 'checkSpendingLimit()', calledBy: ['createOrder()'], when: 'the handler delegates its policy' },
+  s4: { symbol: 'placeOrder()', calledBy: ['createOrder()'], when: 'after the spending gate accepts' },
+  s5: { symbol: 'prepare()', role: { who: 'pipeline caller' }, when: 'preparing input' },
+  s6: { symbol: 'formatReceipt()', role: { who: 'receipt caller' }, when: 'formatting a placed order' },
+  s7: { symbol: 'checkSpendingLimit()', role: { who: 'test runner' }, when: 'running the over-cap rejection test' },
+};
+for (const step of story.steps) if (landings[step.id]) step.landing = landings[step.id];
+story.hotspots = [
+  { step: 's2', reason: 'The strict comparison rejects an amount exactly equal to the remaining budget; the test only exercises an over-cap amount.' },
+  { step: 's4', reason: 'recordSpend() only logs the amount, so repeated accepted orders do not reduce the stored remaining budget.' },
+];
+story.verification = [{ check: 'git diff --check main...HEAD', result: 'not-run', detail: 'Checks patch whitespace; it does not execute the spending-policy test.' }];
+
 const evolutionCommits = gitOut(['rev-list', '--first-parent', '--reverse', 'main..feat/spending-limit']).split('\n');
 story.head = 'feat/spending-limit';
 story.storyArc = {
@@ -388,6 +405,7 @@ story.evolution = {
     },
   ],
 };
+story.storySnapshot = captureStorySnapshot({ repo: DEMO, base: story.base, head: story.head });
 write('.diffstory/story.json', `${JSON.stringify(story, null, 2)}\n`);
 write('.diffstory/comments.json', COMMENTS);
 

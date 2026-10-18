@@ -21,6 +21,7 @@
 // HTML insertion remains locally rendered Mermaid SVG, parsed and sanitized in
 // the browser before it reaches the DOM.
 import { buildReviewModel, pairChangeRows } from "./view-model.js";
+import { challengeTargets } from "./challenge.js";
 import { intraLineMap } from "./intra-line.js";
 import { renderSplitRow, renderUnifiedRow, renderHunkGap, SplitColumns, untouredRuns, wholeUntoured, plainRows, } from "./diff-render.js";
 import { renderShell } from "./shell.js";
@@ -81,6 +82,7 @@ function codeStepPanel(s, i, comments) {
         </div>
       </div>
       ${landingLine(s)}
+      ${s.landing?.callers.length ? `<details class="ds-caller-evidence"><summary>Caller evidence · agent-reported relationships</summary><p>Text matches locate the named symbols. They do not prove a call or runtime reachability.</p><ul>${s.landing.callers.map((caller) => `<li><code>${esc(caller.label)}</code>${caller.evidence ? ` — <button type="button" data-caller-source data-caller-step="${esc(s.id)}" data-caller-name="${esc(caller.label)}">${esc(caller.evidence.file)}:${caller.evidence.line}</button><span>Text match only</span><pre>${esc(caller.evidence.text)}</pre>` : ' — No source match available'}</li>`).join('')}</ul></details>` : ''}
     </div>
     ${s.hotspot
         ? `<div class="ds-hotspot-flag" role="note"><span class="ds-hotspot-flag-kicker" aria-hidden="true">▲ Distrust</span><span class="ds-sr-only">Author-flagged hotspot: </span><span class="ds-hotspot-flag-reason">${s.hotspot.html}</span></div>`
@@ -1279,6 +1281,11 @@ export function renderReviewShell(input) {
                 : {}),
         },
         steps: model.steps.map(stepView),
+        challengeTargets: challengeTargets(tour, (file) => {
+            if (!healthLines.has(file))
+                healthLines.set(file, readWholeFile(repo, file, headRef));
+            return healthLines.get(file) ?? null;
+        }),
         files: model.files.map(fileRow),
         hotspots: model.hotspots.map((spot) => ({
             panelIndex: spot.panelIndex,
