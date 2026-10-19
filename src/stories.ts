@@ -7,8 +7,11 @@ import { loadTour } from './tour.js';
 import { getDiff, resolveBase } from './git.js';
 import { parseUnifiedDiff } from './diff.js';
 import { loadComments } from './comments.js';
-import { isCodeStep, type StoryMode, type StoryScope as TourStoryScope, type Tour } from './types.js';
+import { isCodeStep, type StoryMode, type StoryScope as TourStoryScope, type StorySubject, type Tour } from './types.js';
 import { inspectStoryDrift, type StoryDriftExpectedBinding } from './story-drift.js';
+import { codeStoryDrift, codeStoryFiles, codeStoryScope } from './code-story.js';
+import { isCodeStory } from './tour.js';
+import { commentsForStory } from './comments.js';
 
 export interface StorySummary {
   id: string;
@@ -16,6 +19,8 @@ export interface StorySummary {
   title: string;
   summary: string;
   mode: StoryMode;
+  /** What the story explains: a diff, or existing code at one commit. */
+  subject: StorySubject;
   base?: string;
   head?: string;
   scope: StoryScope;
@@ -151,7 +156,10 @@ function storySummary(repo: string, id: string, liveEvidence: boolean): StorySum
   snapshotStoryIfChanged(repo, id);
   try {
     const story = loadTour(path);
-    const session = liveEvidence
+    const code = isCodeStory(story);
+    const session = code
+      ? codeStorySession(repo, id, story, liveEvidence)
+      : liveEvidence
       ? storySession(
           repo,
           story.base,
@@ -175,9 +183,10 @@ function storySummary(repo: string, id: string, liveEvidence: boolean): StorySum
       title: story.title,
       summary: story.summary,
       mode: story.mode ?? 'guided',
+      subject: code ? 'code' : 'diff',
       base: story.base,
       head: story.head,
-      scope: storyScope(story.base, story.head),
+      scope: code ? codeScopeView(story) : storyScope(story.base, story.head),
       updatedAt,
       valid: true,
       steps: story.steps.length,
@@ -194,6 +203,7 @@ function storySummary(repo: string, id: string, liveEvidence: boolean): StorySum
       title: basename(id, '.json'),
       summary: '',
       mode: 'guided',
+      subject: 'diff',
       scope: {
         label: 'Unknown diff scope',
         description: 'Fix the story JSON before diffStory can read what this story covers.',
@@ -216,6 +226,47 @@ function storySummary(repo: string, id: string, liveEvidence: boolean): StorySum
       liveEvidence,
     };
   }
+}
+
+/**
+ * A code story's live facts. Its commit never moves, so freshness is whether
+ * the files it visits still match that commit in the working tree; there is
+ * no diff to count, and its comments are its own.
+ */
+function codeStorySession(
+  repo: string,
+  id: string,
+  story: Tour,
+  liveEvidence: boolean,
+): Pick<
+  StorySummary,
+  'freshness' | 'inStoryDrift' | 'outsideStoryDrift' | 'liveFiles' | 'additions' | 'deletions' | 'openComments'
+> {
+  const liveFiles = codeStoryFiles(story).length;
+  const quiet = { inStoryDrift: 0, outsideStoryDrift: 0, liveFiles, additions: 0, deletions: 0, openComments: 0 };
+  if (!liveEvidence) return { freshness: 'unverified', ...quiet };
+  const drift = codeStoryDrift(repo, story);
+  let openComments = 0;
+  try {
+    openComments = commentsForStory(loadComments(repo), id).filter((comment) => comment.status === 'open').length;
+  } catch {
+    openComments = 0;
+  }
+  return {
+    ...quiet,
+    freshness: drift.state === 'changed' ? 'stale' : drift.state === 'current' ? 'current' : 'unverified',
+    inStoryDrift: drift.files.length,
+    openComments,
+  };
+}
+
+function codeScopeView(story: Tour): StoryScope {
+  const { label, command } = codeStoryScope(story);
+  return {
+    label,
+    description: `The code at commit ${story.head ?? ''}, explained as committed. Uncommitted edits are not part of it.`,
+    command,
+  };
 }
 
 /** Stable identity for the exact diff a story was written against. */

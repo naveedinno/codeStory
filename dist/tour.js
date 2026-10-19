@@ -25,6 +25,23 @@ const NARRATIVE_SHAPES = [
     "core-supporting",
     "rule-instances",
 ];
+/**
+ * How a code story may read existing code. It shares the diff shapes that
+ * describe code rather than a change, and adds three of its own; `before-after`
+ * stays diff-only because there is no "before" to show.
+ */
+export const CODE_STORY_SHAPES = [
+    "entry-implementation",
+    "lifecycle",
+    "data-flow",
+    "map-then-path",
+    "core-supporting",
+    "rule-instances",
+    "cause-effect",
+];
+const CODE_SCOPE_MAX_PATHS = 50;
+const CODE_SCOPE_MAX_QUESTION = 4000;
+const CODE_SCOPE_MAX_REF = 200;
 const FULL_COMMIT_SHA = /^[0-9a-f]{40}$/i;
 const COMMIT_PREFIX = /^[0-9a-f]{7,40}$/i;
 const READING_PATH_MAX_CHARS = 200;
@@ -502,7 +519,7 @@ function validateGlobPattern(value, name, errors) {
     if (bad)
         errors.push(`${name} must be a safe repository-relative glob`);
 }
-function validateStoryArc(t, errors) {
+function validateStoryArc(t, errors, codeStory) {
     if (t.storyArc === undefined)
         return;
     if (typeof t.storyArc !== "object" ||
@@ -512,11 +529,21 @@ function validateStoryArc(t, errors) {
         return;
     }
     const arc = t.storyArc;
-    if (!CHANGE_TYPES.includes(arc.changeType)) {
-        errors.push(`storyArc.changeType must be one of ${CHANGE_TYPES.join(", ")}`);
+    if (codeStory) {
+        if (arc.changeType !== undefined) {
+            errors.push("storyArc.changeType does not apply to a code story; it explains code that did not change, so drop the field");
+        }
+        if (!CODE_STORY_SHAPES.includes(arc.shape)) {
+            errors.push(`storyArc.shape must be one of ${CODE_STORY_SHAPES.join(", ")} in a code story`);
+        }
     }
-    if (!NARRATIVE_SHAPES.includes(arc.shape)) {
-        errors.push(`storyArc.shape must be one of ${NARRATIVE_SHAPES.join(", ")}`);
+    else {
+        if (!CHANGE_TYPES.includes(arc.changeType)) {
+            errors.push(`storyArc.changeType must be one of ${CHANGE_TYPES.join(", ")}`);
+        }
+        if (!NARRATIVE_SHAPES.includes(arc.shape)) {
+            errors.push(`storyArc.shape must be one of ${NARRATIVE_SHAPES.join(", ")}`);
+        }
     }
     if (typeof arc.readingPath !== "string" || !arc.readingPath.trim()) {
         errors.push("storyArc.readingPath is required");
@@ -525,6 +552,86 @@ function validateStoryArc(t, errors) {
         errors.push(`storyArc.readingPath must be at most ${READING_PATH_MAX_CHARS} characters`);
     }
     validateNarrative(arc.readingPath, "storyArc.readingPath", "text", errors);
+}
+/** True for a story that explains existing code at one commit rather than a change. */
+export function isCodeStory(tour) {
+    return (typeof tour === "object" &&
+        tour !== null &&
+        tour.subject === "code");
+}
+/**
+ * A code story pins one commit. Authors write `head`; `base` defaults to the
+ * same id, which is what makes every diff the app takes of the story empty.
+ */
+export function normalizeCodeStoryRefs(obj) {
+    if (!isCodeStory(obj))
+        return;
+    const tour = obj;
+    if (tour.base === undefined && typeof tour.head === "string")
+        tour.base = tour.head;
+}
+/** The fixed facts of a code story: one pinned commit, no diff-only fields. */
+function validateCodeStorySubject(t, errors) {
+    if (t.version !== 4)
+        errors.push("a code story must be version 4");
+    if (typeof t.head !== "string" || !FULL_COMMIT_SHA.test(t.head)) {
+        errors.push("head must be the full 40-character commit id the code story explains (git rev-parse HEAD)");
+    }
+    if (t.base !== undefined && t.base !== t.head) {
+        errors.push("base must equal head in a code story; it explains one commit, not a range");
+    }
+    if (t.storyScope !== undefined) {
+        errors.push("storyScope does not apply to a code story; use codeScope.paths for its focus");
+    }
+    if (t.evolution !== undefined) {
+        errors.push("evolution does not apply to a code story");
+    }
+    if (t.codeScope === undefined)
+        return;
+    if (typeof t.codeScope !== "object" || t.codeScope === null || Array.isArray(t.codeScope)) {
+        errors.push("codeScope must be an object");
+        return;
+    }
+    errors.push(...codeScopeIssues(t.codeScope));
+}
+// A question may span lines; a ref may not.
+const QUESTION_CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
+const REF_CONTROL = /[\u0000-\u001f\u007f]/;
+/**
+ * The rules for what a reader asked a code story to explain. The request
+ * handler and the file validator both call this, so a request the server
+ * accepts can never become a story file the finish gate rejects. The ref and
+ * question are reader-authored text, shown only as text (a text node, a
+ * textarea, prompt text), so `Map<K, V>` is an ordinary question; only length
+ * and control characters are refused.
+ */
+export function codeScopeIssues(scope) {
+    const errors = [];
+    const text = (value, name, max, control) => {
+        if (value === undefined)
+            return;
+        if (typeof value !== "string") {
+            errors.push(`${name} must be a string`);
+            return;
+        }
+        if (value.length > max)
+            errors.push(`${name} must be at most ${max} characters`);
+        if (control.test(value))
+            errors.push(`${name} must not contain control characters`);
+    };
+    text(scope.ref, "codeScope.ref", CODE_SCOPE_MAX_REF, REF_CONTROL);
+    text(scope.question, "codeScope.question", CODE_SCOPE_MAX_QUESTION, QUESTION_CONTROL);
+    validateStringArray(scope.paths, "codeScope.paths", errors);
+    if (Array.isArray(scope.paths)) {
+        if (scope.paths.length > CODE_SCOPE_MAX_PATHS) {
+            errors.push(`codeScope.paths must list at most ${CODE_SCOPE_MAX_PATHS} paths`);
+        }
+        scope.paths.forEach((path, index) => {
+            if (typeof path === "string" && path.trim())
+                validateRepoPath(path, `codeScope.paths[${index}]`, errors);
+        });
+    }
+    return errors;
 }
 /** Shape-only evolution checks; repository history is verified after loading. */
 function validateEvolution(t, errors) {
@@ -963,6 +1070,7 @@ export function loadTour(path) {
         throw new TourError(`${path} is not valid JSON: ${e.message}`);
     }
     canonicalizeStepKindAliases(parsed);
+    normalizeCodeStoryRefs(parsed);
     const errors = validateTour(parsed);
     if (errors.length) {
         throw new TourError(`${path} is not a valid story:\n  - ${errors.join("\n  - ")}`);
@@ -1007,6 +1115,12 @@ export function validateTour(obj) {
     if (t.mode !== undefined && !MODES.includes(t.mode)) {
         errors.push(`mode must be one of ${MODES.join(", ")}`);
     }
+    if (t.subject !== undefined && t.subject !== "diff" && t.subject !== "code") {
+        errors.push('subject must be "diff" or "code"');
+    }
+    const codeStory = t.subject === "code";
+    if (codeStory)
+        validateCodeStorySubject(t, errors);
     if (isBlankNarrative(t.title))
         errors.push("title is required");
     validateNarrative(t.title, "title", "text", errors);
@@ -1017,7 +1131,7 @@ export function validateTour(obj) {
     validateHotspots(t, errors);
     validateVerification(t, errors);
     validateStoryScope(t, errors);
-    validateStoryArc(t, errors);
+    validateStoryArc(t, errors, codeStory);
     validateEvolution(t, errors);
     if (!Array.isArray(t.steps) || t.steps.length === 0) {
         errors.push("steps must be a non-empty array");
@@ -1081,6 +1195,16 @@ export function validateTour(obj) {
             // v1 validation did, so authors can fix one step in a single pass.
             validateCodeStep(step, where, storyFiles, t.version, errors);
             return;
+        }
+        if (codeStory && (stepKind === "changed" || stepKind === "new-file")) {
+            errors.push(`${where}.kind "${stepKind}" is not allowed in a code story; every code stop shows unchanged code, so use "context"`);
+        }
+        if (codeStory && Array.isArray(step.beats)) {
+            step.beats.forEach((beat, beatIndex) => {
+                if (beat && typeof beat === "object" && beat.oldHighlights !== undefined) {
+                    errors.push(`${where}.beats[${beatIndex}].oldHighlights do not apply to a code story; there is no old side to point at`);
+                }
+            });
         }
         if (stepKind === "concept") {
             if (t.version !== 2 && t.version !== 3 && t.version !== 4)
@@ -1269,7 +1393,9 @@ export function validateGeneratedTour(tour) {
     }
     if (tour.intent) {
         if (isBlankNarrative(tour.intent.design)) {
-            errors.push("intent.design must explain the existing app path, attachment point, and new outcome");
+            errors.push(isCodeStory(tour)
+                ? "intent.design must give the short answer: the path this story walks and what it shows"
+                : "intent.design must explain the existing app path, attachment point, and new outcome");
         }
         if (!Array.isArray(tour.intent.sources) || !tour.intent.sources.length) {
             errors.push("intent.sources must name the evidence used to recover the task");

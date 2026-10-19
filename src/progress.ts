@@ -12,7 +12,7 @@ export type Phase =
 export type ErrorStage =
   | 'preflight' | 'startup' | 'execution' | 'validation' | 'output_missing';
 
-export type Workflow = 'guided_review' | 'detailed_audit';
+export type Workflow = 'guided_review' | 'detailed_audit' | 'code_story';
 export type FileAction = 'read' | 'edit' | 'write';
 export type ActivityKind = 'narration' | 'search' | 'plan' | 'web' | 'task' | 'other';
 export type RunStatus = 'complete' | 'failed' | 'stopped';
@@ -164,9 +164,13 @@ export function observedPhase(event: ProgressEvent, isTargetWrite: boolean): Pha
 // Exact phase markers the story prompt tells the agent to print (matched
 // case-insensitively after trimming; trailing `.`/`!` ignored, since agents
 // like to punctuate). Anything else after ">> " is narration.
-const NOTE_MARKERS: Array<[string, Phase]> = [
+// The code-story prompt prints its own words for the same two phases, and the
+// panel should show the words the reader saw in the agent's output.
+const NOTE_MARKERS: Array<[string, Phase, string?]> = [
   ['recovering the why', 'recovering_why'],
+  ['framing the question', 'recovering_why', 'Framing the question'],
   ['designing the reading path', 'designing_path'],
+  ['mapping the code', 'designing_path', 'Mapping the code'],
   ['writing the steps', 'writing_output'],
 ];
 
@@ -182,8 +186,8 @@ export function parseAgentNoteLine(line: string): ProgressEvent | null {
   const text = m[1];
   if (!text.trim()) return null;
   const low = text.toLowerCase().replace(/[.!\s]+$/, '');
-  for (const [marker, phase] of NOTE_MARKERS) {
-    if (low === marker) return phaseEvent(phase);
+  for (const [marker, phase, label] of NOTE_MARKERS) {
+    if (low === marker) return phaseEvent(phase, label);
   }
   const clipped = text.length > NARRATION_CAP ? text.slice(0, NARRATION_CAP) + '…' : text;
   return activityEvent('narration', clipped);

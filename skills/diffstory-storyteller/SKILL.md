@@ -1,6 +1,6 @@
 ---
 name: diffstory-storyteller
-description: Use only when the user explicitly asks for a diffStory, a story, or a guided walkthrough of code changes ("make a diff story", "write the story for this"), or when a prompt says "Use the diffstory-storyteller skill". Never on your own initiative, not after finishing code changes and not before a commit or push. Produces .diffstory/story.json (or scoped stories under .diffstory/stories/): a context-first, read-aloud reading path through the diff that opens with recovered intent and drives exact viewport and highlight beats.
+description: Use only when the user explicitly asks for a diffStory, a story, or a guided walkthrough of code changes ("make a diff story", "write the story for this"), or a code story that explains existing code with no diff ("explain this codebase as a story", "walk me through how X works"), or when a prompt says "Use the diffstory-storyteller skill". Never on your own initiative, not after finishing code changes and not before a commit or push. Produces .diffstory/story.json (or scoped stories under .diffstory/stories/): a context-first, read-aloud reading path through the diff that opens with recovered intent and drives exact viewport and highlight beats.
 ---
 
 # Writing a diffStory
@@ -22,12 +22,13 @@ cannot glance back: name what is on screen, say who reaches it, then say what
 changed and what that now guarantees.
 
 Write a story only when the user (or a prompt) explicitly asks for one. Never
-write or offer one on your own initiative after making changes.
+write or offer one on your own initiative after making changes. To explain
+existing code with no diff, write a code story: read
+`references/code-stories.md` first; it replaces steps 1-3 and the coverage rules.
 
-diffStory is UI-only. Never install, invoke, or recommend a `diffstory` CLI.
-The one command you run is the checker script that ships inside this skill
-folder (see "Check, then hand back"); then tell the user to open or refresh the
-diffStory app.
+diffStory is UI-only. Never install, invoke, or recommend a `diffstory` CLI. The
+one command you run is the checker script that ships inside this skill folder
+(see "Check, then hand back"); then tell the user to open or refresh the app.
 
 ## The loop
 
@@ -122,10 +123,9 @@ this request says otherwise:
 `excludeGlobs` set the story's scope: files outside it get no steps, and
 `storyScope` lists the included and excluded changed files. `audience`
 (`newcomer` or `familiar`) sets who the story is written for; read
-`references/audience.md` when it says `familiar`. When the user
-states the same preference twice ("only Solidity", "make it detailed"), offer
-to save it there. The file is local like the rest of `.diffstory/`; never
-commit it.
+`references/audience.md` when it says `familiar`. When the user states the same
+preference twice ("only Solidity", "make it detailed"), offer to save it there.
+The file is local like the rest of `.diffstory/`; never commit it.
 
 ### 1. Recover the why
 

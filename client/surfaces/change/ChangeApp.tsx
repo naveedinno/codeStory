@@ -135,6 +135,9 @@ export function ChangeApp({ payload }: { payload: ChangePayload }) {
         right={
           <>
             <ReloadButton />
+            <a className={navActionClass} href={`${routeBase}/explain`}>
+              Explain code
+            </a>
             <a className={navActionClass} href={`${routeBase}/stories`}>
               History
             </a>

@@ -197,3 +197,79 @@ test('landing callers are verified by the checker', () => {
     assert.match(r.out, /is a description, not a symbol/);
   });
 });
+
+// ---- code stories: existing code at one pinned commit, no diff ----
+
+function codeStory(sha, over = {}) {
+  return {
+    version: 4,
+    subject: 'code',
+    head: sha,
+    mode: 'brief',
+    title: 'How the funding rate is capped',
+    summary: 'One helper caps the rate before settlement.',
+    codeScope: { ref: 'main', question: 'How is the rate capped?' },
+    intent: {
+      goal: 'You want to know how a rate above the market cap is stopped.',
+      design: 'Settlement calls <code>capRate()</code>, which clamps the rate at the cap.',
+      sources: ['code-derived'],
+    },
+    storyArc: { shape: 'entry-implementation', readingPath: 'helper -> cap' },
+    steps: [{
+      id: 's1', order: 1, kind: 'context', title: 'capRate() clamps the rate at the cap',
+      file: 'app.ts', range: [10, 10], viewport: [5, 15], highlights: [[10, 10]],
+      why: 'Rules out a rate above the cap reaching settlement.',
+      beats: [{ text: 'This is <code>capRate()</code>, the helper settlement calls per market; it clamps the rate at the cap.', highlights: [[10, 10]] }],
+    }],
+    ...over,
+  };
+}
+
+function writeCodeStory(dir, story) {
+  mkdirSync(join(dir, '.diffstory/stories'), { recursive: true });
+  writeFileSync(join(dir, '.diffstory/stories/code-cap.json'), JSON.stringify(story));
+  return '.diffstory/stories/code-cap.json';
+}
+
+const commitAll = (dir) => {
+  execFileSync('git', ['commit', '-qam', 'cap the rate'], { cwd: dir });
+  return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim();
+};
+
+test('the checker passes a code story under .diffstory/stories without a storyScope', () => {
+  withRepo(({ dir }) => {
+    const sha = commitAll(dir);
+    const r = run(dir, writeCodeStory(dir, codeStory(sha)));
+    assert.equal(r.code, 0, r.out);
+    assert.match(r.out, /Code: main @ [0-9a-f]{7}/);
+    assert.doesNotMatch(r.out, /Diff:/);
+    assert.match(r.out, /RESULT: READY/);
+  });
+});
+
+test('the checker flags a code step that runs past its file at the pinned commit', () => {
+  withRepo(({ dir }) => {
+    const sha = commitAll(dir);
+    const story = codeStory(sha);
+    Object.assign(story.steps[0], {
+      range: [28, 28],
+      viewport: [25, 40],
+      highlights: [[28, 28]],
+      beats: [{ text: 'This is <code>v28</code>, the export settlement reads last.', highlights: [[28, 28]] }],
+    });
+    const r = run(dir, writeCodeStory(dir, story));
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.out, /viewport 25-40 runs past the end of app\.ts \(30 lines at [0-9a-f]{7}\)/);
+  });
+});
+
+test('the checker warns when a visited file has uncommitted edits', () => {
+  withRepo(({ dir }) => {
+    // repoWithChange leaves an uncommitted edit on line 10; the story explains HEAD.
+    const sha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim();
+    const r = run(dir, writeCodeStory(dir, codeStory(sha)));
+    assert.equal(r.code, 0, r.out);
+    assert.match(r.out, /\[code-at-commit\]/);
+    assert.match(r.out, /git show [0-9a-f]{7}:app\.ts/);
+  });
+});

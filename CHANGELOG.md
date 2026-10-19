@@ -4,6 +4,14 @@ All notable changes to diffStory are tracked here.
 
 ## Unreleased
 
+- Code stories: explain existing code with no diff. **Explain code** (from
+  Review history or the scope picker) takes a question, optional starting
+  paths, and the ref to explain, and the agent writes a guided, read-aloud
+  walkthrough pinned to that commit under `.diffstory/stories/code-*.json`.
+  The reader frames it as code (no coverage, no change language), flags when
+  the files it visits change in the working tree, and offers a rewrite at the
+  current code. The checker verifies every file, line, and landing at the
+  pinned commit, and the storyteller skill gains `references/code-stories.md`.
 - Tightened the storyteller skill's explanation craft: a ranked repair order
   for over-long beats, a ban on impact/risk language without a `verification`
   measurement (mark it unknown or hotspot it instead), a bounded checker loop,

@@ -23,7 +23,13 @@ story; there is no automatic conversion.
 
 `Tour.version` is unrelated to text format: `1` means code-only steps, `2` permits
 concept primers, `3` permits semantic logic moves, and `4` permits page concepts
-and lifts concept placement rules. Narrative shape and commit evolution are
+and lifts concept placement rules.
+
+`Tour.subject` is also unrelated to text format. A `"code"` story explains existing
+code at one commit: it is version 4, pins `head` to a full commit id with `base`
+equal to it, carries only `context` and `concept` steps, and replaces `storyScope`
+with the reader-authored `codeScope`. Its narrative fields follow exactly the tiers
+below; its contract lives in `skills/diffstory-storyteller/references/code-stories.md`. Narrative shape and commit evolution are
 optional additions to version 3, so older version 3 stories remain valid and
 repairable without either field.
 
@@ -93,6 +99,7 @@ the two-line clamp and the button's accessible name.
 | `steps[].moves[].label` | A plain-text annotation tag of at most 24 characters. |
 | `steps[].moves[].hidden.tag` | A plain-text callout headline of at most 48 characters. |
 | `storyScope.reviewerNote` | Reviewer-authored, prompt-only, no render surface. |
+| `codeScope.ref`, `codeScope.question`, `codeScope.paths[]` | Code stories only. Reader-authored through Explain code: at most 200, 4,000, and 50 entries. The question is shown back on the Overview. |
 | `storyArc.readingPath` | The quiet overview path. Store ASCII `->`; the UI renders and announces the separators. |
 | `evolution.phases[].title` | The phase heading in commit evolution. |
 | `evolution.phases[].firstCommit` / `lastCommit` | Hex commit boundaries; generation accepts 7-40 characters and expands unique prefixes. |

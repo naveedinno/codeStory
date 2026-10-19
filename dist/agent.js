@@ -186,8 +186,100 @@ export function storyPrompt(baseRef, headRef, mode = 'guided', excludePaths = []
         `- Keep each note to one short, concrete sentence. These lines are shown live in the review UI, so no filler and no markdown.\n\n` +
         `Do not ask questions. Generate it directly.`);
 }
+const WORKTREE_LIST_CAP = 40;
+/**
+ * The instruction for a code story: the same skill and reader, but no diff.
+ * It shares the storyteller's field names and limits with `storyPrompt` by
+ * restating them, deliberately, so the diff prompt's bytes never move when
+ * this one is tuned.
+ */
+export function codeStoryPrompt(input) {
+    const storyMode = normalizeStoryMode(input.mode);
+    const commit = input.commit;
+    const named = input.ref?.trim() && input.ref.trim() !== commit ? ` (${input.ref.trim()})` : '';
+    const question = input.question?.trim();
+    const paths = (input.paths ?? []).map((path) => path.trim()).filter(Boolean);
+    const ask = question
+        ? `The reader asked: "${question}"\nAnswer that question with the walkthrough: the parts it needs, in the order they run, and nothing the answer does not need.\n\n`
+        : `The reader did not ask a specific question. Write a guided tour of this codebase: what it is for, its main parts and how they connect, then one representative path through them.\n\n`;
+    const focus = paths.length
+        ? `Start from these paths, and leave them only when the explanation needs a caller, a type, a config, or a test that lives elsewhere: ${paths.join(', ')}.\n\n`
+        : '';
+    const differs = input.worktreeDiffers;
+    const shown = differs.slice(0, WORKTREE_LIST_CAP);
+    const worktree = differs.length
+        ? `The working tree differs from this commit in ${differs.length} ${differs.length === 1 ? 'file' : 'files'}. ` +
+            `The app shows the story at the commit, so read ${differs.length === 1 ? 'it' : 'them'} from git, never from disk, or every line number drifts: ` +
+            shown.map((path) => `git show ${commit}:${path}`).join(', ') +
+            (differs.length > shown.length
+                ? `, and ${differs.length - shown.length} more (git diff --name-only ${commit} lists them all)`
+                : '') +
+            `.\n\n`
+        : `The working tree matches this commit for tracked files, so read files from disk as usual.\n\n`;
+    const audienceContract = input.audience === 'familiar'
+        ? `Audience contract: a familiar reader. See references/audience.md: ` +
+            `terse landings, primers only for ideas this code introduces that such a reader would not know.\n\n`
+        : '';
+    const viewportCap = storyMode === 'detailed' ? '60' : '40';
+    const beatCap = storyMode === 'detailed' ? '5' : '3';
+    const checker = existsSync(STORY_CHECKER)
+        ? `Before you finish, run the checker that ships with the skill, from the repository root: node "${STORY_CHECKER}" "${input.storyFile}". ` +
+            `Fix every ERROR, fix or justify every WARNING, and rerun until it prints "RESULT: READY".\n\n`
+        : '';
+    return (`Use the diffstory-storyteller skill to write a code story: a guided walkthrough that explains existing code. ` +
+        `There is no diff. The story explains the code at commit ${commit}${named}, and the reader is learning it, not reviewing a change.\n\n` +
+        ask +
+        focus +
+        worktree +
+        `Write ${input.storyFile}, set its "version" field to 4, set its "subject" field to "code", set its "head" field to "${commit}", ` +
+        `and set its "mode" field to "${storyMode}". Do not write "base", "storyScope", "evolution", or "codeScope"; the app owns them. Write no other story file.\n\n` +
+        audienceContract +
+        `Code story contract:\n` +
+        `- Every code step is "kind": "context": unchanged code at this commit. Never "changed" or "new-file", and never "oldHighlights".\n` +
+        `- Add top-level "storyArc" with exactly "shape" and "readingPath", and no "changeType".\n` +
+        `- "shape" is entry-implementation|lifecycle|data-flow|map-then-path|core-supporting|rule-instances|cause-effect.\n` +
+        `- "readingPath" is plain text, at most 200 characters, with stages separated by ASCII " -> ". It must describe the actual step order.\n` +
+        `- "intent.goal" says what the reader will understand by the end. "intent.design" gives the short answer: the path this story walks and what it shows. ` +
+        `"intent.sources" names what you read to answer ("code-derived", a README, a doc). "intent.nonGoals" lists what the story deliberately leaves out.\n` +
+        `- "hotspots" (at most 3) mark where the code is subtle or your explanation is least certain, each anchored to a code step.\n\n` +
+        `The skill owns the craft. Follow its code-story workflow in references/code-stories.md in order — frame the question, map the code, design the reading path, storyboard the camera, then write the steps — ` +
+        `and honor every contract it defines: ranges, viewport/highlight camera limits, beats, landings, hotspots, truth, and the "${storyMode}" detail level. ` +
+        `The app validates the finished story against those contracts, so do not improvise a different format or looser limits.\n\n` +
+        `Exact field names (never paraphrase):\n` +
+        `- Top level: "version", "subject", "head", "mode", "title", "summary", "intent", "storyArc", "steps"; every one is required.\n` +
+        `- Every step: "id", "order" (number 1..N), "title", "kind".\n` +
+        `- Code steps: "file", "range", "viewport", "highlights", "why", "beats", and "landing" {"symbol", "calledBy" (1-3 names) or "role" {"who", "gate"}, "when"}.\n` +
+        `- Every beat: "text" (not "body" or "prose") and "highlights". "body" is concept-only.\n` +
+        `- Page concept steps: "id", "order", "title", "kind": "concept", "page", "narration"; optional "preparesFor", "tags", "chapter", "network". ` +
+        `"page" is a complete HTML document (any HTML, CSS, SVG, canvas, JavaScript; offline unless "network": true opts into CDN libraries). ` +
+        `"narration" is plain text with no tags. Use pages for the maps, lifecycles, and models the code needs, anywhere in the path.\n` +
+        `Prose is restricted HTML, never Markdown ("**bold**" renders as literal asterisks):\n` +
+        `- "why", beat "text", "summary", "intent.goal"/"design"/"nonGoals", and "hotspots[].reason" take INLINE tags only: code, kbd, strong, em, sup, sub, span, br.\n` +
+        `- Every "title" is plain text with no tags.\n` +
+        `- Outside "page": no links, images, SVG, id, or style. Writing about a tag means escaping it: &lt;script&gt;.\n` +
+        `Before writing, check EVERY step: every code step has all ten always-required fields ` +
+        `"id", "order", "title", "kind", "file", "range", "viewport", "highlights", "why", "beats"; and every beat has "text" plus "highlights". ` +
+        `One omission invalidates the story.\n\n` +
+        `Hard limits the app enforces — a story violating any of these is rejected:\n` +
+        `- "range" is the tight anchor of what the step explains, inside "viewport". Every line number is a line at ${commit.slice(0, 7)}.\n` +
+        `- Each beat highlight: at most 12 lines, ideally 1-8.\n` +
+        `- One beat's highlights stay local: at most 10 lines apart.\n` +
+        `- "viewport": at most ${viewportCap} lines in ${storyMode} mode.\n` +
+        `- At most ${beatCap} beats per step in ${storyMode} mode; split the step instead of adding more.\n` +
+        `- Top-level "highlights" must equal the union of that step's beat highlights.\n` +
+        `- Beat text must not open by naming line numbers ("Line 742 ..."); the highlight already points there. Say what the lines do and why it matters.\n` +
+        `- A step's FIRST beat lands the listener: name the function or rule, the file whenever the camera changed files, who reaches it and when. Only then explain it.\n\n` +
+        checker +
+        `Live progress notes (streamed to the reader while you work):\n` +
+        `- Announce each phase as you enter it by printing its marker alone on its own line, exactly: ">> Framing the question", then ">> Mapping the code", then ">> Designing the reading path", then ">> Writing the steps".\n` +
+        `- Print every phase note as its own line starting with ">> " — for example ">> Entry: openPosition() is where PartyB accepts a quote" or ">> Arc: request -> lock -> open -> settle".\n` +
+        `- Keep each note to one short, concrete sentence. These lines are shown live in the app, so no filler and no markdown.\n\n` +
+        `Do not ask questions. Write it directly.`);
+}
 /** A narrow story edit: preserve the good walkthrough and repair only one weak stop. */
 export function storyRepairPrompt(input) {
+    if (input.codeCommit)
+        return codeStoryRepairPrompt({ ...input, codeCommit: input.codeCommit });
     const target = input.stepId
         ? `story step "${input.stepId}"${input.file ? ` in ${input.file}` : ''}`
         : input.file
@@ -223,6 +315,48 @@ export function storyRepairPrompt(input) {
         `- Validate every chapter, range, viewport, highlight, beat, concept page/narration/body, preparesFor target, id, and full-diff coverage before finishing.\n` +
         `- Write the repaired JSON back to ${DATA_DIR}/story.json. Do not ask questions.\n\n` +
         checkerInstruction());
+}
+/**
+ * A targeted repair to a code story: the same preservation discipline as a diff
+ * repair, but against code at one commit, with no coverage to keep and the
+ * story's own file as the write target.
+ */
+function codeStoryRepairPrompt(input) {
+    const storyFile = input.storyFile ?? `${DATA_DIR}/stories/code-story.json`;
+    const short = input.codeCommit.slice(0, 7);
+    const target = input.stepId
+        ? `story step "${input.stepId}"${input.file ? ` in ${input.file}` : ''}`
+        : input.file
+            ? `${input.file}${input.line ? ` around line ${input.line}` : ''}`
+            : 'the selected story area';
+    const instruction = input.action === 'shorten'
+        ? `Rewrite ${target} to be shorter and sharper without dropping what it teaches or its link to the next stop.`
+        : input.action === 'split'
+            ? `Split ${target} into two or more locally focused steps so no step jumps between distant code islands.`
+            : `Rewrite ${target} around sharper beat narration and the same code evidence.`;
+    const checker = existsSync(STORY_CHECKER)
+        ? `Before you finish, run the checker that ships with the skill, from the repository root: node "${STORY_CHECKER}" "${storyFile}". ` +
+            `Fix every ERROR, fix or justify every WARNING, and rerun until it prints "RESULT: READY".\n\n`
+        : '';
+    return (`Use the diffstory-storyteller skill to make one targeted repair to the code story ${storyFile}, which explains the code at commit ${input.codeCommit}. There is no diff.\n\n` +
+        `${instruction}\n\n` +
+        `Preservation contract:\n` +
+        `- Read the existing story and the code it shows at ${short} before editing; when the working tree differs, read files with git show ${input.codeCommit}:<path>. ` +
+        `Preserve every unaffected step, the intent, tone, and useful beat/highlight detail.\n` +
+        `- Preserve "subject", "head", "base", and "codeScope" exactly; the app owns them.\n` +
+        `- Preserve every unaffected concept step exactly, including its page, narration, body, preparesFor links, diagram, tags, chapter, and position.\n` +
+        (input.hasStoryArc
+            ? `- Preserve "storyArc" exactly. A targeted repair must not change its shape or reading path.\n`
+            : `- Do not add "storyArc" during a targeted repair.\n`) +
+        `- Every code step stays "kind": "context". Never "changed" or "new-file", and never "oldHighlights".\n` +
+        `- Do not regenerate the walkthrough from scratch and do not reorder unrelated steps.\n` +
+        `- Keep the story explanatory, in the voice of the steps around the repair.\n` +
+        `- A step's FIRST beat lands the listener: name the function/rule, who reaches it and when, then explain it.\n` +
+        `- Prose is restricted HTML, never Markdown. A concept "page" is free HTML; "why", beat "text", "summary", "intent", and "hotspots[].reason" take inline tags only (code, kbd, strong, em, sup, sub, span, br); every "title" is plain text. Outside "page": no links, images, SVG, id, or style.\n` +
+        `- Renumber order fields and repair calls/returnsTo/preparesFor only where the targeted edit requires it.\n` +
+        `- Validate every chapter, range, viewport, highlight, beat, concept page/narration/body, preparesFor target, and id before finishing. Every line number is a line at ${short}.\n` +
+        `- Write the repaired JSON back to ${storyFile}. Do not ask questions.\n\n` +
+        checker);
 }
 /** Broadly-available default so a plan-gated default model (e.g. Fable) can't break `story`. */
 export const DEFAULT_CLAUDE_MODEL = 'sonnet';

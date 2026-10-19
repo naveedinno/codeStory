@@ -110,6 +110,23 @@ Inside a repo, diffStory gives you two useful ways to read:
 The story never replaces the diff. It only explains and orders it. The code you
 read comes from git.
 
+## Code Stories
+
+A story does not need a diff. Choose **Explain code** in Review history, ask what
+you want to understand ("How does a quote become an open position?"), optionally
+name the files or folders to start from, and pick the commit to explain. The agent
+reads the code at that commit and writes a code story: the same guided reader,
+spotlights, read-aloud, and concept pages, walking code that did not change.
+
+- Leave the question empty for a guided tour of the whole codebase.
+- A code story is pinned to one commit, so its line numbers never drift. When the
+  files it visits change in your working tree, the Overview says so and offers
+  **Rewrite at current code**.
+- Code stories live under `.diffstory/stories/code-*.json`, next to your diff
+  stories in Review history, and never replace the live change story.
+- Agents can write one directly: with the storyteller skill installed, ask Claude
+  Code or Codex to explain the codebase, or one flow in it, as a diffStory.
+
 ## Review Workflow
 
 diffStory keeps long reviews oriented and makes comments portable:

@@ -13,8 +13,8 @@
 // The renderer (render.ts) and the /api/fullfile endpoint (server.ts) both consume
 // these, so the diff-shaping logic lives in exactly one place.
 import { changedRanges, rangesOverlap } from './diff.js';
-import { readFileRange, readWholeFile } from './git.js';
-import { orderedSteps } from './tour.js';
+import { readFileRange, readWholeFile, resolveCommit } from './git.js';
+import { isCodeStory, orderedSteps } from './tour.js';
 import { landingSearchName, callerEvidence, type CallerEvidence } from './landing-verify.js';
 import { claimedRanges } from './types.js';
 import { computeCoverage, filesForStoryCoverage, regeneratedCommandFor } from './coverage.js';
@@ -158,6 +158,8 @@ const FILE_KIND_LABEL: Record<FileKind, string> = {
   new: 'New file',
   context: 'Context',
 };
+/** The label a code story's unchanged-code stops and files carry. */
+const CODE_KIND_LABEL = 'Code';
 
 export interface StepViewBase {
   id: string;
@@ -218,6 +220,8 @@ export interface CodeStepView extends StepViewBase {
   focusExplicit: boolean;
   newFile: boolean;
   context: boolean;
+  /** Code stories only: the commit this step's code is read at. */
+  pinnedCommit?: string;
   why: Narrative;
   /** Verified "where am I" facts, drawn under the step title as a one-hop call graph. */
   landing?: {
@@ -426,6 +430,17 @@ export function buildReviewModel(
   opts?: BuildReviewModelOptions,
 ): ReviewModel {
   const steps = orderedSteps(tour);
+  // A code story shows unchanged code as its main evidence, so its stops read
+  // "Code", not "Context", at its pinned commit. Derived here so every lazy
+  // endpoint agrees.
+  const pinnedCommit = isCodeStory(tour) ? (tour.head ?? '') : undefined;
+  const codeStory = pinnedCommit !== undefined;
+  // A story written in another clone pins a commit this one may not have; its
+  // files exist, so "file not found" would blame the wrong thing.
+  const unreadableNote =
+    codeStory && pinnedCommit && resolveCommit(repo, pinnedCommit) === null
+      ? `not readable at ${pinnedCommit.slice(0, 7)}: that commit is not in this repository`
+      : undefined;
   const byId = new Map(steps.map((s) => [s.id, s]));
   const codeSteps = steps.filter(isCodeStep);
   const coverageFiles = filesForStoryCoverage(tour, files);
@@ -465,6 +480,8 @@ export function buildReviewModel(
           opts?.baseRef,
           opts?.detailedStepIndexes === undefined || opts.detailedStepIndexes.has(index),
           landingGraph,
+          pinnedCommit,
+          unreadableNote,
         )
       : buildConceptStep(step, byId),
   );
@@ -487,6 +504,7 @@ export function buildReviewModel(
     headRef,
     opts?.detailedFilePaths,
     opts?.fileIndex,
+    codeStory,
   );
   const trust = buildTrust(coverageFiles, uncovered, stepByFile, opts?.includeTrustRows !== false);
   if (opts?.trustPending) trust.pending = true;
@@ -539,6 +557,17 @@ const NARRATIVE_SHAPE_LABELS: Record<string, string> = {
   'rule-instances': 'Rule and instances',
 };
 
+/** A code story explains code rather than a change, so its shapes read without "changes". */
+const CODE_SHAPE_LABELS: Record<string, string> = {
+  'entry-implementation': 'Entry to implementation',
+  lifecycle: 'Lifecycle',
+  'data-flow': 'Data flow',
+  'map-then-path': 'Map, then one path',
+  'core-supporting': 'Core and supporting pieces',
+  'rule-instances': 'Rule and instances',
+  'cause-effect': 'Cause and effect',
+};
+
 function storyView(repo: string, tour: Tour, storyIdentity?: string): StoryView {
   const summary = narrative(tour.summary ?? '', 'inline');
   const intent = tour.intent;
@@ -579,15 +608,22 @@ function storyView(repo: string, tour: Tour, storyIdentity?: string): StoryView 
       : {}),
     ...(tour.storyArc
       ? {
-          arc: {
-            changeType: tour.storyArc.changeType,
-            changeTypeLabel:
-              CHANGE_TYPE_LABELS[tour.storyArc.changeType] ?? tour.storyArc.changeType,
-            shape: tour.storyArc.shape,
-            shapeLabel:
-              NARRATIVE_SHAPE_LABELS[tour.storyArc.shape] ?? tour.storyArc.shape,
-            readingPath: narrativeText(tour.storyArc.readingPath),
-          },
+          arc: isCodeStory(tour)
+            ? {
+                changeType: 'code',
+                changeTypeLabel: 'Code story',
+                shape: tour.storyArc.shape,
+                shapeLabel: CODE_SHAPE_LABELS[tour.storyArc.shape] ?? tour.storyArc.shape,
+                readingPath: narrativeText(tour.storyArc.readingPath),
+              }
+            : {
+                changeType: tour.storyArc.changeType ?? '',
+                changeTypeLabel:
+                  CHANGE_TYPE_LABELS[tour.storyArc.changeType ?? ''] ?? tour.storyArc.changeType ?? '',
+                shape: tour.storyArc.shape,
+                shapeLabel: NARRATIVE_SHAPE_LABELS[tour.storyArc.shape] ?? tour.storyArc.shape,
+                readingPath: narrativeText(tour.storyArc.readingPath),
+              },
         }
       : {}),
     ...(tour.evolution && evolutionVerification?.displayable
@@ -624,8 +660,11 @@ function buildCodeStep(
   baseRef?: string,
   detailed = true,
   landingGraph: LandingGraphIndex = landingGraphIndex(ordered ?? [step]),
+  pinnedCommit?: string,
+  unreadableNote?: string,
 ): CodeStepView {
-  const { blocks, note } = detailed ? stepBlocks(repo, step, files, headRef, baseRef) : { blocks: [] };
+  const codeStory = pinnedCommit !== undefined;
+  const { blocks, note } = detailed ? stepBlocks(repo, step, files, headRef, baseRef, unreadableNote) : { blocks: [] };
   const diffFile = files.find((f) => f.newPath === step.file);
   const viewport = stepViewport(step);
   const highlights = stepHighlights(step);
@@ -650,7 +689,7 @@ function buildCodeStep(
     focusOldGroups,
     focusExplicit,
     kind: step.kind,
-    kindLabel: STEP_KIND_LABEL[step.kind],
+    kindLabel: codeStory && step.kind === 'context' ? CODE_KIND_LABEL : STEP_KIND_LABEL[step.kind],
     sceneLayout: projectStoryStepScene({
       kind: 'code',
       hasMoves: moves.length > 0,
@@ -659,6 +698,7 @@ function buildCodeStep(
     tags: (step.tags ?? []).map((tag) => narrativeText(tag)),
     newFile: step.kind === 'new-file',
     context: step.kind === 'context',
+    ...(codeStory && pinnedCommit ? { pinnedCommit } : {}),
     ...(step.kind !== 'context' && step.files?.length
       ? {
           sweep: {
@@ -902,6 +942,7 @@ function stepBlocks(
   files: DiffFile[],
   headRef?: string,
   baseRef?: string,
+  unreadableNote?: string,
 ): { blocks: SbsRow[][]; note?: string } {
   const viewport = stepViewport(step);
   const [start, end] = viewport;
@@ -941,7 +982,7 @@ function stepBlocks(
 
   // context | new-file: read straight from the working tree.
   const r = readFileRange(repo, step.file, start, end, headRef);
-  if (!r) return { blocks: [], note: `file not found: ${step.file}` };
+  if (!r) return { blocks: [], note: unreadableNote ?? `file not found: ${step.file}` };
   if (step.kind === 'new-file') {
     return { blocks: [r.lines.map((c, i) => ({ type: 'add' as const, newNo: r.startLine + i, content: c, comment: true }))] };
   }
@@ -1039,6 +1080,7 @@ function buildFiles(
   headRef?: string,
   detailedFilePaths?: ReadonlySet<string>,
   fileIndex?: readonly ReviewFileIndexEntry[],
+  codeStory = false,
 ): FileView[] {
   const views: FileView[] = [];
   const seen = new Set<string>();
@@ -1102,7 +1144,7 @@ function buildFiles(
       oldFile: step.file,
       status: 'modified',
       kind: 'context',
-      kindLabel: FILE_KIND_LABEL.context,
+      kindLabel: codeStory ? CODE_KIND_LABEL : FILE_KIND_LABEL.context,
       add: 0,
       del: 0,
       untoured: 0,

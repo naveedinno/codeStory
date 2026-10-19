@@ -303,3 +303,33 @@ test('storyIdForPath rejects paths outside the repo data dir', () => {
 
   rmSync(repo, { recursive: true, force: true });
 });
+
+test("listStories reports a code story's subject, scope, and drift", async () => {
+  const { codeStory, committedRepo, writeCodeStory } = await import('./helpers/code-story-fixture.mjs');
+  const { dir, sha, lines } = committedRepo();
+  try {
+    writeCodeStory(dir, codeStory(sha, { codeScope: { ref: 'main' } }));
+    const find = (list) => list.find((story) => story.id === 'stories/code-cap.json');
+
+    const saved = find(listStoryMetadata(dir));
+    assert.equal(saved.subject, 'code');
+    assert.equal(saved.freshness, 'unverified');
+    assert.equal(saved.scope.label, `main @ ${sha.slice(0, 7)}`);
+    assert.equal(saved.scope.command, `git show ${sha}`);
+
+    const live = find(listStories(dir));
+    assert.equal(live.subject, 'code');
+    assert.equal(live.freshness, 'current');
+    assert.equal(live.inStoryDrift, 0);
+    assert.equal(live.liveFiles, 1);
+    assert.equal(live.additions, 0);
+    assert.equal(live.deletions, 0);
+
+    writeFileSync(join(dir, 'app.ts'), lines.slice(1).join('\n') + '\n');
+    const drifted = find(listStories(dir));
+    assert.equal(drifted.freshness, 'stale');
+    assert.equal(drifted.inStoryDrift, 1);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

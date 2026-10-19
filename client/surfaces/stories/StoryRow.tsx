@@ -111,6 +111,9 @@ export function StoryRow({ story, index, routeBase, now, liveEvidence, busy, onR
   const codeStops = Math.max(0, story.steps - story.primers);
   const fileCount = story.liveFiles || story.files;
   const href = `${routeBase}/review?story=${encodeURIComponent(story.id)}`;
+  // A code story explains code at one commit: there is no diff to count and
+  // nothing to resume reviewing, only a story to read.
+  const code = story.subject === "code";
 
   return (
     <article
@@ -179,10 +182,11 @@ export function StoryRow({ story, index, routeBase, now, liveEvidence, busy, onR
           </span>
 
           <span className="mt-[5px] flex flex-wrap items-center font-mono text-[11px] text-text-2 max-[460px]:leading-[1.65]">
+            {code ? <Fact>Code story</Fact> : null}
             <Fact>
               <b className="text-text tabular-nums">{fileCount}</b> {fileCount === 1 ? "file" : "files"}
             </Fact>
-            {liveEvidence ? (
+            {liveEvidence && !code ? (
               <Fact>
                 <b className={cn("tabular-nums", GREEN_INK)}>+{story.additions}</b>{" "}
                 <b className={cn("ms-[3px] tabular-nums", RED_INK)}>−{story.deletions}</b>
@@ -235,7 +239,7 @@ export function StoryRow({ story, index, routeBase, now, liveEvidence, busy, onR
           )}
         >
           <Eye className="h-3.5 w-3.5 flex-none" strokeWidth={1.9} aria-hidden="true" />
-          Resume review
+          {code ? "Read story" : "Resume review"}
           <span
             aria-hidden="true"
             className={cn(

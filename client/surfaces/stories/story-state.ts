@@ -48,6 +48,21 @@ export function storyState(story: StoryRowView, liveEvidence: boolean): StorySta
       detail: `${plural(story.openComments, "open note")} waiting`,
     };
   }
+  // A code story's commit never moves; what can move is the code it visits.
+  if (story.subject === "code") {
+    const commit = story.shortCommit ?? "its commit";
+    if (story.freshness === "stale") {
+      return {
+        label: "Code changed",
+        tone: "warn",
+        detail: `${plural(story.inStoryDrift, "story file")} changed since ${commit}`,
+      };
+    }
+    if (story.freshness === "unverified") {
+      return { label: "Verify commit", tone: "warn", detail: `${commit} is not in this checkout` };
+    }
+    return { label: "Current", tone: "ready", detail: `Code matches ${commit}` };
+  }
   if (story.freshness === "stale") {
     return {
       label: "Story changed",

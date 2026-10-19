@@ -53,7 +53,7 @@ export function FilesView({ payload }: { payload: ReviewPayload }) {
         ) : excludedOnly ? (
           <ExcludedSection files={payload.excludedFiles} />
         ) : (
-          <div className="ds-empty">No files in this change.</div>
+          <div className="ds-empty">{payload.subject === "code" ? "No files in this story." : "No files in this change."}</div>
         )}
       </div>
     </div>
@@ -369,10 +369,15 @@ export function ReviewPage({ payload }: { payload: ReviewPayload }) {
     const step = payload.steps[target.panelIndex - 1];
     return step ? [{ ...target, step }] : [];
   });
+  // A code story has no diff to cover and no change to challenge: its Review
+  // page is the reader's question queue and the way to the next story.
+  const codeStory = payload.subject === "code";
+  const tabs = codeStory ? REVIEW_TABS.filter(([id]) => id === "notes" || id === "actions") : REVIEW_TABS;
+  const firstTab = codeStory ? "notes" : "coverage";
 
   return (
     <div className="ds-view" id="ds-view-review" role="tabpanel" aria-labelledby="ds-tab-review" hidden>
-      <div className="ds-reviewpage" data-review-tab="coverage">
+      <div className="ds-reviewpage" data-review-tab={firstTab}>
         {/* Pinned above the tabs: a reviewer reading their notes should not have
             to scroll back to remember whether the story still covers the diff. */}
         <div className="ds-reviewsummary" data-review-section="status" tabIndex={-1}>
@@ -392,8 +397,8 @@ export function ReviewPage({ payload }: { payload: ReviewPayload }) {
         </div>
 
         <div className="ds-reviewtabs" role="tablist" aria-label="Review sections">
-          {REVIEW_TABS.map(([id, label]) => {
-            const active = id === "coverage";
+          {tabs.map(([id, label]) => {
+            const active = id === firstTab;
             return (
               <button
                 key={id}
@@ -423,16 +428,18 @@ export function ReviewPage({ payload }: { payload: ReviewPayload }) {
           })}
         </div>
 
-        <div
-          className="ds-reviewpanel"
-          id="ds-reviewpanel-coverage"
-          role="tabpanel"
-          aria-labelledby="ds-reviewtab-coverage"
-          data-review-panel="coverage"
-          tabIndex={0}
-        >
-          <TrustEvidence payload={payload} />
-        </div>
+        {codeStory ? null : (
+          <div
+            className="ds-reviewpanel"
+            id="ds-reviewpanel-coverage"
+            role="tabpanel"
+            aria-labelledby="ds-reviewtab-coverage"
+            data-review-panel="coverage"
+            tabIndex={0}
+          >
+            <TrustEvidence payload={payload} />
+          </div>
+        )}
 
         <div
           className="ds-reviewpanel"
@@ -441,7 +448,7 @@ export function ReviewPage({ payload }: { payload: ReviewPayload }) {
           aria-labelledby="ds-reviewtab-notes"
           data-review-panel="notes"
           tabIndex={0}
-          hidden
+          hidden={firstTab !== "notes"}
         >
           <section
             className="ds-reviewpage-section"
@@ -452,12 +459,16 @@ export function ReviewPage({ payload }: { payload: ReviewPayload }) {
             <div className="ds-queue-head">
               <div className="ds-queue-title">
                 <h2 className="ds-reviewpage-h" id="ds-reviewpage-notes-h">
-                  Review comments{" "}
+                  {codeStory ? "Questions and notes" : "Review comments"}{" "}
                   <span className="ds-reviewpage-sub" data-queue-summary hidden={!openCount}>
                     {openCount} queued
                   </span>
                 </h2>
-                <p>Collect comments while you review, then copy the complete queue when you are ready.</p>
+                <p>
+                  {codeStory
+                    ? "Queue questions while you read, then copy them to your agent in one go."
+                    : "Collect comments while you review, then copy the complete queue when you are ready."}
+                </p>
               </div>
               <div className="ds-queue-actions">
                 <button
@@ -480,55 +491,57 @@ export function ReviewPage({ payload }: { payload: ReviewPayload }) {
           </section>
         </div>
 
-        <div
-          className="ds-reviewpanel"
-          id="ds-reviewpanel-challenge"
-          role="tabpanel"
-          aria-labelledby="ds-reviewtab-challenge"
-          data-review-panel="challenge"
-          tabIndex={0}
-          hidden
-        >
-          <section
-            className="ds-reviewpage-section"
-            data-review-section="challenge"
-            aria-labelledby="ds-reviewpage-challenge-h"
-            tabIndex={-1}
+        {codeStory ? null : (
+          <div
+            className="ds-reviewpanel"
+            id="ds-reviewpanel-challenge"
+            role="tabpanel"
+            aria-labelledby="ds-reviewtab-challenge"
+            data-review-panel="challenge"
+            tabIndex={0}
+            hidden
           >
-            <h2 className="ds-reviewpage-h" id="ds-reviewpage-challenge-h">
-              Challenge pass
-            </h2>
-            <div className="ds-challenge-panel" data-feedback-view="challenge">
-              <div className="ds-challenge-head">
-                <strong>Adversarial review pass</strong>
-                <p>This checklist structures a human second pass; it does not certify the change.</p>
-              </div>
-              <div className="ds-challenge-list">
-                {CHALLENGE_ITEMS.map(([id, title, detail]) => (
-                  <label key={id} className="ds-challenge-item">
-                    <input type="checkbox" data-challenge-check={id} />
-                    <span>
-                      <strong>{title}</strong>
-                      <small>{detail}</small>
-                    </span>
-                  </label>
-                ))}
-              </div>
-              {challengeTargets.length ? (
-                <div className="ds-challenge-targets">
-                  <span>Where to look closer</span>
-                  {challengeTargets.map(({ step, panelIndex, reasons }) => (
-                    <button key={step.id} type="button" className="ds-challenge-target" data-goto-step={panelIndex}>
-                      <span>Step {step.order}</span>
-                      <strong><span dangerouslySetInnerHTML={html(step.title.html)} /><small className="ds-challenge-reason">{reasons.join(" · ")}</small></strong>
-                      <i aria-hidden="true">→</i>
-                    </button>
+            <section
+              className="ds-reviewpage-section"
+              data-review-section="challenge"
+              aria-labelledby="ds-reviewpage-challenge-h"
+              tabIndex={-1}
+            >
+              <h2 className="ds-reviewpage-h" id="ds-reviewpage-challenge-h">
+                Challenge pass
+              </h2>
+              <div className="ds-challenge-panel" data-feedback-view="challenge">
+                <div className="ds-challenge-head">
+                  <strong>Adversarial review pass</strong>
+                  <p>This checklist structures a human second pass; it does not certify the change.</p>
+                </div>
+                <div className="ds-challenge-list">
+                  {CHALLENGE_ITEMS.map(([id, title, detail]) => (
+                    <label key={id} className="ds-challenge-item">
+                      <input type="checkbox" data-challenge-check={id} />
+                      <span>
+                        <strong>{title}</strong>
+                        <small>{detail}</small>
+                      </span>
+                    </label>
                   ))}
                 </div>
-              ) : null}
-            </div>
-          </section>
-        </div>
+                {challengeTargets.length ? (
+                  <div className="ds-challenge-targets">
+                    <span>Where to look closer</span>
+                    {challengeTargets.map(({ step, panelIndex, reasons }) => (
+                      <button key={step.id} type="button" className="ds-challenge-target" data-goto-step={panelIndex}>
+                        <span>Step {step.order}</span>
+                        <strong><span dangerouslySetInnerHTML={html(step.title.html)} /><small className="ds-challenge-reason">{reasons.join(" · ")}</small></strong>
+                        <i aria-hidden="true">→</i>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            </section>
+          </div>
+        )}
 
         <div
           className="ds-reviewpanel"
@@ -553,6 +566,12 @@ export function ReviewPage({ payload }: { payload: ReviewPayload }) {
                 <span className="ds-review-option-title">Review history</span>
                 <span className="ds-review-option-desc">Open an earlier saved review for this repository.</span>
               </a>
+              {codeStory ? (
+                <a className="ds-review-option" href={`${routeBase}/explain`}>
+                  <span className="ds-review-option-title">Explain other code</span>
+                  <span className="ds-review-option-desc">Ask a new question and get another code story.</span>
+                </a>
+              ) : null}
             </div>
           </section>
         </div>

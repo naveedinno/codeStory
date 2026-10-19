@@ -347,6 +347,8 @@ function useBodyFacts(payload: ReviewPayload): void {
     const body = document.body;
     const attrs: Record<string, string | null> = {
       "data-storyless": payload.storyless ? "1" : null,
+      // The engine opens new comments as questions on a code story.
+      "data-story-subject": payload.subject,
       "data-read-view": "tour",
       "data-story-freshness": payload.storyFreshness,
       "data-feedback-health": payload.chrome.feedbackHealthy
@@ -484,7 +486,7 @@ export function ReviewApp({ payload }: { payload: ReviewPayload }) {
                 aria-selected="false"
                 tabIndex={-1}
               >
-                All files
+                {payload.subject === "code" ? "Files" : "All files"}
               </button>
               <button
                 className="ds-tab"
@@ -500,7 +502,11 @@ export function ReviewApp({ payload }: { payload: ReviewPayload }) {
                 aria-selected="false"
                 tabIndex={-1}
                 aria-label={reviewTabLabel(payload)}
-                title="Review — notes, coverage, and anything the story leaves unexplained"
+                title={
+                  payload.subject === "code"
+                    ? "Review — your queued questions and notes"
+                    : "Review — notes, coverage, and anything the story leaves unexplained"
+                }
               >
                 Review
                 <span

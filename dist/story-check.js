@@ -6,14 +6,15 @@
 // installed, and it only reads.
 import { readFileSync } from "node:fs";
 import { relative } from "node:path";
+import { codeStoryScope, verifyCodeStoryEvidence } from "./code-story.js";
 import { changedRanges, parseUnifiedDiff } from "./diff.js";
 import { enclosingScopeLabel } from "./enclosing-scope.js";
-import { getDiff, readWholeFile, resolveBase } from "./git.js";
+import { getDiff, readWholeFile, resolveBase, resolveCommit } from "./git.js";
 import { computeCoverage, filesForStoryCoverage, stalePointers } from "./coverage.js";
 import { verifyLandings } from "./landing-verify.js";
 import { verifyLogicMoves } from "./logic-moves.js";
 import { lintStory } from "./story-lint.js";
-import { validateGeneratedTour, validateNewGeneratedStory, validateTour } from "./tour.js";
+import { isCodeStory, normalizeCodeStoryRefs, validateGeneratedTour, validateNewGeneratedStory, validateTour, } from "./tour.js";
 import { isCodeStep } from "./types.js";
 const TEST_PATH = /(^|\/)(tests?|__tests__|specs?)\/|\.(test|spec)\.[cm]?[jt]sx?$|\.t\.sol$|_test\.(go|py|rs)$|(^|\/)test_[^/]+\.py$|Tests?\.(java|kt|swift|cs)$/i;
 /** True when no contract error and no lint error remain (and, if strict, no warning). */
@@ -41,6 +42,7 @@ export function runStoryCheck(repo, storyPath) {
     const story = relative(repo, storyPath) || storyPath;
     const report = {
         story,
+        subject: "diff",
         diffLabel: "",
         errors: [],
         findings: [],
@@ -56,6 +58,9 @@ export function runStoryCheck(repo, storyPath) {
         return report;
     }
     canonicalizeDeletedKind(parsed);
+    normalizeCodeStoryRefs(parsed);
+    if (isCodeStory(parsed))
+        report.subject = "code";
     const basic = validateTour(parsed);
     if (basic.length) {
         // The app refuses to load this story; deeper checks would only add noise.
@@ -65,6 +70,8 @@ export function runStoryCheck(repo, storyPath) {
     const tour = parsed;
     report.tour = tour;
     report.errors.push(...(tour.version >= 3 ? validateNewGeneratedStory(tour) : validateGeneratedTour(tour)));
+    if (report.subject === "code")
+        return checkCodeStory(repo, tour, report);
     if (/(^|\/)\.diffstory\/stories\//.test(story) && !tour.storyScope?.includedFiles?.length) {
         report.errors.push("stories under .diffstory/stories/ need storyScope.includedFiles");
     }
@@ -95,6 +102,36 @@ export function runStoryCheck(repo, storyPath) {
     report.findings = lintStory(tour, {
         readLines: (file) => readWholeFile(repo, file, tour.head),
     });
+    return report;
+}
+/**
+ * A code story has no diff to cover. Its trust floor is that every file and
+ * line it points at exists at the pinned commit, every landing checks out
+ * there, and its prose passes the same lints as any story. Working-tree edits
+ * to a shown file are a warning: the app reads the commit, so the danger is
+ * only an author who took line numbers from the edited copy.
+ */
+function checkCodeStory(repo, tour, report) {
+    report.diffLabel = codeStoryScope(tour).label;
+    const evidence = verifyCodeStoryEvidence(repo, tour);
+    report.errors.push(...evidence.errors);
+    const head = tour.head ?? "";
+    if (!head || resolveCommit(repo, head) === null)
+        return report;
+    report.errors.push(...verifyLandings(repo, tour).errors);
+    report.findings = lintStory(tour, {
+        readLines: (file) => readWholeFile(repo, file, head),
+    });
+    const short = head.slice(0, 7);
+    for (const file of evidence.worktreeDrift) {
+        report.findings.push({
+            rule: "code-at-commit",
+            severity: "warning",
+            where: file,
+            message: `${file} differs from ${short} in the working tree, and the app shows this story at ${short}.`,
+            fix: `Take line numbers from \`git show ${short}:${file}\`, not the working tree.`,
+        });
+    }
     return report;
 }
 /**
@@ -263,7 +300,10 @@ export function formatReport(report, strict = false) {
     const warnings = report.findings.filter((f) => f.severity === "warning");
     const errorCount = report.errors.length + lintErrors.length;
     const out = [`diffStory story check: ${report.story}`];
-    if (report.diffLabel) {
+    if (report.diffLabel && report.subject === "code") {
+        out.push(`Code: ${report.diffLabel}`);
+    }
+    else if (report.diffLabel) {
         const cov = report.coverage ? ` · coverage ${report.coverage.claimed}/${report.coverage.total} changed ranges claimed` : "";
         out.push(`Diff: ${report.diffLabel}${cov}`);
     }

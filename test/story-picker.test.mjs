@@ -425,7 +425,8 @@ test('the badge state machine keeps its order and its wording', () => {
 test('unverified evidence is never dressed up as measured evidence', () => {
   // The +A/−D fact exists only when something actually rebuilt the diff. A
   // metadata payload reports zeroes, and "+0 −0" would be a claim, not a blank.
-  assert.match(storyRow, /\{liveEvidence \? \(\s*<Fact>\s*<b[^>]*>\+\{story\.additions\}/);
+  // A code story has no diff at all, so it never shows the fact either.
+  assert.match(storyRow, /\{liveEvidence(?: && !code)? \? \(\s*<Fact>\s*<b[^>]*>\+\{story\.additions\}/);
   assert.match(storyRow, /−\{story\.deletions\}/);
   // The badge is gated on the same flag rather than on freshness alone.
   assert.match(storyRow, /storyState\(story, liveEvidence\)/);

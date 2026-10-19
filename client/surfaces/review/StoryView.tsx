@@ -108,6 +108,53 @@ function DriftStatus({ drift }: { drift: NonNullable<ReviewPayload["storyDrift"]
   );
 }
 
+/**
+ * A code story's freshness. Its commit never changes, so the only question is
+ * whether the files it visits moved on in the working tree, and the way
+ * forward is a rewrite of the same question at the current code.
+ */
+function CodeDriftStatus({ payload }: { payload: ReviewPayload }) {
+  const code = payload.code;
+  if (!code) return null;
+  if (code.drift.state === "current") {
+    return (
+      <div className="ds-intro-freshness is-current" role="status">
+        <span aria-hidden="true">✓</span>
+        <span>{`Code unchanged since ${code.shortCommit}`}</span>
+      </div>
+    );
+  }
+  if (code.drift.state === "unverified") {
+    return (
+      <div className="ds-intro-freshness" role="status">
+        <span aria-hidden="true">▲</span>
+        <span>{`Can’t compare with ${code.shortCommit} in this checkout`}</span>
+      </div>
+    );
+  }
+  const rewrite =
+    code.storyId && !payload.history ? (
+      <a href={`${payload.routeBase}/explain?story=${encodeURIComponent(code.storyId)}`}>Rewrite at current code</a>
+    ) : null;
+  if (code.drift.state === "missing-commit") {
+    return (
+      <div className="ds-intro-freshness is-stale" role="status">
+        <span aria-hidden="true">▲</span>
+        <span>{`Commit ${code.shortCommit} is not in this repository; this story was written somewhere else`}</span>
+        {rewrite}
+      </div>
+    );
+  }
+  const changed = code.drift.files.length;
+  return (
+    <div className="ds-intro-freshness is-stale" role="status">
+      <span aria-hidden="true">▲</span>
+      <span>{`${changed} story ${plural(changed, "file")} changed since ${code.shortCommit}`}</span>
+      {rewrite}
+    </div>
+  );
+}
+
 const FALLBACK_LEDE =
   "Each step builds on the one before it — read them in order, or jump to any file from the list.";
 
@@ -177,7 +224,11 @@ function IntroPanel({ payload }: { payload: ReviewPayload }) {
   const map = goalHtml && story.summary ? story.summary : undefined;
   const nonGoals = story.intent?.nonGoals ?? [];
   const verification = story.verification ?? [];
-  const hasContext = !!design || !!map || nonGoals.length > 0 || verification.length > 0;
+  // A code story explains code at one commit: it has no change to frame and
+  // no diff to cover, and the reader's own question belongs beside the answer.
+  const code = payload.subject === "code" ? payload.code : undefined;
+  const question = code?.question;
+  const hasContext = !!design || !!map || nonGoals.length > 0 || verification.length > 0 || !!question;
 
   const solidityOnly =
     payload.storyIncludedFiles.length > 0 &&
@@ -191,7 +242,7 @@ function IntroPanel({ payload }: { payload: ReviewPayload }) {
       <div className="ds-introwrap">
         <span className="ds-intro-eyebrow">
           <StoryMark />
-          <span>The story of this change</span>
+          <span>{code ? "The story of this code" : "The story of this change"}</span>
         </span>
         <h1 className="ds-intro-title" dangerouslySetInnerHTML={html(story.title.html)} />
         <p
@@ -201,7 +252,9 @@ function IntroPanel({ payload }: { payload: ReviewPayload }) {
           dangerouslySetInnerHTML={html(ledeHtml)}
         />
 
-        {storyDrift && storyDrift.state !== "unverified" ? (
+        {code ? (
+          <CodeDriftStatus payload={payload} />
+        ) : storyDrift && storyDrift.state !== "unverified" ? (
           <DriftStatus drift={storyDrift} />
         ) : storyFreshness === "current" ? null : (
           <div
@@ -237,9 +290,19 @@ function IntroPanel({ payload }: { payload: ReviewPayload }) {
 
         <div className="ds-intro-utility" role="group" aria-label="Story scope and optional review material">
           <span className="ds-intro-scope">
-            {scopeText}
+            {code ? `${payload.contextFiles} ${plural(payload.contextFiles, "file")} in story` : scopeText}
             <span className="ds-intro-base">
-              {payload.headRef ? (
+              {code ? (
+                code.ref && code.ref !== code.commit ? (
+                  <>
+                    Explains <b>{code.ref}</b> at <b>{code.shortCommit}</b>
+                  </>
+                ) : (
+                  <>
+                    Explains commit <b>{code.shortCommit}</b>
+                  </>
+                )
+              ) : payload.headRef ? (
                 <>
                   <b>{payload.baseLabel}</b> → <b>{refLabel(payload.headRef)}</b>
                 </>
@@ -253,15 +316,21 @@ function IntroPanel({ payload }: { payload: ReviewPayload }) {
           {hotspots.length || hasContext ? (
             <details className="ds-intro-notes">
               <summary>
-                <span>Review notes</span>
+                <span>{code ? "Story notes" : "Review notes"}</span>
                 <span className="ds-intro-notes-caret" aria-hidden="true">
                   ⌄
                 </span>
               </summary>
               <div className="ds-intro-notes-body">
                 {hotspots.length ? (
-                  <div className="ds-intro-hotspots" role="note" aria-label="Author-flagged review hotspots">
-                    <span className="ds-intro-block-kicker">Where I&rsquo;d distrust this first</span>
+                  <div
+                    className="ds-intro-hotspots"
+                    role="note"
+                    aria-label={code ? "Places the story asks you to read closely" : "Author-flagged review hotspots"}
+                  >
+                    <span className="ds-intro-block-kicker">
+                      {code ? "Read these closely" : <>Where I&rsquo;d distrust this first</>}
+                    </span>
                     <ul>
                       {hotspots.map((spot) => (
                         <li key={spot.panelIndex}>
@@ -278,7 +347,23 @@ function IntroPanel({ payload }: { payload: ReviewPayload }) {
                 ) : null}
                 {hasContext ? (
                   <div className="ds-intro-context">
-                    {design ? (
+                    {question ? (
+                      <div className="ds-intro-nongoals">
+                        <span className="ds-intro-block-kicker">Your question</span>
+                        <p className="ds-intro-design">{question}</p>
+                      </div>
+                    ) : null}
+                    {design && code ? (
+                      <div className="ds-intro-nongoals">
+                        <span className="ds-intro-block-kicker">The short answer</span>
+                        <p
+                          className="ds-intro-design"
+                          data-speech-overview
+                          data-speech-text={design.speech}
+                          dangerouslySetInnerHTML={html(withBreaks(design.html))}
+                        />
+                      </div>
+                    ) : design ? (
                       <p
                         className="ds-intro-design"
                         data-speech-overview
@@ -298,7 +383,9 @@ function IntroPanel({ payload }: { payload: ReviewPayload }) {
                         the author skipped on purpose. */}
                     {nonGoals.length ? (
                       <div className="ds-intro-nongoals">
-                        <span className="ds-intro-block-kicker">Deliberately not touched</span>
+                        <span className="ds-intro-block-kicker">
+                          {code ? "Not covered here" : "Deliberately not touched"}
+                        </span>
                         <ul>
                           {nonGoals.map((goal, index) => (
                             <li key={index} dangerouslySetInnerHTML={html(goal.html)} />
@@ -332,7 +419,7 @@ function IntroPanel({ payload }: { payload: ReviewPayload }) {
             </details>
           ) : null}
           <button type="button" className="ds-intro-allfiles" data-open-all-files>
-            All files <span aria-hidden="true">→</span>
+            {code ? "Files in this story" : "All files"} <span aria-hidden="true">→</span>
           </button>
         </div>
       </div>

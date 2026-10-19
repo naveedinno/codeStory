@@ -547,6 +547,24 @@ export function Sidebar({ payload }: { payload: ReviewPayload }) {
   const excludedOnly = files.length === 0 && excludedFiles.length > 0;
   const commented = new Set(payload.comments.filter((c) => c.status !== "resolved").map((c) => c.file));
   const tree = files.length ? buildTree(files) : null;
+  // A code story's files are code to read, not changes to review or explain.
+  const codeStory = payload.subject === "code";
+  const fileFilters: [string, string][] = codeStory
+    ? [
+        ["all", "All"],
+        ["reviewed", "Read"],
+        ["unreviewed", "Unread"],
+        ["comments", "Comments"],
+        ["tests", "Tests"],
+      ]
+    : [
+        ["all", "All"],
+        ["reviewed", "Reviewed"],
+        ["unreviewed", "Unreviewed"],
+        ["comments", "Comments"],
+        ["unexplained", "Unexplained"],
+        ["tests", "Tests"],
+      ];
 
   return (
     <>
@@ -564,7 +582,11 @@ export function Sidebar({ payload }: { payload: ReviewPayload }) {
           data-rail="tour"
           data-intro
           data-step-index="0"
-          title="The whole change at a glance, before the walkthrough"
+          title={
+            codeStory
+              ? "The code at a glance, before the walkthrough"
+              : "The whole change at a glance, before the walkthrough"
+          }
         >
           <span className="ds-num">
             <StoryMark />
@@ -572,7 +594,7 @@ export function Sidebar({ payload }: { payload: ReviewPayload }) {
           <span className="ds-stepcard-body">
             <span className="ds-stepcard-title">Overview</span>
             <span className="ds-intro-cardsub">
-              The change at a glance
+              {codeStory ? "The code at a glance" : "The change at a glance"}
               {payload.totalSteps ? ` · ${chrome.readingOrder}` : ""}
             </span>
           </span>
@@ -619,8 +641,12 @@ export function Sidebar({ payload }: { payload: ReviewPayload }) {
                 <input
                   data-file-search
                   type="search"
-                  placeholder="Search paths, symbols, or changed code"
-                  aria-label="Search changed file paths, declarations, and code"
+                  placeholder={codeStory ? "Search paths, symbols, or code" : "Search paths, symbols, or changed code"}
+                  aria-label={
+                    codeStory
+                      ? "Search file paths, declarations, and code"
+                      : "Search changed file paths, declarations, and code"
+                  }
                 />
               </label>
               <details className="ds-filefilter-menu">
@@ -629,16 +655,7 @@ export function Sidebar({ payload }: { payload: ReviewPayload }) {
                   <span aria-hidden="true">⌄</span>
                 </summary>
                 <div className="ds-filefilters" role="group" aria-label="File filters">
-                  {(
-                    [
-                      ["all", "All"],
-                      ["reviewed", "Reviewed"],
-                      ["unreviewed", "Unreviewed"],
-                      ["comments", "Comments"],
-                      ["unexplained", "Unexplained"],
-                      ["tests", "Tests"],
-                    ] as [string, string][]
-                  ).map(([id, label]) => (
+                  {fileFilters.map(([id, label]) => (
                     <button
                       key={id}
                       className={id === "all" ? "is-active" : undefined}
@@ -651,7 +668,7 @@ export function Sidebar({ payload }: { payload: ReviewPayload }) {
                 </div>
               </details>
               <button className="ds-next-unviewed" data-next-unviewed type="button">
-                Next unreviewed <span aria-hidden="true">→</span>
+                {codeStory ? "Next unread" : "Next unreviewed"} <span aria-hidden="true">→</span>
               </button>
             </div>
           ) : null}
@@ -671,7 +688,9 @@ export function Sidebar({ payload }: { payload: ReviewPayload }) {
             ) : excludedOnly ? (
               <ExcludedScopeNotice files={excludedFiles} compact />
             ) : (
-              <div className="ds-empty ds-empty-rail">No files in this change.</div>
+              <div className="ds-empty ds-empty-rail">
+                {codeStory ? "No files in this story." : "No files in this change."}
+              </div>
             )}
           </div>
         </div>

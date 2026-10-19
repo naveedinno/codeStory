@@ -8,7 +8,9 @@ The checker enforces every line of this; knowing it saves a rewrite.
 
 - Every story under `.diffstory/stories/` carries a top-level `storyScope` with
   `includedFiles`, and every code step's `file` appears in it. The app rejects
-  the story otherwise.
+  the story otherwise. The one exception is a code story (`"subject": "code"`):
+  it explains code at one pinned `head`, has no `storyScope`, and follows the
+  contract in `references/code-stories.md` instead of this file's diff rules.
 - Newly generated stories use `"version": 4`. Older versions stay readable; do
   not rewrite an existing story just to modernize its number. A `page` concept
   needs version 4, so raise an older story to 4 when you add one.

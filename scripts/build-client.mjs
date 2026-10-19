@@ -17,7 +17,7 @@ const clientDir = resolve(root, 'client');
 const outdir = resolve(root, 'dist/client');
 
 /** One React root per page the server serves. */
-const SURFACES = ['picker', 'stories', 'change', 'review', 'progress'];
+const SURFACES = ['picker', 'stories', 'change', 'review', 'progress', 'explain'];
 
 const exists = (path) => stat(path).then(() => true, () => false);
 const kb = (bytes) => `${(bytes / 1024).toFixed(1)} kB`;

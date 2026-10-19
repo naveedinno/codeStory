@@ -9,6 +9,9 @@ import { parseUnifiedDiff } from './diff.js';
 import { loadComments } from './comments.js';
 import { isCodeStep } from './types.js';
 import { inspectStoryDrift } from './story-drift.js';
+import { codeStoryDrift, codeStoryFiles, codeStoryScope } from './code-story.js';
+import { isCodeStory } from './tour.js';
+import { commentsForStory } from './comments.js';
 const NAMED_STORIES_DIR = 'stories';
 /** Stories saved for a repo, in the order the app should present them. */
 export function listStories(repo) {
@@ -108,26 +111,30 @@ function storySummary(repo, id, liveEvidence) {
     snapshotStoryIfChanged(repo, id);
     try {
         const story = loadTour(path);
-        const session = liveEvidence
-            ? storySession(repo, story.base, story.head, story.diffFingerprint, story.storySnapshot, snapshotBindingForStory(repo, story))
-            : {
-                freshness: 'unverified',
-                inStoryDrift: 0,
-                outsideStoryDrift: 0,
-                liveFiles: new Set(story.steps.filter(isCodeStep).map((step) => step.file)).size,
-                additions: 0,
-                deletions: 0,
-                openComments: 0,
-            };
+        const code = isCodeStory(story);
+        const session = code
+            ? codeStorySession(repo, id, story, liveEvidence)
+            : liveEvidence
+                ? storySession(repo, story.base, story.head, story.diffFingerprint, story.storySnapshot, snapshotBindingForStory(repo, story))
+                : {
+                    freshness: 'unverified',
+                    inStoryDrift: 0,
+                    outsideStoryDrift: 0,
+                    liveFiles: new Set(story.steps.filter(isCodeStep).map((step) => step.file)).size,
+                    additions: 0,
+                    deletions: 0,
+                    openComments: 0,
+                };
         return {
             id,
             path,
             title: story.title,
             summary: story.summary,
             mode: story.mode ?? 'guided',
+            subject: code ? 'code' : 'diff',
             base: story.base,
             head: story.head,
-            scope: storyScope(story.base, story.head),
+            scope: code ? codeScopeView(story) : storyScope(story.base, story.head),
             updatedAt,
             valid: true,
             steps: story.steps.length,
@@ -145,6 +152,7 @@ function storySummary(repo, id, liveEvidence) {
             title: basename(id, '.json'),
             summary: '',
             mode: 'guided',
+            subject: 'diff',
             scope: {
                 label: 'Unknown diff scope',
                 description: 'Fix the story JSON before diffStory can read what this story covers.',
@@ -167,6 +175,39 @@ function storySummary(repo, id, liveEvidence) {
             liveEvidence,
         };
     }
+}
+/**
+ * A code story's live facts. Its commit never moves, so freshness is whether
+ * the files it visits still match that commit in the working tree; there is
+ * no diff to count, and its comments are its own.
+ */
+function codeStorySession(repo, id, story, liveEvidence) {
+    const liveFiles = codeStoryFiles(story).length;
+    const quiet = { inStoryDrift: 0, outsideStoryDrift: 0, liveFiles, additions: 0, deletions: 0, openComments: 0 };
+    if (!liveEvidence)
+        return { freshness: 'unverified', ...quiet };
+    const drift = codeStoryDrift(repo, story);
+    let openComments = 0;
+    try {
+        openComments = commentsForStory(loadComments(repo), id).filter((comment) => comment.status === 'open').length;
+    }
+    catch {
+        openComments = 0;
+    }
+    return {
+        ...quiet,
+        freshness: drift.state === 'changed' ? 'stale' : drift.state === 'current' ? 'current' : 'unverified',
+        inStoryDrift: drift.files.length,
+        openComments,
+    };
+}
+function codeScopeView(story) {
+    const { label, command } = codeStoryScope(story);
+    return {
+        label,
+        description: `The code at commit ${story.head ?? ''}, explained as committed. Uncommitted edits are not part of it.`,
+        command,
+    };
 }
 /** Stable identity for the exact diff a story was written against. */
 export function diffFingerprint(diff) {

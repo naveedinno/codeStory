@@ -36,7 +36,7 @@ import { BRAND_HEAD_LINKS } from './brand.js';
 import { themeBootstrapScript } from './theme.js';
 
 /**
- * The five React surfaces.
+ * The six React surfaces.
  *
  * `progress` is the odd one out: today it is a panel embedded in the review
  * page (`render.ts` mounts `progressPanelMarkup('floating')`), not a route of
@@ -45,7 +45,7 @@ import { themeBootstrapScript } from './theme.js';
  * standalone progress route needs no change to this union. See
  * `docs/superpowers/specs/server-shell-contract.md`.
  */
-export type ShellSurface = 'picker' | 'stories' | 'change' | 'review' | 'progress';
+export type ShellSurface = 'picker' | 'stories' | 'change' | 'review' | 'progress' | 'explain';
 
 /** The element id the client reads its bootstrap payload from. */
 export const SHELL_PAYLOAD_ID = '__DIFFSTORY_DATA__';

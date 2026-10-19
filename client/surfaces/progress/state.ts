@@ -116,16 +116,19 @@ export interface ProgressState {
 const WORK: Record<Workflow, string> = {
   guided_review: "Writing your review",
   detailed_audit: "Writing your review",
+  code_story: "Writing your code story",
 };
 
 const DONE: Record<Workflow, string> = {
   guided_review: "Review ready",
   detailed_audit: "Review ready",
+  code_story: "Code story ready",
 };
 
 const FAIL: Record<Workflow, string> = {
   guided_review: "Generation failed",
   detailed_audit: "Generation failed",
+  code_story: "Generation failed",
 };
 
 // The narrated spine of a story run. The three middle labels are the ones the
@@ -150,9 +153,19 @@ const STORY_MILESTONES: Milestone[] = [
   { label: "Ready", phases: ["complete"] },
 ];
 
+// A code story runs the same spine; its middle labels are the markers the
+// code-story prompt prints, so the panel repeats the agent's own words.
+const CODE_STORY_MILESTONES: Milestone[] = [
+  STORY_MILESTONES[0],
+  { label: "Framing the question", phases: ["reading_changes", "recovering_why"] },
+  { label: "Mapping the code", phases: ["designing_path"] },
+  ...STORY_MILESTONES.slice(3),
+];
+
 const MILESTONES: Record<Workflow, Milestone[]> = {
   guided_review: STORY_MILESTONES,
   detailed_audit: STORY_MILESTONES,
+  code_story: CODE_STORY_MILESTONES,
 };
 
 /** Bound the in-memory log the way the server bounds its own capture. */
@@ -203,12 +216,15 @@ export function agentChip(agent?: string, model?: string): string {
 
 export function repoLine(event: {
   repoName?: string;
+  workflow?: string;
   base?: string;
   head?: string;
   targetCount?: number;
 }): string {
   let line = event.repoName || "";
-  if (event.base) line += ` · ${event.base} → ${event.head || "working tree"}`;
+  // A code story explains one commit, so there is no "→ head" to draw.
+  if (event.base && event.workflow === "code_story") line += ` · ${event.base}`;
+  else if (event.base) line += ` · ${event.base} → ${event.head || "working tree"}`;
   if (typeof event.targetCount === "number") {
     line += ` · ${event.targetCount} ${event.targetCount === 1 ? "comment" : "comments"}`;
   }

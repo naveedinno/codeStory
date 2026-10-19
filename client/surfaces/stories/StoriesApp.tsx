@@ -179,6 +179,19 @@ export function StoriesApp({ payload }: { payload: StoriesPayload }) {
                 >
                   Start review
                 </ButtonLink>
+                {/* The other way in: explain code that did not change. A link
+                    styled like the import control, so the one primary action
+                    stays the one primary action. */}
+                <a
+                  href={`${routeBase}/explain`}
+                  className={cn(
+                    "inline-flex h-[var(--control-h-lg)] items-center rounded-full border border-line px-4",
+                    "text-base font-semibold text-text-2 no-underline hover:text-text",
+                    "transition-colors duration-[var(--motion-duration-fast)] ease-out motion-reduce:transition-none",
+                  )}
+                >
+                  Explain code
+                </a>
                 {/* Plain button styling, not a second primary: importing a
                     teammate's bundle is rare next to starting a review. */}
                 <button

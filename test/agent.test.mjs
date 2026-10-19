@@ -9,6 +9,7 @@ import {
   codexErrorMessage, summarizeAgentFailure,
   selectAvailableAgent,
   storyRepairPrompt,
+  codeStoryPrompt,
 } from '../dist/agent.js';
 import { codexTaskBinary } from '../dist/codex-tasks.js';
 import { validateGeneratedTour, validateTour } from '../dist/tour.js';
@@ -985,4 +986,97 @@ test('both authoring prompts tell the agent to run the bundled checker until REA
   assert.ok(repair.includes('scripts/check-story.mjs'));
   assert.ok(repair.includes("A step's FIRST beat lands the listener"));
   assert.ok(!repair.includes('short, informal'));
+});
+
+// ---- code stories: explaining existing code at one commit ----
+
+const COMMIT = '0123456789abcdef0123456789abcdef01234567';
+const codeInput = (over = {}) => ({
+  commit: COMMIT,
+  ref: 'main',
+  question: 'How is a quote opened?',
+  paths: ['contracts/facets', 'contracts/libraries/LibQuote.sol'],
+  mode: 'guided',
+  storyFile: '.diffstory/stories/code-how-is-a-quote-opened.json',
+  worktreeDiffers: [],
+  ...over,
+});
+
+test('the code story prompt pins the commit, file, and code contract', () => {
+  const p = codeStoryPrompt(codeInput());
+  assert.ok(p.includes(`set its "head" field to "${COMMIT}"`), p);
+  assert.ok(p.includes('set its "subject" field to "code"'));
+  assert.ok(p.includes('Write .diffstory/stories/code-how-is-a-quote-opened.json'));
+  assert.ok(p.includes('There is no diff'));
+  assert.ok(p.includes('entry-implementation|lifecycle|data-flow|map-then-path|core-supporting|rule-instances|cause-effect'));
+  assert.match(p, /node "[^"]+check-story\.mjs" "\.diffstory\/stories\/code-how-is-a-quote-opened\.json"/);
+  for (const marker of ['>> Framing the question', '>> Mapping the code', '>> Designing the reading path', '>> Writing the steps']) {
+    assert.ok(p.includes(marker), marker);
+  }
+  assert.ok(!p.includes('Coverage pass'));
+  assert.ok(!p.includes('.diffstory/story.json'));
+});
+
+test('the code story prompt carries the question and paths verbatim and names files to read from git', () => {
+  const clean = codeStoryPrompt(codeInput());
+  assert.ok(clean.includes('How is a quote opened?'));
+  assert.ok(clean.includes('contracts/facets'));
+  assert.ok(clean.includes('contracts/libraries/LibQuote.sol'));
+  assert.ok(clean.includes('The working tree matches this commit'));
+  const dirty = codeStoryPrompt(codeInput({ worktreeDiffers: ['contracts/facets/Open.sol'] }));
+  assert.ok(dirty.includes(`git show ${COMMIT}:contracts/facets/Open.sol`), dirty);
+  assert.ok(!dirty.includes('The working tree matches this commit'));
+  const many = codeStoryPrompt(codeInput({ worktreeDiffers: Array.from({ length: 45 }, (_, i) => `f${i}.ts`) }));
+  assert.ok(many.includes('and 5 more'));
+});
+
+test('an empty question asks for a tour of the codebase', () => {
+  const p = codeStoryPrompt(codeInput({ question: '  ', paths: [] }));
+  assert.match(p, /guided tour of this codebase/);
+  assert.ok(!p.includes('The reader asked'));
+});
+
+test('a familiar audience adds the audience contract to a code story', () => {
+  assert.ok(codeStoryPrompt(codeInput({ audience: 'familiar' })).includes('Audience contract: a familiar reader'));
+  assert.ok(!codeStoryPrompt(codeInput()).includes('Audience contract'));
+});
+
+test('code story repair prompts write back to the story file at its commit', () => {
+  const p = storyRepairPrompt({
+    action: 'split',
+    stepId: 's1',
+    file: 'app.ts',
+    base: COMMIT,
+    head: COMMIT,
+    hasStoryArc: true,
+    storyFile: '.diffstory/stories/code-cap.json',
+    codeCommit: COMMIT,
+  });
+  assert.ok(p.includes('the code story .diffstory/stories/code-cap.json'), p);
+  assert.ok(p.includes(`at commit ${COMMIT}`));
+  assert.ok(p.includes('Write the repaired JSON back to .diffstory/stories/code-cap.json'));
+  assert.ok(p.includes('Preserve "subject", "head", "base", and "codeScope" exactly'));
+  assert.ok(p.includes('Preserve "storyArc" exactly'));
+  assert.match(p, /node "[^"]+check-story\.mjs" "\.diffstory\/stories\/code-cap\.json"/);
+  assert.ok(!p.includes('full-diff coverage'));
+  assert.ok(!p.includes('.diffstory/story.json'));
+  assert.ok(!p.includes('uncovered change'));
+});
+
+test('the storyteller teaches code stories with the contract the app enforces', async () => {
+  const { CODE_STORY_SHAPES, validateNewGeneratedStory, validateTour } = await import('../dist/tour.js');
+  // The description is what makes an agent load the skill for "explain this code".
+  assert.match(skillCore().split('\n')[2], /code story that explains existing code with no diff/);
+  const ref = readFileSync(new URL('../skills/diffstory-storyteller/references/code-stories.md', import.meta.url), 'utf8');
+  for (const shape of CODE_STORY_SHAPES) {
+    assert.ok(ref.includes(`\`${shape}\``), `code-stories.md never teaches the ${shape} shape`);
+  }
+  assert.match(ref, /check-story\.mjs \.diffstory\/stories\/code-/);
+  // The worked example is a story the app would accept, not a sketch of one.
+  const example = /```json\n([\s\S]*?)\n```/.exec(ref);
+  assert.ok(example, 'code-stories.md carries a ```json example story');
+  const story = JSON.parse(example[1]);
+  assert.equal(story.subject, 'code');
+  assert.deepEqual(validateTour(story), []);
+  assert.deepEqual(validateNewGeneratedStory(story), []);
 });

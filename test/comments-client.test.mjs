@@ -147,7 +147,11 @@ test("the selection context menu has one entry and C opens the same composer", (
   assert.match(PAGE_JS, /data-selection-comment/);
   assert.doesNotMatch(PAGE_JS, /data-selection-action/);
   assert.match(PAGE_JS, /e\.key==='c'\|\|e\.key==='C'/);
-  assert.match(PAGE_JS, /openComposer\(cctx\.anchorRow,'change',cctx\)/);
+  // Both entries open the same composer with the same default type: a fix
+  // request on a diff, a question on a code story.
+  assert.match(PAGE_JS, /openComposer\(cctx\.anchorRow,defaultCommentFlavor\(\),cctx\)/);
+  assert.match(PAGE_JS, /openComposer\(ctx\.anchorRow,defaultCommentFlavor\(\),ctx\)/);
+  assert.match(PAGE_JS, /function defaultCommentFlavor\(\)\{return document\.body\.getAttribute\('data-story-subject'\)==='code'\?'question':'change';\}/);
 });
 
 test("selection stays constrained to one diff side", () => {

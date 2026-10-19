@@ -223,3 +223,10 @@ test('createFileEnricher with an empty scope only relativizes', () => {
   assert.equal(e.label, 'Reading src/a.ts');
   assert.equal(e.changedTotal, undefined);
 });
+
+test('code-story markers advance phases with their own labels', () => {
+  assert.deepEqual(parseAgentNoteLine('>> Framing the question'), { type: 'phase', phase: 'recovering_why', label: 'Framing the question' });
+  assert.deepEqual(parseAgentNoteLine('  >> mapping the code.'), { type: 'phase', phase: 'designing_path', label: 'Mapping the code' });
+  // The story markers keep their default labels.
+  assert.deepEqual(parseAgentNoteLine('>> Recovering the why'), { type: 'phase', phase: 'recovering_why', label: 'Recovering the why' });
+});

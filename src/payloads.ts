@@ -149,6 +149,10 @@ export interface StoryRowView {
  openComments: number;
  /** `command` is the raw git invocation, shown as the chip's `title`. */
  scope: { label: string; command: string };
+ /** What the story explains: a diff, or existing code at one commit. */
+ subject: "diff" | "code";
+ /** Code stories only: the short id of the commit the story explains. */
+ shortCommit?: string;
 }
 
 /** `GET /repo/<name>`, `/repo/<name>/`, `/repo/<name>/stories`. */
@@ -196,7 +200,7 @@ export interface StoriesPayload {
 // Everything the projection omits arrives later through the lazy endpoints,
 // each of which still returns server-rendered diff HTML.
 
-import type { Comment, ReviewFileIndexEntry, StoryAudience, StoryStepSceneLayout, StoryStepWeight } from "./types.js";
+import type { Comment, ReviewFileIndexEntry, StoryAudience, StoryMode, StoryStepSceneLayout, StoryStepWeight } from "./types.js";
 import type { ReviewExclusionMetadata } from "./noise.js";
 
 /** A projected narrative: sanitized HTML, flat text, and the spoken form. */
@@ -432,6 +436,63 @@ export interface ReviewChromeFacts {
  readingOrder: string;
 }
 
+/**
+ * `GET /repo/<name>/explain` — ask for a code story.
+ *
+ * Everything the form needs before the reader types: which commit the story
+ * would explain by default, whether uncommitted edits exist (they are not part
+ * of the story), the standing depth and audience, and — for `?story=<id>` — the
+ * existing code story's request, so a rewrite starts from the same question.
+ */
+export interface ExplainPayload {
+  repoName: string;
+  /** `/repo/<encoded name>`. */
+  routeBase: string;
+  /** Current branch, or null on a detached HEAD. */
+  branch: string | null;
+  /** Full id of HEAD, or null in a repository with no commits yet. */
+  headCommit: string | null;
+  /** "1a2b3c4 Subject line" for HEAD; empty with no commits. */
+  headSubject: string;
+  /** Tracked files differ from HEAD; a code story explains the commit, not them. */
+  dirty: boolean;
+  defaults: { mode: StoryMode; audience: StoryAudience };
+  /** A rewrite of an existing code story. */
+  prefill?: {
+    storyId: string;
+    /** Plain text. */
+    title: string;
+    question?: string;
+    paths: string[];
+    ref?: string;
+    mode?: StoryMode;
+  };
+  /** Set when `?story=` named something that is not a readable code story. */
+  notice?: string;
+}
+
+/**
+ * A code story's pinned commit and freshness, as the Overview shows them.
+ * The drift shape restates `CodeStoryDrift` from `code-story.ts`, which this
+ * import-free module cannot reach (it imports node built-ins).
+ */
+export interface ReviewCodeView {
+ /** Full id of the commit the story explains. */
+ commit: string;
+ shortCommit: string;
+ /** The name the reader picked ("main"), when there was one. */
+ ref?: string;
+ /** "main @ 1a2b3c4", or the short id alone. */
+ label: string;
+ /** The story's id ("stories/code-x.json"), for the rewrite link. */
+ storyId?: string;
+ /** What the reader asked, as typed. */
+ question?: string;
+ paths: string[];
+ /** Whether the files the story visits still match the commit in the working tree. */
+ drift: { state: "current" | "changed" | "missing-commit" | "unverified"; files: string[] };
+}
+
 /** `GET /repo/<name>/review` and `GET /repo/<name>/diff`. */
 export interface ReviewPayload {
  /** Absolute repo path. Diagnostic only; editor links are resolved server-side. */
@@ -440,6 +501,10 @@ export interface ReviewPayload {
  routeBase: string;
  /** No story: Files opens by default and the Story tab offers the generator. */
  storyless: boolean;
+ /** What the story explains. A `code` story has no diff: it reads code at one commit. */
+ subject: "diff" | "code";
+ /** Code stories only. */
+ code?: ReviewCodeView;
  /** `describeBase()` — what the subtitle compares the working tree against. */
  baseLabel: string;
  /** Standing audience preference; the storyless generator offers to change it. */

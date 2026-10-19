@@ -18,6 +18,8 @@ Checks a diffStory story against the app's own contract, the real git diff,
 and the storyteller's prose lints. Run it from inside the repository.
 
   (no story)        check .diffstory/story.json, or every .diffstory/stories/*.json
+  <story.json ...>  check these files; a code story (.diffstory/stories/code-*.json) is
+                    checked against its pinned commit instead of a diff
   --ledger          print the changed ranges a story must claim, with enclosing scopes
   --base <ref>      ledger only: diff base (default: the repository's review base)
   --head <ref>      ledger only: fixed head (default: working tree)
@@ -142,8 +144,10 @@ function main(argv: string[]): number {
     return 2;
   }
   const reports: StoryCheckReport[] = stories.map((path) => runStoryCheck(repo, path));
-  const tours = reports.flatMap((r) => (r.tour ? [r.tour] : []));
-  const unowned = stories.length > 1 && tours.length === reports.length ? unownedFiles(repo, tours) : [];
+  // Ownership splits one diff between scoped stories; a code story owns no diff.
+  const diffReports = reports.filter((r) => r.subject !== "code");
+  const tours = diffReports.flatMap((r) => (r.tour ? [r.tour] : []));
+  const unowned = diffReports.length > 1 && tours.length === diffReports.length ? unownedFiles(repo, tours) : [];
   const ready = reports.every((r) => reportReady(r, args.strict)) && unowned.length === 0;
   if (args.json) {
     console.log(

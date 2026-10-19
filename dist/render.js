@@ -28,6 +28,8 @@ import { renderShell } from "./shell.js";
 import { APP_BRAND } from "./config.js";
 import { readWholeFile } from "./git.js";
 import { storyHealth } from "./story-health.js";
+import { codeStoryScope } from "./code-story.js";
+import { isCodeStory } from "./tour.js";
 function commentSide(c) {
     return c.side === "left" ? "left" : "right";
 }
@@ -424,10 +426,16 @@ function storyUnifiedDiffInner(s, comments) {
         : "";
     return `${storyUnifiedHead(s)}${note}${annotationSummary(s)}<div class="ds-diffbody ds-diffbody-unified">${body}</div>`;
 }
+/** What a context strip says: unchanged context for a change, or a code story's commit. */
+function contextNote(s) {
+    return s.pinnedCommit
+        ? `as committed at ${esc(s.pinnedCommit.slice(0, 7))}`
+        : "unchanged — shown so the change makes sense";
+}
 function storyUnifiedHead(s) {
-    const label = s.context ? "Context" : s.newFile ? "New file" : "Unified";
+    const label = s.context ? esc(s.kindLabel) : s.newFile ? "New file" : "Unified";
     const note = s.context
-        ? "unchanged — shown so the change makes sense"
+        ? contextNote(s)
         : s.newFile
             ? ""
             : "before and after in one readable column";
@@ -515,8 +523,8 @@ function diffInner(s, _comments) {
 function diffHead(s) {
     if (s.context) {
         return `<div class="ds-diffhead ds-diffhead-ctx">
-      <span class="ds-diffhead-side"><span class="ds-diffhead-label">Context</span><span class="ds-diffhead-path">${esc(s.file)}</span></span>
-      <span class="ds-diffhead-note">unchanged — shown so the change makes sense</span>
+      <span class="ds-diffhead-side"><span class="ds-diffhead-label">${esc(s.kindLabel)}</span><span class="ds-diffhead-path">${esc(s.file)}</span></span>
+      <span class="ds-diffhead-note">${contextNote(s)}</span>
     </div>`;
     }
     const paired = s.pairedView
@@ -1160,8 +1168,11 @@ export function renderReviewShell(input) {
     const { repo, tour, files, baseLabel, comments, headRef } = input;
     const routeBase = input.routeBase ?? "";
     const storyless = input.storyless ?? false;
+    // A code story reads one immutable commit, so it cannot go stale against a
+    // diff; whether its files moved on in the working tree travels as `code.drift`.
+    const codeStory = !storyless && isCodeStory(tour);
     const storyDrift = input.storyDrift;
-    const storyFreshness = storyless
+    const storyFreshness = storyless || codeStory
         ? "current"
         : storyDrift
             ? storyDrift.state === "unverified"
@@ -1194,7 +1205,7 @@ export function renderReviewShell(input) {
     // Health lint reads post-change lines; memoize per file so a 300-step story
     // does not re-read the same file per step.
     const healthLines = new Map();
-    const health = storyless
+    const baseHealth = storyless
         ? { findings: [], errors: 0, warnings: 0, unexplainedRanges: 0 }
         : {
             ...storyHealth(tour, (file) => {
@@ -1204,30 +1215,68 @@ export function renderReviewShell(input) {
             }),
             unexplainedRanges: uncoveredCount,
         };
+    // A code story pinned to a commit this repository lacks cannot show any of
+    // its code; the health row says why, in the checker's own words.
+    const health = codeStory && input.codeDrift?.state === "missing-commit"
+        ? {
+            ...baseHealth,
+            errors: baseHealth.errors + 1,
+            findings: [
+                {
+                    kind: "contract",
+                    severity: "error",
+                    where: "story",
+                    message: `head ${(tour.head ?? "").slice(0, 7)} is not a commit in this repository; this code story was written somewhere else`,
+                },
+                ...baseHealth.findings,
+            ],
+        }
+        : baseHealth;
     const focusedStory = !!tour.storyScope?.excludedFiles?.length;
     const feedbackHealthy = reviewState.feedbackHealth?.status !== "invalid";
     const feedbackRecovery = reviewState.feedbackHealth?.status === "invalid"
         ? reviewState.feedbackHealth.recovery
         : "";
     const trustPending = !!model.trust.pending;
-    const reviewClean = !trustPending &&
-        feedbackHealthy &&
-        blockingOpenCount === 0 &&
-        uncoveredCount === 0 &&
-        storyFreshness === "current" &&
-        excludedFiles.length === 0 &&
-        indexDivergentFiles.length === 0 &&
-        !focusedStory;
+    // A code story has no coverage to wait for: only feedback can want a decision.
+    const reviewClean = codeStory
+        ? feedbackHealthy && blockingOpenCount === 0
+        : !trustPending &&
+            feedbackHealthy &&
+            blockingOpenCount === 0 &&
+            uncoveredCount === 0 &&
+            storyFreshness === "current" &&
+            excludedFiles.length === 0 &&
+            indexDivergentFiles.length === 0 &&
+            !focusedStory;
     // No story → no coverage to report, so the coverage row is meaningless; hide it.
-    const showTrustPill = !storyless || excludedFiles.length > 0 || indexDivergentFiles.length > 0;
+    // A code story explains no diff, so the same holds.
+    const showTrustPill = !codeStory &&
+        (!storyless || excludedFiles.length > 0 || indexDivergentFiles.length > 0);
     const trustPillClean = !trustPending &&
         !indexDivergentFiles.length &&
         (storyless || (storyFreshness === "current" && !uncoveredCount));
+    const codeHead = codeStory ? (tour.head ?? "") : "";
     const payload = {
         repo,
         repoName: input.repoName ?? routeBase.split("/").pop() ?? "",
         routeBase,
         storyless,
+        subject: codeStory ? "code" : "diff",
+        ...(codeStory
+            ? {
+                code: {
+                    commit: codeHead,
+                    shortCommit: codeHead.slice(0, 7),
+                    ...(tour.codeScope?.ref ? { ref: tour.codeScope.ref } : {}),
+                    label: codeStoryScope(tour).label,
+                    ...(input.storyId ? { storyId: input.storyId } : {}),
+                    ...(tour.codeScope?.question ? { question: tour.codeScope.question } : {}),
+                    paths: tour.codeScope?.paths ?? [],
+                    drift: input.codeDrift ?? { state: "unverified", files: [] },
+                },
+            }
+            : {}),
         baseLabel,
         audience: input.audience ?? "newcomer",
         health,
@@ -1281,11 +1330,14 @@ export function renderReviewShell(input) {
                 : {}),
         },
         steps: model.steps.map(stepView),
-        challengeTargets: challengeTargets(tour, (file) => {
-            if (!healthLines.has(file))
-                healthLines.set(file, readWholeFile(repo, file, headRef));
-            return healthLines.get(file) ?? null;
-        }),
+        // The challenge pass audits a change; a code story's Review page has none.
+        challengeTargets: codeStory
+            ? []
+            : challengeTargets(tour, (file) => {
+                if (!healthLines.has(file))
+                    healthLines.set(file, readWholeFile(repo, file, headRef));
+                return healthLines.get(file) ?? null;
+            }),
         files: model.files.map(fileRow),
         hotspots: model.hotspots.map((spot) => ({
             panelIndex: spot.panelIndex,

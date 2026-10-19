@@ -107,9 +107,13 @@ export function observedPhase(event, isTargetWrite) {
 // Exact phase markers the story prompt tells the agent to print (matched
 // case-insensitively after trimming; trailing `.`/`!` ignored, since agents
 // like to punctuate). Anything else after ">> " is narration.
+// The code-story prompt prints its own words for the same two phases, and the
+// panel should show the words the reader saw in the agent's output.
 const NOTE_MARKERS = [
     ['recovering the why', 'recovering_why'],
+    ['framing the question', 'recovering_why', 'Framing the question'],
     ['designing the reading path', 'designing_path'],
+    ['mapping the code', 'designing_path', 'Mapping the code'],
     ['writing the steps', 'writing_output'],
 ];
 const NARRATION_CAP = 300;
@@ -125,9 +129,9 @@ export function parseAgentNoteLine(line) {
     if (!text.trim())
         return null;
     const low = text.toLowerCase().replace(/[.!\s]+$/, '');
-    for (const [marker, phase] of NOTE_MARKERS) {
+    for (const [marker, phase, label] of NOTE_MARKERS) {
         if (low === marker)
-            return phaseEvent(phase);
+            return phaseEvent(phase, label);
     }
     const clipped = text.length > NARRATION_CAP ? text.slice(0, NARRATION_CAP) + '…' : text;
     return activityEvent('narration', clipped);

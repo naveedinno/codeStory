@@ -10,12 +10,22 @@ import {
 } from "node:http";
 import { spawn } from "node:child_process";
 import {
+  codeScopeIssues,
+  isCodeStory,
   loadTour,
   orderedSteps,
   validateGeneratedConceptSteps,
   validateGeneratedTour,
   validateNewGeneratedStory,
 } from "./tour.js";
+import {
+  changedSinceCommit,
+  codeStoryDrift,
+  codeStoryOutputPath,
+  codeStorySlug,
+  pathExistsAtCommit,
+  verifyCodeStoryEvidence,
+} from "./code-story.js";
 import {
   isGitRepo,
   resolveBase,
@@ -24,6 +34,7 @@ import {
   reviewFileIndex,
   reviewChangeIndexSnapshot,
   describeBase,
+  describeCommit,
   readFileRange,
   readWholeFile,
   listBranchRefs,
@@ -63,7 +74,7 @@ import { esc } from "./diff-render.js";
 import { renderShell } from "./shell.js";
 import type { PickerPayload } from "./payloads.js";
 import type { StoriesPayload, StoryRowView } from "./payloads.js";
-import type { ChangePayload } from "./payloads.js";
+import type { ChangePayload, ExplainPayload } from "./payloads.js";
 import { narrativeText } from "./narrative.js";
 import { summarizeChange } from "./change-view.js";
 import { resolveScope, type Scope } from "./scope.js";
@@ -71,7 +82,9 @@ import {
   basename,
   dirname,
   join,
+  relative,
   resolve,
+  sep,
 } from "node:path";
 import {
   buildFullFileRows,
@@ -114,6 +127,7 @@ import {
   availableAgents,
   streamAgent,
   storyPrompt,
+  codeStoryPrompt,
   agentPreflight,
   selectAvailableAgent,
   normalizeStoryMode,
@@ -188,6 +202,7 @@ import {
   existsSync,
   readFileSync,
   statSync,
+  unlinkSync,
 } from "node:fs";
 import { createAloudReader, type AloudReader } from "./aloud-client.js";
 import { listCodexStoryModels } from "./codex-tasks.js";
@@ -387,7 +402,7 @@ function repoRouteBase(repo: string): string {
 
 function repoRoute(
   repo: string,
-  screen: "stories" | "change" | "review" | "diff",
+  screen: "stories" | "change" | "review" | "diff" | "explain",
   search = "",
 ): string {
   return `${repoRouteBase(repo)}/${screen}${search}`;
@@ -396,7 +411,7 @@ function repoRoute(
 function parseRepoRoute(
   pathname: string,
   repo: string | null,
-): "stories" | "change" | "review" | "diff" | null {
+): "stories" | "change" | "review" | "diff" | "explain" | null {
   if (!repo) return null;
   const base = repoRouteBase(repo);
   if (pathname === base || pathname === `${base}/`) return "stories";
@@ -405,7 +420,8 @@ function parseRepoRoute(
   return screen === "stories" ||
     screen === "change" ||
     screen === "review" ||
-    screen === "diff"
+    screen === "diff" ||
+    screen === "explain"
     ? screen
     : null;
 }
@@ -625,6 +641,9 @@ function handle(
     }
     if (repoScreen === "review") {
       return sendHtml(res, reviewScreen(session, url.searchParams, home));
+    }
+    if (repoScreen === "explain") {
+      return sendHtml(res, explainScreen(session, url.searchParams));
     }
     if (method === "GET" && url.pathname === "/stories") {
       if (session.repo == null) return sendHtml(res, pickerStub(home));
@@ -1368,6 +1387,9 @@ function handle(
     if (method === "POST" && url.pathname === "/api/generate") {
       return readBody(req, res, (body) => runGenerate(res, session, body));
     }
+    if (method === "POST" && url.pathname === "/api/generate/code") {
+      return readBody(req, res, (body) => runGenerateCode(res, session, body));
+    }
     if (method === "POST" && url.pathname === "/api/story/repair") {
       return readBody(req, res, (body) => runStoryRepair(res, session, body));
     }
@@ -1502,6 +1524,8 @@ function storyChooser(session: Session, refreshEvidence = false): string {
     deletions: s.deletions,
     openComments: s.openComments,
     scope: { label: s.scope.label, command: s.scope.command },
+    subject: s.subject,
+    ...(s.subject === "code" && s.head ? { shortCommit: s.head.slice(0, 7) } : {}),
   }));
   const repoName = basename(repo);
   return renderShell<StoriesPayload>({
@@ -1543,12 +1567,13 @@ function reviewScreen(
   const storyFile = selectedStoryPath(session);
   if (existsSync(storyFile)) {
     try {
-      loadTour(storyFile);
+      const opened = loadTour(storyFile);
       const observed = session.repo
         ? storyIdForPath(session.repo, storyFile)
         : null;
       if (observed) snapshotStoryIfChanged(session.repo as string, observed);
-      applyScope(session, params);
+      // A code story ignores scope overrides; leave the session's scope alone.
+      if (!isCodeStory(opened)) applyScope(session, params);
       return renderReview(session);
     } catch (e) {
       return changeScreen(session, params, (e as Error).message);
@@ -1702,6 +1727,65 @@ function renderChange(session: Session, scope: Scope, notice?: string): string {
   });
 }
 
+/**
+ * "Explain code": ask for a code story. `?story=<id>` names an existing code
+ * story to rewrite at the current code, and pre-fills its request. Anything
+ * else under that parameter is reported and ignored, never guessed at.
+ */
+function explainScreen(session: Session, params: URLSearchParams): string {
+  const repo = session.repo as string;
+  const prefs = loadRepoPreferences(repo);
+  const headCommit = resolveCommit(repo, "HEAD");
+  let prefill: ExplainPayload["prefill"];
+  let notice: string | undefined;
+  const requested = params.get("story");
+  if (requested) {
+    const path =
+      requested.startsWith("stories/") && !isHistoryStoryId(requested)
+        ? storyPathForId(repo, requested)
+        : null;
+    let tour: Tour | null = null;
+    try {
+      tour = path ? loadTour(path) : null;
+    } catch {
+      tour = null;
+    }
+    if (tour && isCodeStory(tour)) {
+      prefill = {
+        storyId: requested,
+        title: narrativeText(tour.title),
+        ...(tour.codeScope?.question ? { question: tour.codeScope.question } : {}),
+        paths: tour.codeScope?.paths ?? [],
+        ...(tour.codeScope?.ref ? { ref: tour.codeScope.ref } : {}),
+        ...(tour.mode ? { mode: tour.mode } : {}),
+      };
+    } else {
+      notice = "That code story could not be found, so this starts a new one.";
+    }
+  }
+  const repoName = basename(repo);
+  return renderShell<ExplainPayload>({
+    surface: "explain",
+    title: `${repoName} Explain code`,
+    bodyClass: "ds-map-bg",
+    payload: {
+      repoName,
+      routeBase: repoRouteBase(repo),
+      branch: currentBranch(repo),
+      headCommit,
+      headSubject: headCommit ? describeCommit(repo, headCommit) : "",
+      // Tracked edits only: saved stories are untracked app files under .diffstory/.
+      dirty: headCommit ? (changedSinceCommit(repo, headCommit) ?? []).length > 0 : false,
+      defaults: {
+        mode: normalizeStoryMode(prefs.defaultMode),
+        audience: prefs.audience ?? DEFAULT_AUDIENCE,
+      },
+      ...(prefill ? { prefill } : {}),
+      ...(notice ? { notice } : {}),
+    },
+  });
+}
+
 /** Resolve scope, then render the story-less *review viewer* for it: the real
  *  review page with no story — All-files (the diff) by default, with the Story
  *  tab offering the guided-review generator. This is where "Open the diff" lands. */
@@ -1826,6 +1910,16 @@ interface ReviewPageSnapshot {
 const reviewPageSnapshots = new Map<string, ReviewPageSnapshot>();
 
 /**
+ * The refs a story is read against. A diff story honours the session's scope
+ * overrides; a code story is pinned to its commit and ignores them, so a diff
+ * scope chosen anywhere else can never leak a diff into an explanation.
+ */
+function pinnedStoryRefs(session: Session, tour: Tour): { base?: string; head?: string } {
+  if (isCodeStory(tour)) return { base: tour.base ?? tour.head, head: tour.head };
+  return { base: session.base ?? tour.base, head: session.head ?? tour.head };
+}
+
+/**
  * Capture the initial review from bounded Git metadata only. This deliberately
  * does not call getDiff() or parseUnifiedDiff(); exact file bodies belong to
  * the lazy detail boundary.
@@ -1847,8 +1941,9 @@ function sessionReviewIndex(
 
   const sessionHasScope =
     session.base !== undefined || session.head !== undefined;
-  let base = resolveBase(repo, session.base ?? tour.base);
-  let head = session.head ?? tour.head;
+  const refs = pinnedStoryRefs(session, tour);
+  let base = resolveBase(repo, refs.base);
+  let head = refs.head;
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const indexSnapshot = reviewChangeIndexSnapshot(repo, base, head);
     const fileIndex = indexSnapshot.fileIndex;
@@ -1930,8 +2025,9 @@ function reviewDiff(
 ): { base: string; head?: string; diff: string } {
   const sessionHasScope =
     session.base !== undefined || session.head !== undefined;
-  let base = resolveBase(repo, session.base ?? tour.base);
-  let head = session.head ?? tour.head;
+  const refs = pinnedStoryRefs(session, tour);
+  let base = resolveBase(repo, refs.base);
+  let head = refs.head;
   let diff = getDiff(repo, base, head);
 
   if (
@@ -2026,6 +2122,8 @@ function renderReview(session: Session): string {
     reviewPageToken: pageLease.token,
     storyKey: pageLease.storyIdentity,
     storyDrift,
+    ...(isCodeStory(tour) ? { codeDrift: codeStoryDrift(repo, tour) } : {}),
+    ...(onScreenId ? { storyId: onScreenId } : {}),
     stagedWorktreeDivergentFiles: data.stagedWorktreeDivergentFiles,
     excludedFiles: data.excludedFiles,
     ...(historyNotice ? { history: historyNotice } : {}),
@@ -2090,8 +2188,8 @@ function sessionReviewScope(
     try {
       const tour = loadTour(selectedStoryPath(session));
       return {
-        base: resolveBase(repo, session.base ?? tour.base),
-        head: session.head ?? tour.head,
+        base: resolveBase(repo, pinnedStoryRefs(session, tour).base),
+        head: pinnedStoryRefs(session, tour).head,
       };
     } catch (error) {
       if (requireSelectedStory) throw error;
@@ -2831,6 +2929,8 @@ interface WorkflowSpec {
   cleanup?: () => void;
   /** Optional file scope: relativize file-event paths and count distinct changed-file reads. */
   fileScope?: FileScope;
+  /** Workflow-specific words for the app's own phases ("Resolving the code"). */
+  phaseLabels?: Partial<Record<Phase, string>>;
 }
 
 export function finishStoryGeneration(
@@ -2891,6 +2991,12 @@ export function finishStoryGeneration(
         policy.evolutionManifest,
       );
       qualityErrors.push(...evolutionVerification.errors);
+      if (policy.codeStory) {
+        // Shape validation cannot see the repository; this proves every shown
+        // file and line exists at the commit the reader will be shown.
+        if (!isCodeStory(tour)) qualityErrors.push('a code story must set "subject": "code"');
+        else qualityErrors.push(...verifyCodeStoryEvidence(session.repo ?? repoForStoryPath(storyPath), tour).errors);
+      }
       if (qualityErrors.length) {
         throw new Error(
           `Generated story did not meet the storyteller contract:\n  - ${qualityErrors.join("\n  - ")}`,
@@ -2908,7 +3014,15 @@ export function finishStoryGeneration(
       }
       session.selectedStory = storyPath;
       session.chooseStory = false;
-      return { status, result: { storyWritten, storyValid: true }, events };
+      // A code story lands under stories/, so the client needs its id to open it.
+      const storyId = policy.codeStory
+        ? storyIdForPath(session.repo ?? repoForStoryPath(storyPath), storyPath)
+        : null;
+      return {
+        status,
+        result: { storyWritten, storyValid: true, ...(storyId ? { storyId } : {}) },
+        events,
+      };
     } catch (e) {
       events.push(
         errorEvent(
@@ -2944,6 +3058,8 @@ export function finishStoryGeneration(
 export interface StoryFinishPolicy {
   validateModern: boolean;
   requireStoryArc: boolean;
+  /** A code story: its evidence must exist at its pinned commit, and the result names its id. */
+  codeStory?: boolean;
   originalStoryArc?: StoryArc;
   originalEvolution?: StoryEvolution;
   evolutionManifest?: CommitEvolutionManifest;
@@ -3004,7 +3120,7 @@ function runWorkflow(
   const advance = (phase: Phase, label?: string, detail?: string) => {
     if (phaseRank(phase) <= curRank) return;
     curRank = phaseRank(phase);
-    send(phaseEvent(phase, label, detail));
+    send(phaseEvent(phase, label ?? spec.phaseLabels?.[phase], detail));
   };
 
   send(runStarted(spec.workflow, spec.title));
@@ -3434,6 +3550,27 @@ function runStoryRepair(
       ),
     );
   }
+  // "Explain" adds a step for an uncovered change; a code story has no diff,
+  // so the request is refused before any agent is involved.
+  if (action === "explain" && session.repo) {
+    let codeStoryOnScreen = false;
+    try {
+      codeStoryOnScreen = isCodeStory(loadTour(selectedStoryPath(session)));
+    } catch {
+      // A missing or invalid story is reported by the ordinary path below.
+    }
+    if (codeStoryOnScreen) {
+      return sendJson(
+        res,
+        400,
+        errorEvent(
+          "preflight",
+          "Invalid story repair",
+          "A code story has no uncovered change to explain. Rewrite, shorten, or split a step instead.",
+        ),
+      );
+    }
+  }
   const agents = availableAgents();
   const pre = agentPreflight({ repo: session.repo, busy: agentBusy, agents });
   if (!pre.ok)
@@ -3479,6 +3616,20 @@ function runStoryRepair(
     );
   }
   const storyBefore = readFileSync(storyPath, "utf8");
+  if (isCodeStory(originalTour)) {
+    return runCodeStoryRepair(res, session, {
+      repo,
+      storyPath,
+      storyBefore,
+      originalTour,
+      storyWasModern,
+      action,
+      agent: selected.agent,
+      file: input.file?.trim() || undefined,
+      line: Number.isFinite(input.line) ? Math.trunc(Number(input.line)) : undefined,
+      stepId: input.stepId?.trim() || undefined,
+    });
+  }
   const data = sessionReviewData(session);
   const repairEvolutionManifest = originalTour.evolution
     ? commitEvolutionManifest(
@@ -3567,6 +3718,91 @@ function runStoryRepair(
         postRenamePath(file.path),
       ),
     },
+  });
+}
+
+/**
+ * A targeted repair to a code story: read against its pinned commit, written
+ * back to its own file, re-stamped with the facts it was written for, and
+ * finished without a diff baseline (a code story has none).
+ */
+function runCodeStoryRepair(
+  res: ServerResponse,
+  session: Session,
+  job: {
+    repo: string;
+    storyPath: string;
+    storyBefore: string;
+    originalTour: Tour;
+    storyWasModern: boolean;
+    action: StoryRepairAction;
+    agent: Agent;
+    file?: string;
+    line?: number;
+    stepId?: string;
+  },
+): void {
+  const { repo, storyPath, storyBefore, originalTour, action } = job;
+  const commit = originalTour.head as string;
+  const storyFile = relative(repo, storyPath).split(sep).join("/");
+  const scope = originalTour.codeScope ?? {};
+  const short = commit.slice(0, 7);
+  const title =
+    action === "rewrite"
+      ? "Rewriting a story step"
+      : action === "shorten"
+        ? "Shortening a story step"
+        : "Splitting a story step";
+  let accepted = false;
+  runWorkflow(res, repo, {
+    workflow: "code_story",
+    title,
+    agent: job.agent,
+    prompt: storyRepairPrompt({
+      action,
+      file: job.file,
+      line: job.line,
+      stepId: job.stepId,
+      base: commit,
+      head: commit,
+      hasStoryArc: !!originalTour.storyArc,
+      storyFile,
+      codeCommit: commit,
+    }),
+    context: {
+      repoName: basename(repo),
+      repoPath: repo,
+      workflow: "code_story",
+      agent: job.agent,
+      base: scope.ref && scope.ref !== commit ? `${scope.ref} @ ${short}` : short,
+    },
+    phaseLabels: CODE_STORY_PHASE_LABELS,
+    isTargetWrite: (event) => event.type === "file" && event.action !== "read" && event.target.endsWith(storyFile),
+    finish: (result) => {
+      const storyChanged = existsSync(storyPath) && readFileSync(storyPath, "utf8") !== storyBefore;
+      if (storyChanged) {
+        prepareCodeStoryOutput(storyPath, {
+          commit,
+          ...(scope.ref ? { ref: scope.ref } : {}),
+          ...(scope.question ? { question: scope.question } : {}),
+          paths: scope.paths ?? [],
+        });
+      }
+      const finished = finishStoryGeneration(result, storyPath, session, storyBefore, {
+        validateModern: job.storyWasModern,
+        requireStoryArc: false,
+        originalStoryArc: originalTour.storyArc,
+        codeStory: true,
+      });
+      accepted = finished.status === "complete";
+      return accepted || !storyChanged
+        ? finished
+        : { ...finished, events: [...finished.events, restoreNote(storyBefore)] };
+    },
+    cleanup: () => {
+      if (!accepted) restoreCodeStory(storyPath, storyBefore);
+    },
+    fileScope: { repoPath: repo, changedFiles: [] },
   });
 }
 
@@ -3744,6 +3980,258 @@ function runGenerate(
       );
     },
     fileScope: { repoPath: repo, changedFiles },
+  });
+}
+
+/** The request facts a code story is pinned to, stamped by the server after the run. */
+export interface CodeStoryFacts {
+  commit: string;
+  ref?: string;
+  question?: string;
+  paths: string[];
+}
+
+/**
+ * Stamp the server-owned facts onto an agent-written code story in one atomic
+ * write: which commit it explains, what the reader asked, and the version and
+ * subject the reader depends on. Everything the agent authored stays as written.
+ */
+export function prepareCodeStoryOutput(storyPath: string, facts: CodeStoryFacts): void {
+  if (!existsSync(storyPath)) return;
+  try {
+    const parsed = JSON.parse(readFileSync(storyPath, "utf8")) as Record<string, unknown>;
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return;
+    parsed.version = 4;
+    parsed.subject = "code";
+    parsed.head = facts.commit;
+    parsed.base = facts.commit;
+    parsed.codeScope = {
+      ...(facts.ref ? { ref: facts.ref } : {}),
+      ...(facts.question ? { question: facts.question } : {}),
+      ...(facts.paths.length ? { paths: facts.paths } : {}),
+    };
+    writeJsonAtomic(storyPath, parsed);
+  } catch {
+    // The final load reports malformed agent output with its ordinary validation error.
+  }
+}
+
+/**
+ * Put a code story back the way the reader had it after a run that was not
+ * accepted (failed or stopped): a rewrite or repair gets its previous text, and
+ * a brand-new story that never passed leaves no broken entry in Review history.
+ * Every version the agent wrote is still in the story's history snapshots.
+ */
+function restoreCodeStory(storyPath: string, before: string | null): void {
+  if (before !== null) writeTextAtomic(storyPath, before);
+  else if (existsSync(storyPath)) unlinkSync(storyPath);
+}
+
+/** The finish-panel note that says what the restore above did. */
+function restoreNote(before: string | null): ProgressEvent {
+  return warningEvent(
+    before !== null ? "Your previous story is kept" : "Nothing was saved",
+    before !== null
+      ? "The story you had is restored. The failed version is in its history."
+      : "The failed story was not added to Review history.",
+    "validation",
+  );
+}
+
+type CodeStoryRequest =
+  | (CodeStoryFacts & { ok: true; ref: string; storyPath: string })
+  | { ok: false; detail: string };
+
+/**
+ * Turn a code-story request into exact facts before any agent is involved:
+ * the ref must be a commit here, each focus path must exist at it, and a
+ * rewrite must name an existing code story. Bad input never reaches a run.
+ */
+function resolveCodeStoryRequest(
+  repo: string,
+  input: { question?: unknown; paths?: unknown; ref?: unknown; storyId?: unknown },
+): CodeStoryRequest {
+  if (input.question != null && typeof input.question !== "string")
+    return { ok: false, detail: "The question must be text." };
+  const question = typeof input.question === "string" ? input.question.trim() : "";
+
+  const rawPaths =
+    input.paths == null
+      ? []
+      : Array.isArray(input.paths)
+        ? input.paths
+        : typeof input.paths === "string"
+          ? input.paths.split(/[\n,]/)
+          : null;
+  if (rawPaths === null || rawPaths.some((path) => typeof path !== "string"))
+    return { ok: false, detail: "Focus paths must be a list of repository paths." };
+  const paths = [
+    ...new Set(
+      (rawPaths as string[])
+        .map((path) => path.trim().replace(/^\.\/+/, "").replace(/\/+$/, ""))
+        .filter(Boolean),
+    ),
+  ];
+  if (paths.length > 50) return { ok: false, detail: "Pick at most 50 focus paths." };
+
+  const ref =
+    typeof input.ref === "string" && input.ref.trim()
+      ? input.ref.trim()
+      : currentBranch(repo) ?? "HEAD";
+  // The same rules the finished file must pass, checked before any agent runs.
+  const scopeIssue = codeScopeIssues({ ref, ...(question ? { question } : {}) })[0];
+  if (scopeIssue) return { ok: false, detail: humanCodeScopeIssue(scopeIssue) };
+  const commit = resolveCommit(repo, ref);
+  if (!commit) return { ok: false, detail: `"${ref}" is not a commit in this repository.` };
+  for (const path of paths) {
+    try {
+      assertSafeRepoPath(path);
+    } catch {
+      return { ok: false, detail: `${path} is not a path inside this repository.` };
+    }
+    if (!pathExistsAtCommit(repo, commit, path))
+      return { ok: false, detail: `${path} does not exist at ${commit.slice(0, 7)}.` };
+  }
+
+  let storyPath: string;
+  if (input.storyId != null) {
+    const id = typeof input.storyId === "string" ? input.storyId : "";
+    const existing = id.startsWith("stories/") && !isHistoryStoryId(id) ? storyPathForId(repo, id) : null;
+    let rewritable = false;
+    try {
+      rewritable = !!existing && isCodeStory(loadTour(existing));
+    } catch {
+      rewritable = false;
+    }
+    if (!existing || !rewritable) return { ok: false, detail: "That code story could not be found." };
+    storyPath = existing;
+  } else {
+    storyPath = codeStoryOutputPath(repo, codeStorySlug({ question, paths }));
+  }
+  return {
+    ok: true,
+    commit,
+    ref,
+    ...(question ? { question } : {}),
+    paths,
+    storyPath,
+  };
+}
+
+/** A `codeScopeIssues()` message, said to the reader who typed the request. */
+function humanCodeScopeIssue(issue: string): string {
+  const subject = issue.startsWith("codeScope.ref") ? "the ref" : "the question";
+  const max = /at most (\d+) characters/.exec(issue);
+  if (max) return `Keep ${subject} under ${Number(max[1]).toLocaleString("en-US")} characters.`;
+  if (/control characters/.test(issue)) return `Remove control characters from ${subject}.`;
+  return `Check ${subject}: ${issue.replace(/^codeScope\.\S+\s/, "")}.`;
+}
+
+const CODE_STORY_PHASE_LABELS: Partial<Record<Phase, string>> = {
+  resolving_context: "Resolving the code",
+  reading_changes: "Reading the code",
+};
+
+/** Drive the agent to write a code story: existing code at one commit, no diff. */
+function runGenerateCode(res: ServerResponse, session: Session, body: string): void {
+  let input: {
+    question?: unknown;
+    paths?: unknown;
+    ref?: unknown;
+    storyId?: unknown;
+    agent?: string;
+    model?: string;
+    mode?: string;
+    audience?: unknown;
+    codexSandbox?: string;
+    codexProvider?: string;
+    codexProfile?: string;
+    codexConfig?: string[] | string;
+  } = {};
+  try {
+    input = JSON.parse(body || "{}");
+  } catch {
+    return sendJson(res, 400, errorEvent("preflight", "Invalid request", "The request body was not valid JSON."));
+  }
+  // No snapshot guard: a code story names its own target. A new one writes a
+  // fresh file, and a rewrite must name a live story (history ids are refused
+  // below), so a snapshot open in another view is never touched.
+  if (!session.repo) {
+    return sendJson(res, 409, errorEvent("preflight", "No repository is open", "Pick a repository before starting an agent run."));
+  }
+  const repo = session.repo;
+  const request = resolveCodeStoryRequest(repo, input);
+  if (!request.ok) return sendJson(res, 400, errorEvent("preflight", "Invalid code story request", request.detail));
+
+  const agents = availableAgents();
+  const pre = agentPreflight({ repo, busy: agentBusy, agents });
+  if (!pre.ok) return sendJson(res, pre.status, errorEvent(pre.stage, pre.label, pre.detail));
+  const selected = selectAvailableAgent(input.agent, agents, pre.agent);
+  if (!selected.ok) return sendJson(res, selected.status, errorEvent(selected.stage, selected.label, selected.detail));
+  const agent = selected.agent;
+  const model = input.model && input.model.trim() ? input.model.trim() : undefined;
+  const repoPrefs = loadRepoPreferences(repo);
+  const mode = normalizeStoryMode(input.mode ?? repoPrefs.defaultMode);
+  const agentOptions = agent === "codex" ? { codex: normalizeCodexRunOptions(input) } : undefined;
+  const audience = isStoryAudience(input.audience)
+    ? saveRepoPreferences(repo, { audience: input.audience }).audience ?? DEFAULT_AUDIENCE
+    : repoPrefs.audience ?? DEFAULT_AUDIENCE;
+  const { commit, ref, question, paths, storyPath } = request;
+  const storyFile = relative(repo, storyPath).split(sep).join("/");
+  const storyBefore = existsSync(storyPath) ? readFileSync(storyPath, "utf8") : null;
+  const short = commit.slice(0, 7);
+  const title =
+    mode === "brief"
+      ? "Writing a quick code tour"
+      : mode === "detailed"
+        ? "Writing a deep code walkthrough"
+        : "Writing a guided code tour";
+  let accepted = false;
+
+  runWorkflow(res, repo, {
+    workflow: "code_story",
+    title,
+    agent,
+    model,
+    agentOptions,
+    prompt: codeStoryPrompt({
+      commit,
+      ref,
+      question,
+      paths,
+      mode,
+      audience,
+      storyFile,
+      worktreeDiffers: changedSinceCommit(repo, commit) ?? [],
+    }),
+    context: {
+      repoName: basename(repo),
+      repoPath: repo,
+      workflow: "code_story",
+      agent,
+      model,
+      base: ref === commit ? short : `${ref} @ ${short}`,
+    },
+    phaseLabels: CODE_STORY_PHASE_LABELS,
+    isTargetWrite: (ev) => ev.type === "file" && ev.action !== "read" && ev.target.endsWith(storyFile),
+    finish: (r) => {
+      const storyChanged =
+        existsSync(storyPath) && (storyBefore === null || readFileSync(storyPath, "utf8") !== storyBefore);
+      if (storyChanged) prepareCodeStoryOutput(storyPath, { commit, ref, question, paths });
+      const finished = finishStoryGeneration(r, storyPath, session, storyBefore, {
+        validateModern: true,
+        requireStoryArc: true,
+        codeStory: true,
+      });
+      accepted = finished.status === "complete";
+      return accepted || !storyChanged
+        ? finished
+        : { ...finished, events: [...finished.events, restoreNote(storyBefore)] };
+    },
+    cleanup: () => {
+      if (!accepted) restoreCodeStory(storyPath, storyBefore);
+    },
+    fileScope: { repoPath: repo, changedFiles: [] },
   });
 }
 

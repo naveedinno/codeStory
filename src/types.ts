@@ -147,10 +147,37 @@ export type StoryNarrativeShape =
   | 'core-supporting'
   | 'rule-instances';
 
+/** What a story explains: a change, or existing code at one commit. */
+export type StorySubject = 'diff' | 'code';
+
+/** The reading structures a code story uses to explain code nobody changed. */
+export type CodeStoryShape =
+  | 'entry-implementation'
+  | 'lifecycle'
+  | 'data-flow'
+  | 'map-then-path'
+  | 'core-supporting'
+  | 'rule-instances'
+  | 'cause-effect';
+
+/**
+ * What the reader asked a code story to explain. Plain text throughout: it is
+ * reader-authored and echoed back into prompts and labels, never rendered as markup.
+ */
+export interface CodeScope {
+  /** The name the reader picked ("main", "v1.2.0"); `head` pins its commit. */
+  ref?: string;
+  /** The request as typed: what the reader wants to understand. */
+  question?: string;
+  /** Repo-relative files or directories the reader asked the story to focus on. */
+  paths?: string[];
+}
+
 /** A compact declaration of how the reviewer should read the final change. */
 export interface StoryArc {
-  changeType: StoryChangeType;
-  shape: StoryNarrativeShape;
+  /** Diff stories only, where it is required. A code story explains code that did not change. */
+  changeType?: StoryChangeType;
+  shape: StoryNarrativeShape | CodeStoryShape;
   /** Plain-text stages separated with ASCII `->`; the UI renders proper arrows. */
   readingPath: string;
 }
@@ -402,6 +429,14 @@ export interface Tour {
   storySnapshot?: { version: 1; id: string };
   /** Story depth requested at generation time; old stories default to guided. */
   mode?: StoryMode;
+  /**
+   * What the story explains. Absent means a diff story. A `code` story explains
+   * existing code at one commit: `head` is that commit's full id, `base` equals
+   * it, and every code step is a `context` step.
+   */
+  subject?: StorySubject;
+  /** Code stories only: what the reader asked the story to explain. */
+  codeScope?: CodeScope;
   /** Plain text — it feeds `<title>`, the page header, and a chrome tooltip. */
   title: string;
   /** Inline-tier HTML — it renders inside the intro `<p>` the narrator reads. */
