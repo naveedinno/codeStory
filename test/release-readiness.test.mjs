@@ -15,6 +15,7 @@ test('README leads with a visual demo, desktop quickstart, and local-first posit
   const readme = read('README.md');
   assert.match(readme, /!\[codeStory saved stories screen\]\(assets\/demo\/codestory-story-picker\.png\)/);
   assert.match(readme, /!\[codeStory guided review screen\]\(assets\/demo\/codestory-review\.png\)/);
+  assert.match(readme, /!\[codeStory concept primer with a diagram\]\(assets\/demo\/codestory-concept\.png\)/);
   assert.doesNotMatch(readme, /assets\/demo\/codestory-demo\.svg/);
   assert.match(readme, /scripts\/install-macos-app\.sh/);
   assert.match(readme, /There is no\s+codeStory CLI/);
@@ -97,7 +98,7 @@ test('license is source-available for personal use and requires commercial licen
 });
 
 test('real demo screenshots exist where README references them', () => {
-  for (const asset of ['assets/demo/codestory-story-picker.png', 'assets/demo/codestory-review.png']) {
+  for (const asset of ['assets/demo/codestory-story-picker.png', 'assets/demo/codestory-review.png', 'assets/demo/codestory-concept.png']) {
     assert.ok(exists(asset), `${asset} should exist`);
     assert.ok(statSync(new URL(`../${asset}`, import.meta.url)).size > 20_000, `${asset} should be a real screenshot`);
   }

@@ -107,6 +107,8 @@ Inside a repo, codeStory gives you two useful ways to read:
   rendered in a sandboxed frame; pages are offline unless they opt into network
   access, so see [the privacy notes](docs/story-schema.md#concept-pages-and-privacy).
 
+![codeStory concept primer with a diagram](assets/demo/codestory-concept.png)
+
 The story never replaces the diff. It only explains and orders it. The code you
 read comes from git.
 
