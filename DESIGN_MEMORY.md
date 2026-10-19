@@ -4,7 +4,7 @@
 
 Chosen by the owner (July 2026), superseding the earlier Apple-HIG / graphite direction. An instrument-grade, developer-native evolution of the original graphite + system-blue UI: colder **ink** surfaces, one electric **signal-blue** accent, mono-typed data everywhere, and oversized **Space Grotesk** step numerals that double as the "thread" navigation nodes.
 
-The imported mockup (source of truth for values and per-screen layouts) lives at `.claude-design/lab/diffstory-ds/` — run it via the `codestory-ds-preview` launch config. Its `readme.md` is the full design brief.
+The imported mockup (source of truth for values and per-screen layouts) was removed from the tree in October 2026; it is still in git history at `.claude-design/lab/diffstory-ds/` (last present in commit `2041d10`), and its `readme.md` is the full design brief.
 
 - **Workflow:** Scope → Read → Resolve → Decide. Git provides evidence; the story provides reading order; the review loop records human judgment.
 - **Surfaces = islands:** app chrome floats as rounded panels (`--radius-island` 16px) on a deeper page background, separated by 12px gutters. Flat, no gradients, no glass; shadow only on overlays.

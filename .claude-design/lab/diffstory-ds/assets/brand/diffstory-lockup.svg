@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 168 32">
-  <g transform="translate(0 4)">
-    <path d="M6.6 5.4h8.7c2 0 3.6 1.6 3.6 3.6s-1.6 3.6-3.6 3.6H8.8c-2.1 0-3.8 1.7-3.8 3.8s1.7 3.8 3.8 3.8h8.6" fill="none" stroke="#007aff" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"></path>
-    <circle cx="6.6" cy="5.4" r="2.35" fill="#1d1d1f"></circle>
-    <circle cx="15.3" cy="12.6" r="2.35" fill="#64d2ff"></circle>
-    <circle cx="17.4" cy="20.2" r="2.35" fill="#1d1d1f"></circle>
-  </g>
-  <text x="33" y="23" font-family="-apple-system,BlinkMacSystemFont,&#39;SF Pro Text&#39;,&#39;Segoe UI&#39;,sans-serif" font-size="22" font-weight="690" letter-spacing="0" fill="#1d1d1f">diff<tspan fill="#0067d6" font-weight="710">Story</tspan></text>
-</svg>

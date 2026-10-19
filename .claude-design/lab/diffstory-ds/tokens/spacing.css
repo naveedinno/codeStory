@@ -1,6 +1,0 @@
-/* 4px base scale; rounded controls 6/9/12px harmonize with 16px islands. */
-:root{
-  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px; --sp-8:32px; --sp-10:40px;
-  --radius-sm:6px; --radius:9px; --radius-lg:12px; --radius-island:16px;
-  --rail-width:316px; --control-h:32px; --control-h-lg:38px; --hairline-w:1px;
-}
