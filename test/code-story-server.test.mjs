@@ -48,8 +48,8 @@ function codeStory(sha, over = {}) {
 }
 
 function writeCodeStory(dir, story, name = 'code-cap.json') {
-  mkdirSync(join(dir, '.diffstory', 'stories'), { recursive: true });
-  const path = join(dir, '.diffstory', 'stories', name);
+  mkdirSync(join(dir, '.codestory', 'stories'), { recursive: true });
+  const path = join(dir, '.codestory', 'stories', name);
   writeFileSync(path, JSON.stringify(story));
   return path;
 }
@@ -191,7 +191,7 @@ test('a finished code story reports its story id and becomes the selected story'
 
 // ---- the review page reads a code story at its pinned commit ----
 
-const shellPayload = (html) => JSON.parse(html.match(/id="__DIFFSTORY_DATA__">([\s\S]*?)<\/script>/)[1]);
+const shellPayload = (html) => JSON.parse(html.match(/id="__CODESTORY_DATA__">([\s\S]*?)<\/script>/)[1]);
 const routeBase = (dir) => `/repo/${encodeURIComponent(basename(dir))}`;
 const pageOf = async (base, dir, path) => shellPayload(await (await fetch(`${base}${routeBase(dir)}${path}`)).text());
 
@@ -419,7 +419,7 @@ test('a failed new code story leaves no broken story behind', async () => {
         assert.equal(done.status, 'failed', JSON.stringify(done));
       }),
     );
-    assert.equal(existsSync(join(dir, '.diffstory', 'stories', 'code-how-is-the-rate-capped.json')), false);
+    assert.equal(existsSync(join(dir, '.codestory', 'stories', 'code-how-is-the-rate-capped.json')), false);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -448,8 +448,8 @@ test('a new code story can be asked for while a history snapshot is open', async
   const { dir, sha } = committedRepo();
   try {
     const snapshot = 'code-cap-20261019T000000-abcdef12.json';
-    mkdirSync(join(dir, '.diffstory', 'history'), { recursive: true });
-    writeFileSync(join(dir, '.diffstory', 'history', snapshot), JSON.stringify(codeStory(sha)));
+    mkdirSync(join(dir, '.codestory', 'history'), { recursive: true });
+    writeFileSync(join(dir, '.codestory', 'history', snapshot), JSON.stringify(codeStory(sha)));
     await withServer(dir, async (base) => {
       await pageOf(base, dir, `/review?story=history/${snapshot}`);
       // A new story writes a fresh file and mutates nothing the snapshot froze.

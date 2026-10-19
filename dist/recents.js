@@ -1,5 +1,5 @@
-// A small global store of recently-opened repos, kept at ~/.diffstory/recents.json
-// (distinct from each repo's local .diffstory/ data dir). The pure `addRecent`
+// A small global store of recently-opened repos, kept at ~/.codestory/recents.json
+// (distinct from each repo's local .codestory/ data dir). The pure `addRecent`
 // reducer is unit-tested; the FS wrappers take `home` so tests can use a temp dir.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -42,7 +42,7 @@ export function loadRecents(home) {
         return [];
     }
 }
-/** Write the recents list, creating ~/.diffstory/ if needed. */
+/** Write the recents list, creating ~/.codestory/ if needed. */
 export function saveRecents(home, list) {
     const file = recentsFile(home);
     mkdirSync(dirname(file), { recursive: true });

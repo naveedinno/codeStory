@@ -6,7 +6,7 @@ import {
   useState,
 } from "react";
 // Upstream imports `createHighlighter` from `shiki` here. shiki is a
-// multi-megabyte async WASM highlighter and diffStory already highlights
+// multi-megabyte async WASM highlighter and codeStory already highlights
 // synchronously in its own palette (`src/highlight.ts`), so it is not adopted
 // (README modification 4). Two seams replace it:
 //   • `setAgentCodeTokenizer()` — install a tokenizer once, app-wide, and

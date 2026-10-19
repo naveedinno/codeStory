@@ -1,4 +1,4 @@
-// The repository picker — diffStory's front door.
+// The repository picker — codeStory's front door.
 //
 // Rendered for `GET /repos`, and for `/`, `/change`, `/review` and `/stories`
 // when no repository is open. Everything it shows on first paint comes from the

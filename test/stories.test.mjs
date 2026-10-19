@@ -18,7 +18,7 @@ import { captureStorySnapshot } from '../dist/story-drift.js';
 const tmp = () => mkdtempSync(join(tmpdir(), 'ds-stories-'));
 
 function writeStory(repo, rel, title, extra = {}) {
-  const path = join(repo, '.diffstory', rel);
+  const path = join(repo, '.codestory', rel);
   mkdirSync(join(path, '..'), { recursive: true });
   writeFileSync(
     path,
@@ -55,7 +55,7 @@ test('listStories discovers primary, legacy, and named stories', () => {
   writeStory(repo, 'review-tour.json', 'Legacy story');
   writeStory(repo, 'stories/liquidation.json', 'Liquidation story');
   writeStory(repo, 'stories/payments/monthly.json', 'Monthly story');
-  writeFileSync(join(repo, '.diffstory', 'comments.json'), '[]');
+  writeFileSync(join(repo, '.codestory', 'comments.json'), '[]');
 
   const stories = listStories(repo);
   assert.deepEqual(stories.map((s) => s.id).sort(), [
@@ -82,9 +82,9 @@ test('story lists are newest first in both navigation and refreshed projections'
   const oldest = new Date('2026-08-01T10:00:00Z');
   const middle = new Date('2026-08-02T10:00:00Z');
   const newest = new Date('2026-08-03T10:00:00Z');
-  utimesSync(join(repo, '.diffstory', 'story.json'), oldest, oldest);
-  utimesSync(join(repo, '.diffstory', 'stories', 'middle.json'), middle, middle);
-  utimesSync(join(repo, '.diffstory', 'stories', 'newest.json'), newest, newest);
+  utimesSync(join(repo, '.codestory', 'story.json'), oldest, oldest);
+  utimesSync(join(repo, '.codestory', 'stories', 'middle.json'), middle, middle);
+  utimesSync(join(repo, '.codestory', 'stories', 'newest.json'), newest, newest);
 
   const expected = ['stories/newest.json', 'stories/middle.json', 'story.json'];
   assert.deepEqual(listStoryMetadata(repo).map((story) => story.id), expected);
@@ -240,9 +240,9 @@ test('listStories keeps a scoped story current across side drift and stales it o
 
 test('listStories includes invalid stories with an error and ignores comments', () => {
   const repo = tmp();
-  mkdirSync(join(repo, '.diffstory'), { recursive: true });
-  writeFileSync(join(repo, '.diffstory', 'story.json'), '{"bogus":true}');
-  writeFileSync(join(repo, '.diffstory', 'comments.json'), '{"bogus":true}');
+  mkdirSync(join(repo, '.codestory'), { recursive: true });
+  writeFileSync(join(repo, '.codestory', 'story.json'), '{"bogus":true}');
+  writeFileSync(join(repo, '.codestory', 'comments.json'), '{"bogus":true}');
 
   const stories = listStories(repo);
   assert.equal(stories.length, 1);
@@ -258,8 +258,8 @@ test('storyPathForId only resolves known story ids', () => {
   writeStory(repo, 'stories/a.json', 'A');
   writeStory(repo, 'stories/deeper/b.json', 'B');
 
-  assert.equal(storyPathForId(repo, 'stories/a.json'), join(repo, '.diffstory', 'stories', 'a.json'));
-  assert.equal(storyPathForId(repo, 'stories/deeper/b.json'), join(repo, '.diffstory', 'stories', 'deeper', 'b.json'));
+  assert.equal(storyPathForId(repo, 'stories/a.json'), join(repo, '.codestory', 'stories', 'a.json'));
+  assert.equal(storyPathForId(repo, 'stories/deeper/b.json'), join(repo, '.codestory', 'stories', 'deeper', 'b.json'));
   assert.equal(storyPathForId(repo, '../a.json'), null);
   assert.equal(storyPathForId(repo, 'comments.json'), null);
 
@@ -270,7 +270,7 @@ test('deleteStory removes only known story files', () => {
   const repo = tmp();
   writeStory(repo, 'story.json', 'Primary');
   writeStory(repo, 'stories/deeper/b.json', 'Nested');
-  writeFileSync(join(repo, '.diffstory', 'comments.json'), '[]');
+  writeFileSync(join(repo, '.codestory', 'comments.json'), '[]');
 
   assert.equal(deleteStory(repo, 'stories/deeper/b.json'), true);
   assert.equal(storyPathForId(repo, 'stories/deeper/b.json'), null);
@@ -296,8 +296,8 @@ test('storyIdForPath inverts storyPathForId without scanning the directory', () 
 test('storyIdForPath rejects paths outside the repo data dir', () => {
   const repo = tmp();
 
-  assert.equal(storyIdForPath(repo, join(repo, '.diffstory')), null, 'the data dir itself is not a story');
-  assert.equal(storyIdForPath(repo, join(repo, 'story.json')), null, 'outside .diffstory');
+  assert.equal(storyIdForPath(repo, join(repo, '.codestory')), null, 'the data dir itself is not a story');
+  assert.equal(storyIdForPath(repo, join(repo, 'story.json')), null, 'outside .codestory');
   assert.equal(storyIdForPath(repo, '/etc/passwd'), null, 'absolute escape');
   assert.equal(storyIdForPath(repo, join(repo, '..', 'other', 'story.json')), null, 'parent escape');
 

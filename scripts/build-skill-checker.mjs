@@ -8,7 +8,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const outfile = resolve(root, 'skills/diffstory-storyteller/scripts/check-story.mjs');
+const outfile = resolve(root, 'skills/codestory-storyteller/scripts/check-story.mjs');
 
 await build({
   entryPoints: [resolve(root, 'src/story-check-cli.ts')],

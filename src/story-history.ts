@@ -1,5 +1,5 @@
 // Automatic snapshots of story files so earlier walkthroughs survive
-// regeneration and repair. The agent writes `.diffstory/story.json` directly,
+// regeneration and repair. The agent writes `.codestory/story.json` directly,
 // so there is no server write path to hook: instead the app snapshots the
 // story it observes on read paths (picker, review, post-generation finish).
 // History therefore holds every version the app has seen; a version written

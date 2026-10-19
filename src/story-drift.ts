@@ -27,17 +27,17 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { gunzipSync, gzipSync } from 'node:zlib';
+import { APP_DATA_PATHSPECS, DATA_DIR, isAppDataPath } from './config.js';
 import { isGeneratedPath } from './noise.js';
 import type { StoryScope } from './types.js';
 
 const SNAPSHOT_VERSION = 1 as const;
-const SNAPSHOT_DIR = '.diffstory/snapshots';
+const SNAPSHOT_DIR = `${DATA_DIR}/snapshots`;
 const BLOB_DIR = `${SNAPSHOT_DIR}/blobs`;
 const MAX_STORED_BYTES = 2 * 1024 * 1024;
 const MAX_RENDERED_DIFF_BYTES = 512 * 1024;
 const MAX_GIT_BUFFER = 128 * 1024 * 1024;
 const STABLE_READ_ATTEMPTS = 3;
-const APP_DATA_PATHSPEC = ':(exclude).diffstory/**';
 
 export interface StorySnapshotRef {
   version: typeof SNAPSHOT_VERSION;
@@ -302,9 +302,10 @@ function observe(
   const current = stableScan(repo, manifest.base.resolvedTree, currentHeadTree, captureBytes);
   if (expected !== undefined) assertExpectedBinding(repo, manifest, expected);
   if (manifest.head && resolveTree(repo, manifest.head.requested) !== currentHeadTree) {
-    throw new Error('The story head moved while DiffStory inspected it. Refresh and try again.');
+    throw new Error('The story head moved while codeStory inspected it. Refresh and try again.');
   }
   const changes = compareStates(repo, manifest, current);
+  // Digest tags here predate the codeStory rename and stay unchanged.
   const observationId = digest(
     `diffstory-observation-v1\0${manifest.id}\0${current.identity}\0${current.complete ? 'complete' : 'incomplete'}`,
   );
@@ -318,7 +319,7 @@ function stableScan(repo: string, baseTree: string, headTree: string | undefined
     const confirmation = scanState(repo, baseTree, headTree, false, objectFormat);
     if (first.identity === confirmation.identity && first.complete === confirmation.complete) return first;
   }
-  throw new Error('The repository kept changing while DiffStory read it; try again after the write finishes.');
+  throw new Error('The repository kept changing while codeStory read it; try again after the write finishes.');
 }
 
 function scanState(
@@ -359,15 +360,15 @@ function scanState(
 function changedPaths(repo: string, baseTree: string, headTree?: string): string[] {
   const paths = new Set<string>();
   if (headTree) {
-    addNulPaths(paths, git(repo, ['diff', '--name-only', '-z', '--no-renames', baseTree, headTree, '--', APP_DATA_PATHSPEC]));
+    addNulPaths(paths, git(repo, ['diff', '--name-only', '-z', '--no-renames', baseTree, headTree, '--', ...APP_DATA_PATHSPECS]));
   } else {
-    addNulPaths(paths, git(repo, ['diff', '--name-only', '-z', '--no-renames', baseTree, '--', APP_DATA_PATHSPEC]));
-    addNulPaths(paths, git(repo, ['diff', '--cached', '--name-only', '-z', '--no-renames', baseTree, '--', APP_DATA_PATHSPEC]));
-    addNulPaths(paths, git(repo, ['diff', '--name-only', '-z', '--no-renames', '--', APP_DATA_PATHSPEC]));
+    addNulPaths(paths, git(repo, ['diff', '--name-only', '-z', '--no-renames', baseTree, '--', ...APP_DATA_PATHSPECS]));
+    addNulPaths(paths, git(repo, ['diff', '--cached', '--name-only', '-z', '--no-renames', baseTree, '--', ...APP_DATA_PATHSPECS]));
+    addNulPaths(paths, git(repo, ['diff', '--name-only', '-z', '--no-renames', '--', ...APP_DATA_PATHSPECS]));
     addNulPaths(paths, git(repo, ['ls-files', '--others', '--exclude-standard', '-z']));
   }
   return [...paths]
-    .filter((path) => path !== '.diffstory' && !path.startsWith('.diffstory/'))
+    .filter((path) => !isAppDataPath(path))
     .sort((a, b) => a.localeCompare(b));
 }
 
@@ -846,7 +847,7 @@ function materializeDiff(repo: string, observation: Observation, change: Interna
     return {
       ...baseResult,
       status: 'partial',
-      diff: `${prefix}\n... DiffStory truncated this drift diff; use Git for the complete patch.\n`,
+      diff: `${prefix}\n... codeStory truncated this drift diff; use Git for the complete patch.\n`,
       reason: 'The exact patch is larger than the safe inline rendering limit.',
     };
   }
@@ -918,7 +919,7 @@ function unifiedDiff(
   beforeMode?: string,
   afterMode?: string,
 ): string | null {
-  const dir = mkdtempSync(join(tmpdir(), 'diffstory-drift-'));
+  const dir = mkdtempSync(join(tmpdir(), 'codestory-drift-'));
   try {
     const beforeFile = join(dir, 'before');
     const afterFile = join(dir, 'after');
@@ -1134,6 +1135,7 @@ function stateIdentity(entries: StateEntry[], fixed: boolean, complete: boolean)
     review: nodeIdentity(entry.review),
     ...(fixed ? {} : { index: nodeIdentity(entry.index ?? null) }),
   }));
+  // A saved manifest's state identity is re-derived with this tag on read.
   return digest(`diffstory-state-v1\0${fixed ? 'fixed' : 'working'}\0${complete ? 'complete' : 'incomplete'}\0${JSON.stringify(canonical)}`);
 }
 
@@ -1142,6 +1144,8 @@ function nodeIdentity(node: SnapshotNode | null): unknown {
 }
 
 function manifestIdentity(payload: SnapshotManifestPayload): string {
+  // Saved manifests are verified against this tag; changing it marks every
+  // snapshot taken before the codeStory rename as corrupt.
   return digest(`diffstory-snapshot-v1\0${JSON.stringify(payload)}`);
 }
 
@@ -1216,8 +1220,7 @@ function assertSafeRepoPath(path: string): void {
     || path === '.'
     || path === '..'
     || path.split('/').some((part) => !part || part === '.' || part === '..')
-    || path === '.diffstory'
-    || path.startsWith('.diffstory/')
+    || isAppDataPath(path)
   ) throw new Error('Repository-relative path is unsafe.');
 }
 
@@ -1265,7 +1268,7 @@ function ensureDataDirectory(repo: string, relativePath: string): string {
     current = join(current, part);
     if (existsSync(current)) {
       const stat = lstatSync(current);
-      if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error('DiffStory snapshot directory is unsafe.');
+      if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error('codeStory snapshot directory is unsafe.');
     } else {
       mkdirSync(current, { mode: 0o700 });
     }
@@ -1277,7 +1280,7 @@ function atomicWrite(path: string, bytes: Buffer): void {
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
   if (existsSync(path)) {
     const stat = lstatSync(path);
-    if (!stat.isFile() || stat.isSymbolicLink()) throw new Error('DiffStory snapshot target is unsafe.');
+    if (!stat.isFile() || stat.isSymbolicLink()) throw new Error('codeStory snapshot target is unsafe.');
   }
   const temporary = `${path}.${process.pid}.${randomUUID()}.tmp`;
   try {

@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      DIFFSTORY_SMOKE_OUT: artifacts/browser-smoke
+      CODESTORY_SMOKE_OUT: artifacts/browser-smoke
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

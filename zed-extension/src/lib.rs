@@ -1,12 +1,12 @@
 use std::{env, path::Path};
 use zed_extension_api::{self as zed, Command, ContextServerId, Project};
 
-const CONTEXT_SERVER_ID: &str = "diffstory";
-const SERVER_PATH: &str = "server/diffstory-mcp.mjs";
+const CONTEXT_SERVER_ID: &str = "codestory";
+const SERVER_PATH: &str = "server/codestory-mcp.mjs";
 
-struct DiffStoryExtension;
+struct CodeStoryExtension;
 
-impl zed::Extension for DiffStoryExtension {
+impl zed::Extension for CodeStoryExtension {
     fn new() -> Self {
         Self
     }
@@ -18,7 +18,7 @@ impl zed::Extension for DiffStoryExtension {
     ) -> Result<Command, String> {
         if context_server_id.as_ref() != CONTEXT_SERVER_ID {
             return Err(format!(
-                "unknown diffStory context server: {}",
+                "unknown codeStory context server: {}",
                 context_server_id.as_ref()
             ));
         }
@@ -38,7 +38,7 @@ fn server_args(extension_root: &Path) -> Vec<String> {
         .into_owned()]
 }
 
-zed::register_extension!(DiffStoryExtension);
+zed::register_extension!(CodeStoryExtension);
 
 #[cfg(test)]
 mod tests {
@@ -48,8 +48,8 @@ mod tests {
     #[test]
     fn context_server_uses_the_bundled_node_entrypoint() {
         assert_eq!(
-            server_args(Path::new("/tmp/diffstory-zed")),
-            vec![PathBuf::from("/tmp/diffstory-zed/server/diffstory-mcp.mjs")
+            server_args(Path::new("/tmp/codestory-zed")),
+            vec![PathBuf::from("/tmp/codestory-zed/server/codestory-mcp.mjs")
                 .to_string_lossy()
                 .into_owned()]
         );

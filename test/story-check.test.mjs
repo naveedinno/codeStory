@@ -1,14 +1,14 @@
 // The bundled checker, run exactly as an agent runs it: node <skill>/scripts/check-story.mjs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, renameSync, writeFileSync, rmSync } from 'node:fs';
 import { build } from 'esbuild';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-const CHECKER = fileURLToPath(new URL('../skills/diffstory-storyteller/scripts/check-story.mjs', import.meta.url));
+const CHECKER = fileURLToPath(new URL('../skills/codestory-storyteller/scripts/check-story.mjs', import.meta.url));
 
 /** A repo on `main` with one committed file and an uncommitted edit on line 10. */
 function repoWithChange() {
@@ -23,7 +23,7 @@ function repoWithChange() {
   git('commit', '-qm', 'base');
   lines[9] = 'export function capRate(rate: number, cap: number) { return Math.min(rate, cap); }';
   writeFileSync(join(dir, 'app.ts'), lines.join('\n') + '\n');
-  mkdirSync(join(dir, '.diffstory'));
+  mkdirSync(join(dir, '.codestory'));
   return { dir, lines };
 }
 
@@ -70,7 +70,7 @@ test('--help prints usage and exits 0', () => {
 
 test('a valid, fully covered story is READY', () => {
   withRepo(({ dir }) => {
-    writeFileSync(join(dir, '.diffstory/story.json'), JSON.stringify(goodStory()));
+    writeFileSync(join(dir, '.codestory/story.json'), JSON.stringify(goodStory()));
     const r = run(dir);
     assert.equal(r.code, 0, r.out);
     assert.match(r.out, /RESULT: READY/);
@@ -82,7 +82,7 @@ test('an unclaimed change is an error', () => {
   withRepo(({ dir, lines }) => {
     lines[24] = 'export const v25 = 2500;';
     writeFileSync(join(dir, 'app.ts'), lines.join('\n') + '\n');
-    writeFileSync(join(dir, '.diffstory/story.json'), JSON.stringify(goodStory()));
+    writeFileSync(join(dir, '.codestory/story.json'), JSON.stringify(goodStory()));
     const r = run(dir);
     assert.equal(r.code, 1);
     assert.match(r.out, /unexplained change: app\.ts 25-25/);
@@ -91,7 +91,7 @@ test('an unclaimed change is an error', () => {
 
 test('basic contract failures stop the check early', () => {
   withRepo(({ dir }) => {
-    writeFileSync(join(dir, '.diffstory/story.json'), JSON.stringify(goodStory({ storyArc: 'mixed' })));
+    writeFileSync(join(dir, '.codestory/story.json'), JSON.stringify(goodStory({ storyArc: 'mixed' })));
     const r = run(dir);
     assert.equal(r.code, 1);
     assert.match(r.out, /storyArc must be an object/);
@@ -102,7 +102,7 @@ test('lint errors fail the check and name the rule', () => {
   withRepo(({ dir }) => {
     const story = goodStory();
     story.steps[0].why = 'Uses **bold** Markdown.';
-    writeFileSync(join(dir, '.diffstory/story.json'), JSON.stringify(story));
+    writeFileSync(join(dir, '.codestory/story.json'), JSON.stringify(story));
     const r = run(dir);
     assert.equal(r.code, 1);
     assert.match(r.out, /\[markdown-residue\]/);
@@ -113,7 +113,7 @@ test('warnings pass by default and fail with --strict', () => {
   withRepo(({ dir }) => {
     const story = goodStory();
     story.steps[0].beats[0].text = 'The helper clamps the rate at the cap before settlement.';
-    writeFileSync(join(dir, '.diffstory/story.json'), JSON.stringify(story));
+    writeFileSync(join(dir, '.codestory/story.json'), JSON.stringify(story));
     assert.equal(run(dir).code, 0);
     const strict = run(dir, '--strict');
     assert.equal(strict.code, 1);
@@ -123,11 +123,11 @@ test('warnings pass by default and fail with --strict', () => {
 
 test('--json reports machine-readable results', () => {
   withRepo(({ dir }) => {
-    writeFileSync(join(dir, '.diffstory/story.json'), JSON.stringify(goodStory()));
+    writeFileSync(join(dir, '.codestory/story.json'), JSON.stringify(goodStory()));
     const r = run(dir, '--json');
     const parsed = JSON.parse(r.out);
     assert.equal(parsed.ready, true);
-    assert.equal(parsed.reports[0].story, '.diffstory/story.json');
+    assert.equal(parsed.reports[0].story, '.codestory/story.json');
     assert.deepEqual(parsed.reports[0].errors, []);
   });
 });
@@ -143,9 +143,9 @@ test('--ledger lists every changed range with its file', () => {
   });
 });
 
-test('--ledger honors includeGlobs from .diffstory/preferences.json', () => {
+test('--ledger honors includeGlobs from .codestory/preferences.json', () => {
   withRepo(({ dir }) => {
-    writeFileSync(join(dir, '.diffstory/preferences.json'), JSON.stringify({ includeGlobs: ['**/*.sol'] }));
+    writeFileSync(join(dir, '.codestory/preferences.json'), JSON.stringify({ includeGlobs: ['**/*.sol'] }));
     const json = JSON.parse(run(dir, '--ledger', '--json').out);
     assert.deepEqual(json.files, []);
   });
@@ -159,10 +159,62 @@ test('no story is a setup error (exit 2)', () => {
   });
 });
 
-test('scoped stories under .diffstory/stories/ need storyScope', () => {
-  withRepo(({ dir }) => {
+/** The same repo as an agent finds it before the app reopens it after the rename. */
+function withLegacyRepo(fn) {
+  withRepo((repo) => {
+    renameSync(join(repo.dir, '.codestory'), join(repo.dir, '.diffstory'));
+    fn(repo);
+  });
+}
+
+test('a repo the app has not opened since the rename is checked from .diffstory/, read-only', () => {
+  withLegacyRepo(({ dir }) => {
+    const story = JSON.stringify(goodStory());
+    writeFileSync(join(dir, '.diffstory/story.json'), story);
+    const r = run(dir, '--json');
+    assert.equal(r.code, 0, r.out);
+    const parsed = JSON.parse(r.out);
+    assert.equal(parsed.ready, true);
+    assert.equal(parsed.reports[0].story, '.diffstory/story.json');
+    assert.deepEqual(parsed.unownedFiles, []);
+    // The checker never writes: nothing is moved and no .codestory/ appears.
+    assert.equal(existsSync(join(dir, '.codestory')), false);
+    assert.equal(readFileSync(join(dir, '.diffstory/story.json'), 'utf8'), story);
+  });
+});
+
+test('legacy scoped stories are found and still need storyScope.includedFiles', () => {
+  withLegacyRepo(({ dir }) => {
     mkdirSync(join(dir, '.diffstory/stories'));
     writeFileSync(join(dir, '.diffstory/stories/cap.json'), JSON.stringify(goodStory()));
+    const r = run(dir);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.out, /need storyScope\.includedFiles/);
+  });
+});
+
+test('--ledger honors includeGlobs from a legacy .diffstory/preferences.json', () => {
+  withLegacyRepo(({ dir }) => {
+    writeFileSync(join(dir, '.diffstory/preferences.json'), JSON.stringify({ includeGlobs: ['**/*.sol'] }));
+    const json = JSON.parse(run(dir, '--ledger', '--json').out);
+    assert.deepEqual(json.files, []);
+  });
+});
+
+test('once .codestory/ exists the legacy folder is not read', () => {
+  withRepo(({ dir }) => {
+    mkdirSync(join(dir, '.diffstory'));
+    writeFileSync(join(dir, '.diffstory/story.json'), JSON.stringify(goodStory()));
+    const r = run(dir);
+    assert.equal(r.code, 2);
+    assert.match(r.out, /no story found/);
+  });
+});
+
+test('scoped stories under .codestory/stories/ need storyScope', () => {
+  withRepo(({ dir }) => {
+    mkdirSync(join(dir, '.codestory/stories'));
+    writeFileSync(join(dir, '.codestory/stories/cap.json'), JSON.stringify(goodStory()));
     const r = run(dir);
     assert.equal(r.code, 1);
     assert.match(r.out, /need storyScope\.includedFiles/);
@@ -178,7 +230,7 @@ test('the committed checker bundle matches its sources', async () => {
     outfile: out, bundle: true, platform: 'node', format: 'esm', target: 'node20',
     legalComments: 'none', logLevel: 'silent', banner: { js: banner },
   });
-  assert.equal(readFileSync(out, 'utf8'), readFileSync(CHECKER, 'utf8'), 'run npm run build and commit skills/diffstory-storyteller/scripts/check-story.mjs');
+  assert.equal(readFileSync(out, 'utf8'), readFileSync(CHECKER, 'utf8'), 'run npm run build and commit skills/codestory-storyteller/scripts/check-story.mjs');
 });
 
 test('landing callers are verified by the checker', () => {
@@ -186,12 +238,12 @@ test('landing callers are verified by the checker', () => {
     writeFileSync(join(dir, 'settle.ts'), "import { capRate } from './app';\nexport function settleFunding() { return capRate(1, 2); }\n");
     const good = goodStory();
     good.steps[0].landing = { symbol: 'capRate()', calledBy: ['settleFunding()'] };
-    writeFileSync(join(dir, '.diffstory/story.json'), JSON.stringify(good));
+    writeFileSync(join(dir, '.codestory/story.json'), JSON.stringify(good));
     const ok = run(dir);
     assert.doesNotMatch(ok.out, /landing/);
     const vague = goodStory();
     vague.steps[0].landing = { symbol: 'capRate()', calledBy: ['every settlement path'] };
-    writeFileSync(join(dir, '.diffstory/story.json'), JSON.stringify(vague));
+    writeFileSync(join(dir, '.codestory/story.json'), JSON.stringify(vague));
     const r = run(dir);
     assert.equal(r.code, 1);
     assert.match(r.out, /is a description, not a symbol/);
@@ -226,9 +278,9 @@ function codeStory(sha, over = {}) {
 }
 
 function writeCodeStory(dir, story) {
-  mkdirSync(join(dir, '.diffstory/stories'), { recursive: true });
-  writeFileSync(join(dir, '.diffstory/stories/code-cap.json'), JSON.stringify(story));
-  return '.diffstory/stories/code-cap.json';
+  mkdirSync(join(dir, '.codestory/stories'), { recursive: true });
+  writeFileSync(join(dir, '.codestory/stories/code-cap.json'), JSON.stringify(story));
+  return '.codestory/stories/code-cap.json';
 }
 
 const commitAll = (dir) => {
@@ -236,7 +288,7 @@ const commitAll = (dir) => {
   return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim();
 };
 
-test('the checker passes a code story under .diffstory/stories without a storyScope', () => {
+test('the checker passes a code story under .codestory/stories without a storyScope', () => {
   withRepo(({ dir }) => {
     const sha = commitAll(dir);
     const r = run(dir, writeCodeStory(dir, codeStory(sha)));

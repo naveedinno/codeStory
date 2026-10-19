@@ -4,7 +4,9 @@ import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 const MAC_DESKTOP_CODEX = '/Applications/ChatGPT.app/Contents/Resources/codex';
 export function codexTaskBinary() {
-    const configured = process.env.DIFFSTORY_CODEX_BINARY?.trim();
+    // DIFFSTORY_CODEX_BINARY is the same setting under its name from before the
+    // codeStory rename, so a shell profile that still sets it keeps working.
+    const configured = process.env.CODESTORY_CODEX_BINARY?.trim() || process.env.DIFFSTORY_CODEX_BINARY?.trim();
     if (configured)
         return configured;
     return existsSync(MAC_DESKTOP_CODEX) ? MAC_DESKTOP_CODEX : 'codex';
@@ -75,7 +77,7 @@ function appServerRequest(binary, method, params, timeoutMs) {
             id: 1,
             method: 'initialize',
             params: {
-                clientInfo: { name: 'diffstory', title: 'diffStory', version: '0.1.0' },
+                clientInfo: { name: 'codestory', title: 'codeStory', version: '0.1.0' },
                 capabilities: { experimentalApi: true },
             },
         });
@@ -124,7 +126,7 @@ export function codexStoryModelChoices(value) {
     }
     return choices;
 }
-/** Read story model choices from the same Codex runtime diffStory will execute. */
+/** Read story model choices from the same Codex runtime codeStory will execute. */
 export async function listCodexStoryModels(options = {}) {
     const result = await appServerRequest(options.binary ?? codexTaskBinary(), 'model/list', { includeHidden: false, limit: 100 }, options.timeoutMs ?? 8000);
     return codexStoryModelChoices(result);

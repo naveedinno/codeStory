@@ -1,6 +1,6 @@
 // Adapted from starc007/ui-components — components/motion/smooth-scroll.tsx (MIT)
 //
-// diffStory-local stand-in for that component's `useSmoothScroll()` hook.
+// codeStory-local stand-in for that component's `useSmoothScroll()` hook.
 // `smooth-scroll.tsx` itself is NOT vendored: it is a `lenis` wrapper, and
 // hijacked smooth scrolling is hostile in a diff viewer (README modification 3).
 //

@@ -1,4 +1,4 @@
-// diffStory-local replacement for `next-themes`.
+// codeStory-local replacement for `next-themes`.
 //
 // Not vendored from starc007/ui-components — written for this repo so the beUI
 // components that expect a `useTheme()` hook keep working without pulling in
@@ -84,7 +84,7 @@ export interface UseThemeResult {
 }
 
 /**
- * Drop-in stand-in for `next-themes`' `useTheme()`, backed by diffStory's own
+ * Drop-in stand-in for `next-themes`' `useTheme()`, backed by codeStory's own
  * `data-theme` plumbing. Returns "light" before hydration on the server; the
  * pre-paint bootstrap script means the first client render already sees the
  * real value, so there is no flash to guard against.

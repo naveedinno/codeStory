@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { writeJsonAtomic } from './atomic-json.js';
 import { resolveCommit, reviewChangeFingerprint, reviewFileIndex } from './git.js';
 function storePath(home, repo) {
-    return join(home, '.diffstory', 'verification', `${createHash('sha256').update(repo).digest('hex')}.json`);
+    return join(home, '.codestory', 'verification', `${createHash('sha256').update(repo).digest('hex')}.json`);
 }
 export function loadVerificationReceipts(home, repo) {
     try {

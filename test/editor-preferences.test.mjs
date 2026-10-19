@@ -10,13 +10,13 @@ import {
   saveSourceEditor,
 } from '../dist/editor-preferences.js';
 
-const tempHome = () => mkdtempSync(join(tmpdir(), 'diffstory-editor-preferences-'));
+const tempHome = () => mkdtempSync(join(tmpdir(), 'codestory-editor-preferences-'));
 
 test('source editor defaults to VS Code when no preference exists', () => {
   const home = tempHome();
   try {
     assert.deepEqual(loadEditorPreferences(home), { version: 1, editor: 'vscode' });
-    assert.equal(editorPreferencesFile(home), join(home, '.diffstory', 'settings.json'));
+    assert.equal(editorPreferencesFile(home), join(home, '.codestory', 'settings.json'));
   } finally {
     rmSync(home, { recursive: true, force: true });
   }
@@ -25,7 +25,7 @@ test('source editor defaults to VS Code when no preference exists', () => {
 test('source editor preference round-trips and preserves unrelated settings', () => {
   const home = tempHome();
   try {
-    mkdirSync(join(home, '.diffstory'), { recursive: true });
+    mkdirSync(join(home, '.codestory'), { recursive: true });
     writeFileSync(
       editorPreferencesFile(home),
       JSON.stringify({ version: 1, futureSetting: true, editor: 'vscode' }),
@@ -47,7 +47,7 @@ test('source editor preference round-trips and preserves unrelated settings', ()
 test('malformed or unsupported source editor preferences fail closed to the default', () => {
   const home = tempHome();
   try {
-    mkdirSync(join(home, '.diffstory'), { recursive: true });
+    mkdirSync(join(home, '.codestory'), { recursive: true });
     writeFileSync(editorPreferencesFile(home), 'not json');
     assert.equal(loadEditorPreferences(home).editor, 'vscode');
 
@@ -61,7 +61,7 @@ test('malformed or unsupported source editor preferences fail closed to the defa
 test('the integration helper selects Zed without discarding future settings', () => {
   const home = tempHome();
   try {
-    mkdirSync(join(home, '.diffstory'), { recursive: true });
+    mkdirSync(join(home, '.codestory'), { recursive: true });
     writeFileSync(editorPreferencesFile(home), '{"futureSetting":"kept","editor":"vscode"}\n');
 
     execFileSync(

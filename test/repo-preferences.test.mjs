@@ -12,17 +12,17 @@ import {
 
 function repo() {
   const dir = mkdtempSync(join(tmpdir(), 'ds-prefs-'));
-  mkdirSync(join(dir, '.diffstory'), { recursive: true });
+  mkdirSync(join(dir, '.codestory'), { recursive: true });
   return dir;
 }
 
 test('missing and malformed preferences fall back empty', () => {
   assert.deepEqual(loadRepoPreferences(repo()), {});
   const bad = repo();
-  writeFileSync(join(bad, '.diffstory', 'preferences.json'), '{nope');
+  writeFileSync(join(bad, '.codestory', 'preferences.json'), '{nope');
   assert.deepEqual(loadRepoPreferences(bad), {});
   const arr = repo();
-  writeFileSync(join(arr, '.diffstory', 'preferences.json'), '[]');
+  writeFileSync(join(arr, '.codestory', 'preferences.json'), '[]');
   assert.deepEqual(loadRepoPreferences(arr), {});
 });
 
@@ -38,7 +38,7 @@ test('audience normalizes to newcomer unless familiar', () => {
 test('load keeps valid fields and drops invalid ones', () => {
   const dir = repo();
   writeFileSync(
-    join(dir, '.diffstory', 'preferences.json'),
+    join(dir, '.codestory', 'preferences.json'),
     JSON.stringify({
       defaultMode: 'detailed',
       includeGlobs: ['src/**'],
@@ -59,18 +59,18 @@ test('load keeps valid fields and drops invalid ones', () => {
 test('save merges and preserves unknown keys, and drops bad audiences', () => {
   const dir = repo();
   writeFileSync(
-    join(dir, '.diffstory', 'preferences.json'),
+    join(dir, '.codestory', 'preferences.json'),
     JSON.stringify({ notes: 'keep me', future: 1 }),
   );
   const saved = saveRepoPreferences(dir, { audience: 'familiar' });
   assert.equal(saved.audience, 'familiar');
-  const raw = JSON.parse(readFileSync(join(dir, '.diffstory', 'preferences.json'), 'utf8'));
+  const raw = JSON.parse(readFileSync(join(dir, '.codestory', 'preferences.json'), 'utf8'));
   assert.equal(raw.notes, 'keep me');
   assert.equal(raw.future, 1);
   const dropped = saveRepoPreferences(dir, { audience: 'expert' });
   assert.equal(dropped.audience, undefined);
   assert.equal(
-    JSON.parse(readFileSync(join(dir, '.diffstory', 'preferences.json'), 'utf8')).audience,
+    JSON.parse(readFileSync(join(dir, '.codestory', 'preferences.json'), 'utf8')).audience,
     undefined,
   );
 });

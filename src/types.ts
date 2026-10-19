@@ -1,4 +1,4 @@
-// Shared data shapes for diffStory.
+// Shared data shapes for codeStory.
 //
 // Two authored artifacts flow through the system:
 //   - the *story* (story.json) — written by the AI, describes the reading order.
@@ -526,11 +526,11 @@ export interface Comment {
 
 // ---- Story history snapshots ----
 
-/** One automatic snapshot of a story file under `.diffstory/history/`. */
+/** One automatic snapshot of a story file under `.codestory/history/`. */
 export interface StoryHistoryEntry {
   /** listStories()-style id, e.g. "history/story-20261003T120000-a1b2c3d4.json". */
   id: string;
-  /** File name within `.diffstory/history`. */
+  /** File name within `.codestory/history`. */
   name: string;
   /** Story id this snapshot was taken from. */
   storyId: string;

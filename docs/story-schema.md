@@ -1,8 +1,8 @@
 # Story schema: narrative text
 
-This is the normative statement of what may appear in a diffStory story file's
-narrative fields. It covers `.diffstory/story.json` and every
-`.diffstory/stories/*.json`.
+This is the normative statement of what may appear in a codeStory story file's
+narrative fields. It covers `.codestory/story.json` and every
+`.codestory/stories/*.json`.
 
 Structural fields (`id`, `order`, `file`, `range`, `viewport`, `highlights`,
 `kind`, `calls`, `returnsTo`, `preparesFor`, `diagram`) are documented in
@@ -29,7 +29,7 @@ and lifts concept placement rules.
 code at one commit: it is version 4, pins `head` to a full commit id with `base`
 equal to it, carries only `context` and `concept` steps, and replaces `storyScope`
 with the reader-authored `codeScope`. Its narrative fields follow exactly the tiers
-below; its contract lives in `skills/diffstory-storyteller/references/code-stories.md`. Narrative shape and commit evolution are
+below; its contract lives in `skills/codestory-storyteller/references/code-stories.md`. Narrative shape and commit evolution are
 optional additions to version 3, so older version 3 stories remain valid and
 repairable without either field.
 
@@ -115,9 +115,9 @@ markup as literal characters.
 A page concept runs in an iframe with `sandbox="allow-scripts"` and an opaque
 origin. The page is sandboxed however it is loaded: its response carries the
 same sandbox in its `Content-Security-Policy`, so opening the page URL directly
-in a tab does not give it diffStory's origin either. It cannot read diffStory's
+in a tab does not give it codeStory's origin either. It cannot read codeStory's
 storage, call its API, navigate the app, or open popups. Of the keys pressed
-inside it, only story navigation keys reach diffStory, and only while the page
+inside it, only story navigation keys reach codeStory, and only while the page
 is focused on the active step.
 
 The page is offline by default: inline markup, script, and style run, but
@@ -127,7 +127,7 @@ every network request is blocked. A page opts into network access with
 - Opening the story can make your browser contact servers its author chose,
   revealing your IP address and that the story was opened.
 - The page is served from `127.0.0.1`, so it can also send requests to other
-  services on this machine's loopback, such as a local dev server. diffStory
+  services on this machine's loopback, such as a local dev server. codeStory
   itself refuses the page's requests, but any local service that allows
   cross-origin requests, or acts on a simple request without checking where it
   came from, is reachable from the page.
@@ -283,7 +283,7 @@ handled.
 
 `verification` entries are authored claims. A reported `passed` result never
 becomes an app-captured pass merely by appearing in story JSON. The reviewer
-can confirm **Run locally…** for the displayed command; diffStory records the
+can confirm **Run locally…** for the displayed command; codeStory records the
 command, output, exit status, time, checkout revision, and review/source
 fingerprints in its device-local app home. Receipts are not story fields and
 are not included in exported story bundles. Runs time out after two minutes;

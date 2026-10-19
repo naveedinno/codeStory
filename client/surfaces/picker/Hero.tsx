@@ -23,7 +23,7 @@ export function Hero() {
         </span>
         <span className="flex min-w-0 flex-col gap-0.5">
           <h1 className="m-0 font-display text-2xl leading-none font-normal tracking-[-.03em]">
-            <span className="font-normal text-text-2">diff</span>
+            <span className="font-normal text-text-2">code</span>
             <span className="font-bold text-text">Story</span>
           </h1>
           <span className="font-mono text-xs tracking-[.22em] text-accent-text uppercase max-[400px]:hidden">

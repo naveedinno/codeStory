@@ -1,4 +1,4 @@
-// Generates client/generated/theme.css — the bridge between diffStory's Signal /
+// Generates client/generated/theme.css — the bridge between codeStory's Signal /
 // Thread-Ledger design tokens (src/theme.ts) and Tailwind v4's CSS-first @theme.
 //
 // One source of truth: every Signal value below is *parsed out of src/theme.ts*
@@ -41,7 +41,7 @@ const outFile = resolve(root, 'client/generated/theme.css');
 async function loadThemeModule() {
   const ts = await readFile(themeSource, 'utf8');
   const { code } = await transform(ts, { loader: 'ts', format: 'esm', target: 'es2022' });
-  const scratch = resolve(tmpdir(), `diffstory-theme-${process.pid}-${Date.now()}.mjs`);
+  const scratch = resolve(tmpdir(), `codestory-theme-${process.pid}-${Date.now()}.mjs`);
   await writeFile(scratch, code, 'utf8');
   try {
     return await import(pathToFileURL(scratch).href);

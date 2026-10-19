@@ -1,6 +1,6 @@
 // One import site for the theme contract.
 //
-// `client/vendor/beui/lib/use-theme.ts` already implements diffStory's whole
+// `client/vendor/beui/lib/use-theme.ts` already implements codeStory's whole
 // theme protocol — the `ds-theme` localStorage key, `data-theme` /
 // `data-theme-mode` on <html>, `html.style.colorScheme`, the
 // `meta[data-ds-theme-color]` tag, the `ds-theme-change` document event, and the

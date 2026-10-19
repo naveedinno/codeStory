@@ -60,7 +60,7 @@ export function validateStoryRefresh(before: Tour, after: Tour, plan: StoryRefre
 }
 
 export function storyRefreshPrompt(plan: StoryRefreshPlan, storyFile: string, base: string, head?: string): string {
-  return `Use the diffstory-storyteller skill to refresh affected stops in ${JSON.stringify(storyFile)} for ${JSON.stringify(base)}..${JSON.stringify(head ?? 'working tree')}.\n` +
+  return `Use the codestory-storyteller skill to refresh affected stops in ${JSON.stringify(storyFile)} for ${JSON.stringify(base)}..${JSON.stringify(head ?? 'working tree')}.\n` +
     `Changed files: ${JSON.stringify(plan.changedFiles)}. Editable existing step ids: ${JSON.stringify(plan.stepIds)}.\n` +
     `Read the existing story and current source. Update explanations, ranges, highlights, and dependent primers only where these changes require it.\n` +
     `Preserve ALL existing step ids and their relative reading order. Preserve every unaffected step exactly (only its order number may shift). Add a stop only for uncovered changed code in the changed files.\n` +

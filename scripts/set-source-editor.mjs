@@ -11,7 +11,7 @@ if (editor !== 'vscode' && editor !== 'zed') {
 }
 
 const home = process.argv[3] || homedir();
-const file = join(home, '.diffstory', 'settings.json');
+const file = join(home, '.codestory', 'settings.json');
 let current = {};
 if (existsSync(file)) {
   try {
@@ -24,4 +24,4 @@ if (existsSync(file)) {
 
 mkdirSync(dirname(file), { recursive: true });
 writeFileSync(file, JSON.stringify({ ...current, version: 1, editor }, null, 2) + '\n');
-console.log(`Selected ${editor === 'zed' ? 'Zed' : 'VS Code'} for diffStory source jumps.`);
+console.log(`Selected ${editor === 'zed' ? 'Zed' : 'VS Code'} for codeStory source jumps.`);

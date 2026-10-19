@@ -9,7 +9,7 @@ const TYPES = ["change", "question", "nit"];
 const SEVERITIES = ["blocking", "concern", "nit"];
 const STATUSES = ["open", "addressed", "resolved"];
 const SIDES = ["left", "right"];
-const INVALID_RECOVERY = "Repair or restore .diffstory/comments.json, then reload. diffStory will not overwrite the invalid file.";
+const INVALID_RECOVERY = "Repair or restore .codestory/comments.json, then reload. codeStory will not overwrite the invalid file.";
 export class InvalidCommentStoreError extends Error {
     health;
     constructor(health) {
@@ -33,23 +33,23 @@ export function loadCommentsWithHealth(repo) {
     }
     catch (error) {
         const detail = error instanceof Error && error.message ? ` (${error.message})` : "";
-        return invalidLoad("unreadable", `Could not read .diffstory/comments.json${detail}.`, null);
+        return invalidLoad("unreadable", `Could not read .codestory/comments.json${detail}.`, null);
     }
     let data;
     try {
         data = JSON.parse(raw);
     }
     catch {
-        return invalidLoad("invalid-json", ".diffstory/comments.json is not valid JSON.", raw);
+        return invalidLoad("invalid-json", ".codestory/comments.json is not valid JSON.", raw);
     }
     if (!Array.isArray(data)) {
-        return invalidLoad("not-array", ".diffstory/comments.json must contain a JSON array.", raw);
+        return invalidLoad("not-array", ".codestory/comments.json must contain a JSON array.", raw);
     }
     const seen = new Set();
     for (let index = 0; index < data.length; index++) {
         const problem = validateStoredComment(data[index], seen);
         if (problem) {
-            return invalidLoad("invalid-entry", `.diffstory/comments.json has an invalid comment at array index ${index}: ${problem}.`, raw, index);
+            return invalidLoad("invalid-entry", `.codestory/comments.json has an invalid comment at array index ${index}: ${problem}.`, raw, index);
         }
     }
     return {

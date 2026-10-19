@@ -8,16 +8,19 @@ client/generated/
 # dist/ is committed so the macOS app and source checkout have a ready local
 # server build. Rebuild before committing source changes: npm run build
 
-# diffStory working files live alongside the repo being reviewed.
+# codeStory working files live alongside the repo being reviewed.
 # Keep them local by default — they describe a single review session.
+.codestory/
+# The same files under their pre-rename folder name. Opening a repo in the app
+# moves them into .codestory/; until then they stay ignored.
 .diffstory/
 .superpowers/
 .macos-build/
-macos/DiffStoryApp/target/
+macos/CodeStoryApp/target/
 zed-extension/target/
 zed-extension/extension.wasm
-macos/DiffStoryApp/gen/
-macos/DiffStoryApp/icons/icon.png
+macos/CodeStoryApp/gen/
+macos/CodeStoryApp/icons/icon.png
 eval/results/
 .eval-worktrees/
 artifacts/browser-smoke/

@@ -11,7 +11,7 @@
 //   ... --runner muse   # spend the runs on the muse CLI instead of claude
 //
 // Requires: `npm run build` first (uses dist/), the `claude` CLI on PATH, and
-// the diffstory-storyteller skill installed (scripts/install-skills.sh).
+// the codestory-storyteller skill installed (scripts/install-skills.sh).
 // Results land in eval/results/<label>/ (gitignored).
 
 import { spawn, spawnSync } from 'node:child_process';
@@ -29,7 +29,7 @@ import { normalizeEvolutionObject } from '../dist/evolution.js';
 import { skillDirDigest } from '../dist/repo-setup.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const storyPath = join(root, '.diffstory', 'story.json');
+const storyPath = join(root, '.codestory', 'story.json');
 const backupPath = `${storyPath}.eval-backup`;
 
 const args = process.argv.slice(2);
@@ -82,17 +82,17 @@ export function skillInstallState(repoSkill, installedSkill) {
 }
 
 function checkInstalledSkill() {
-  const repoDir = join(root, 'skills', 'diffstory-storyteller');
+  const repoDir = join(root, 'skills', 'codestory-storyteller');
   // Each runner reads its own directory: Muse loads the .agents copy.
   const target = runner === 'muse'
-    ? join(process.env.HOME ?? '', '.agents', 'skills', 'diffstory-storyteller')
-    : join(process.env.HOME ?? '', '.claude', 'skills', 'diffstory-storyteller');
+    ? join(process.env.HOME ?? '', '.agents', 'skills', 'codestory-storyteller')
+    : join(process.env.HOME ?? '', '.claude', 'skills', 'codestory-storyteller');
   const installed = existsSync(join(target, 'SKILL.md')) ? skillDirDigest(target) : null;
   const state = skillInstallState(skillDirDigest(repoDir), installed);
   if (state.ok) return;
   const fix = runner === 'muse' ? 'sh scripts/install-skills.sh' : 'sh scripts/install-skills.sh --claude';
   console.error(
-    `\n✖ The installed diffstory-storyteller skill is ${state.reason}:\n` +
+    `\n✖ The installed codestory-storyteller skill is ${state.reason}:\n` +
     `    ${target}\n` +
     `  The agent reads that copy (SKILL.md, references/, scripts/), so this run would score the wrong skill.\n` +
     `  Fix it first:  ${fix}\n`,
@@ -348,7 +348,7 @@ function runMuse({ prompt, logPath, cwd, label: tag = '', activity = 'working', 
 
 /**
  * Recover a story stranded by an older harness version, which borrowed the live
- * `.diffstory/story.json` during generation. Generation is fully isolated now,
+ * `.codestory/story.json` during generation. Generation is fully isolated now,
  * but an interrupted run from before that change can still leave the backup
  * behind, and silently leaving the reviewer without their story is unacceptable.
  */
@@ -356,7 +356,7 @@ function recoverStrandedStory() {
   if (!existsSync(backupPath)) return;
   if (!existsSync(storyPath)) {
     renameSync(backupPath, storyPath);
-    console.log('Recovered .diffstory/story.json from an interrupted earlier run.');
+    console.log('Recovered .codestory/story.json from an interrupted earlier run.');
     return;
   }
   rmSync(backupPath);
@@ -380,7 +380,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
 
 /**
  * Isolate one case in its own git worktree (or a --shared clone, for cases in
- * another repository). Each tree gets its own `.diffstory/story.json`, so
+ * another repository). Each tree gets its own `.codestory/story.json`, so
  * generations never contend for the shared file and the live repo is never
  * mutated. Detached at the case head, so the files the agent reads are the
  * post-change files, as they are when an agent has just made the change.
@@ -396,7 +396,7 @@ function makeWorktree(c) {
     gitIn(path, 'checkout', '--quiet', '--detach', c.head);
     return {
       path,
-      storyFile: join(path, '.diffstory', 'story.json'),
+      storyFile: join(path, '.codestory', 'story.json'),
       cleanup: () => rmSync(path, { recursive: true, force: true }),
     };
   }
@@ -409,7 +409,7 @@ function makeWorktree(c) {
   git('worktree', 'add', '--detach', '--quiet', path, c.head);
   return {
     path,
-    storyFile: join(path, '.diffstory', 'story.json'),
+    storyFile: join(path, '.codestory', 'story.json'),
     cleanup: () => {
       try {
         git('worktree', 'remove', '--force', path);
@@ -437,7 +437,7 @@ function makeWorktrees(caseList) {
 
 /**
  * Generate one story. Always runs in an isolated worktree — never in the live
- * repo. Borrowing the repo's own `.diffstory/story.json` used to be the
+ * repo. Borrowing the repo's own `.codestory/story.json` used to be the
  * single-case path, and it silently broke anything else touching the repo
  * mid-run (the app-server tests read that file and fail while it is moved away).
  * Isolation costs one cheap worktree and makes a run safe to leave unattended.
@@ -619,7 +619,7 @@ const RUBRIC = [
 function judgePrompt(c, storyJson, diff) {
   const truncated = diff.length > 60000 ? `${diff.slice(0, 60000)}\n[diff truncated at 60000 chars]` : diff;
   return [
-    'You are grading a "diffStory": a guided review story an AI wrote for its own code change. Grade like a demanding staff reviewer: 3 is adequate, 5 is rare.',
+    'You are grading a "codeStory": a guided review story an AI wrote for its own code change. Grade like a demanding staff reviewer: 3 is adequate, 5 is rare.',
     '',
     `Rubric (score each 1-5):`,
     ...RUBRIC.map(([k, d]) => `- ${k}: ${d}`),
@@ -697,7 +697,7 @@ async function judge(c) {
 function comparePrompt(c, first, second, diff) {
   const truncated = diff.length > 60000 ? `${diff.slice(0, 60000)}\n[diff truncated at 60000 chars]` : diff;
   return [
-    'Two AI-written "diffStory" review stories explain the SAME code change. Pick the one that would help a reviewer who knows the goal but not this code understand the change and find its risks faster.',
+    'Two AI-written "codeStory" review stories explain the SAME code change. Pick the one that would help a reviewer who knows the goal but not this code understand the change and find its risks faster.',
     'Weigh: landing (each step says where we are and who calls it before what changed), rationale (why this and not the obvious alternative), concreteness, risk calibration (honest, specific doubts), listenability (it is read aloud), and truth to the diff.',
     'Do NOT prefer a story for being longer or more detailed; prefer the one a reviewer would rather follow. A story that invents behavior the diff does not show loses.',
     '',
@@ -841,7 +841,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   mkdirSync(outDir, { recursive: true });
 
   const plan = [command === 'all' ? 'generate + judge' : command, `${selected.length} case${selected.length === 1 ? '' : 's'}`];
-  console.log(`\ndiffStory eval · ${plan.join(' · ')} · label "${label}"`);
+  console.log(`\ncodeStory eval · ${plan.join(' · ')} · label "${label}"`);
   console.log(`Cases: ${selected.map((c) => c.id).join(', ')}`);
   for (const c of unavailable) console.log(`Skipping ${c.id}: ${c.repo} is not on this machine.`);
   if (command !== 'judge') {

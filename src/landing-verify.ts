@@ -18,7 +18,7 @@ export function callerEvidence(repo: string, symbol: string, caller: string, hea
   if (!SYMBOL_NAME.test(symbolName) || !SYMBOL_NAME.test(name)) return null;
   const cache = new Map<string, Set<string>>();
   const candidates = [...filesMentioning(repo, name, head, cache)].filter((file) =>
-    !/(^|\/)(\.diffstory|\.env[^/]*)($|\/)/.test(file) && filesMentioning(repo, symbolName, head, cache).has(file)).sort();
+    !/(^|\/)(\.codestory|\.diffstory|\.env[^/]*)($|\/)/.test(file) && filesMentioning(repo, symbolName, head, cache).has(file)).sort();
   const word = new RegExp(`(?:^|[^\\w$])${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=$|[^\\w$])`);
   for (const file of candidates.slice(0, 20)) {
     const lines = readWholeFile(repo, file, head);

@@ -67,7 +67,7 @@ function storyStructureContract(manifest) {
         `- Frozen first-parent manifest, in review order:\n${JSON.stringify(commits, null, 2)}\n\n`);
 }
 /** The story checker bundled with this build's copy of the storyteller skill. */
-export const STORY_CHECKER = fileURLToPath(new URL('../skills/diffstory-storyteller/scripts/check-story.mjs', import.meta.url));
+export const STORY_CHECKER = fileURLToPath(new URL('../skills/codestory-storyteller/scripts/check-story.mjs', import.meta.url));
 /**
  * Tells the agent to verify its own story before finishing. The app's finish
  * gate rejects contract failures but never checks coverage or prose; the
@@ -115,7 +115,7 @@ export function storyPrompt(baseRef, headRef, mode = 'guided', excludePaths = []
         ? `Audience contract: a familiar reader. See references/audience.md: ` +
             `terse landings, primers only for ideas this change introduces.\n\n`
         : '';
-    return (`Use the diffstory-storyteller skill to create a diffStory for exactly this change: ${diff}.\n\n` +
+    return (`Use the codestory-storyteller skill to create a codeStory for exactly this change: ${diff}.\n\n` +
         `Write ${DATA_DIR}/story.json, set its "version" field to 4, set its "base" field to "${authoredBase}"${headField}, and set its "mode" field to "${storyMode}". The story is for a human ` +
         `reviewer, not a changelog.\n\n` +
         audienceContract +
@@ -226,7 +226,7 @@ export function codeStoryPrompt(input) {
         ? `Before you finish, run the checker that ships with the skill, from the repository root: node "${STORY_CHECKER}" "${input.storyFile}". ` +
             `Fix every ERROR, fix or justify every WARNING, and rerun until it prints "RESULT: READY".\n\n`
         : '';
-    return (`Use the diffstory-storyteller skill to write a code story: a guided walkthrough that explains existing code. ` +
+    return (`Use the codestory-storyteller skill to write a code story: a guided walkthrough that explains existing code. ` +
         `There is no diff. The story explains the code at commit ${commit}${named}, and the reader is learning it, not reviewing a change.\n\n` +
         ask +
         focus +
@@ -293,7 +293,7 @@ export function storyRepairPrompt(input) {
                 ? `Rewrite ${target} to be shorter and sharper without dropping its review risk or causal link.`
                 : `Split ${target} into two or more locally focused steps so no step jumps between distant code islands.`;
     const diff = input.head ? `${input.base}..${input.head}` : `${input.base}..working tree`;
-    return (`Use the diffstory-storyteller skill to make one targeted repair to ${DATA_DIR}/story.json for ${diff}.\n\n` +
+    return (`Use the codestory-storyteller skill to make one targeted repair to ${DATA_DIR}/story.json for ${diff}.\n\n` +
         `${instruction}\n\n` +
         `Preservation contract:\n` +
         `- Read the existing story and the real diff before editing. Preserve every unaffected step, the recovered intent, story scope, tone, and useful beat/highlight detail.\n` +
@@ -338,7 +338,7 @@ function codeStoryRepairPrompt(input) {
         ? `Before you finish, run the checker that ships with the skill, from the repository root: node "${STORY_CHECKER}" "${storyFile}". ` +
             `Fix every ERROR, fix or justify every WARNING, and rerun until it prints "RESULT: READY".\n\n`
         : '';
-    return (`Use the diffstory-storyteller skill to make one targeted repair to the code story ${storyFile}, which explains the code at commit ${input.codeCommit}. There is no diff.\n\n` +
+    return (`Use the codestory-storyteller skill to make one targeted repair to the code story ${storyFile}, which explains the code at commit ${input.codeCommit}. There is no diff.\n\n` +
         `${instruction}\n\n` +
         `Preservation contract:\n` +
         `- Read the existing story and the code it shows at ${short} before editing; when the working tree differs, read files with git show ${input.codeCommit}:<path>. ` +
@@ -558,7 +558,7 @@ export function summarizeAgentFailure(output, failure = 'execution') {
         const model = /The ['"]([^'"]+)['"] model requires a newer version of Codex/i.exec(upgradeMessage)?.[1];
         return {
             label: model ? `Codex needs an update for ${model}` : 'Codex needs an update for this model',
-            detail: 'The Codex runtime diffStory started cannot use this model. Update Codex, or choose another model and try again.',
+            detail: 'The Codex runtime codeStory started cannot use this model. Update Codex, or choose another model and try again.',
             technicalDetail: upgradeMessage,
         };
     }

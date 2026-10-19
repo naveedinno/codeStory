@@ -18,13 +18,13 @@ import { execFileSync } from 'node:child_process';
 
 function repoWithStory() {
   const repo = mkdtempSync(join(tmpdir(), 'ds-history-'));
-  mkdirSync(join(repo, '.diffstory'), { recursive: true });
+  mkdirSync(join(repo, '.codestory'), { recursive: true });
   return repo;
 }
 
 function storyFile(repo, id, tour) {
-  const path = join(repo, '.diffstory', id);
-  mkdirSync(join(repo, '.diffstory', 'stories'), { recursive: true });
+  const path = join(repo, '.codestory', id);
+  mkdirSync(join(repo, '.codestory', 'stories'), { recursive: true });
   writeFileSync(path, JSON.stringify(tour));
   return path;
 }
@@ -56,7 +56,7 @@ test('snapshots a story on first sight and ignores unchanged bytes', () => {
   assert.equal(first.steps, 1);
   assert.match(first.id, /^history\/story-.*\.json$/);
   assert.equal(snapshotStoryIfChanged(repo, 'story.json'), null);
-  assert.equal(readdirSync(join(repo, '.diffstory', 'history')).length, 1);
+  assert.equal(readdirSync(join(repo, '.codestory', 'history')).length, 1);
 });
 
 test('snapshots again after the story changes, newest first', () => {
@@ -86,7 +86,7 @@ test('prunes snapshots beyond the limit', () => {
     storyFile(repo, 'story.json', tour(`v${i}`, ['s1']));
     snapshotStoryIfChanged(repo, 'story.json');
   }
-  const names = readdirSync(join(repo, '.diffstory', 'history'));
+  const names = readdirSync(join(repo, '.codestory', 'history'));
   assert.equal(names.length, HISTORY_LIMIT);
   const entries = listStoryHistory(repo, 'story.json');
   assert.equal(entries[0].title, `v${HISTORY_LIMIT + 2}`);
@@ -101,7 +101,7 @@ test('restore puts snapshot bytes back and keeps the current version', () => {
   const [current, older] = listStoryHistory(repo, 'story.json');
   void current;
   assert.equal(restoreStoryVersion(repo, 'story.json', older.name), true);
-  const restored = JSON.parse(readFileSync(join(repo, '.diffstory', 'story.json'), 'utf8'));
+  const restored = JSON.parse(readFileSync(join(repo, '.codestory', 'story.json'), 'utf8'));
   assert.equal(restored.title, 'First');
   // Restoring snapshotted the pre-restore bytes, so it is undoable.
   const titles = listStoryHistory(repo, 'story.json').map((e) => e.title);
@@ -112,7 +112,7 @@ test('restore rejects traversal and foreign snapshots', () => {
   const repo = repoWithStory();
   storyFile(repo, 'story.json', tour('First', ['s1']));
   snapshotStoryIfChanged(repo, 'story.json');
-  mkdirSync(join(repo, '.diffstory', 'stories'), { recursive: true });
+  mkdirSync(join(repo, '.codestory', 'stories'), { recursive: true });
   storyFile(repo, 'stories/other.json', tour('Other', ['s1']));
   snapshotStoryIfChanged(repo, 'stories/other.json');
   const foreign = listStoryHistory(repo, 'stories/other.json')[0].name;
@@ -120,7 +120,7 @@ test('restore rejects traversal and foreign snapshots', () => {
   assert.equal(restoreStoryVersion(repo, 'story.json', foreign), false);
   assert.equal(restoreStoryVersion(repo, 'history/x.json', 'x.json'), false);
   assert.equal(
-    JSON.parse(readFileSync(join(repo, '.diffstory', 'story.json'), 'utf8')).title,
+    JSON.parse(readFileSync(join(repo, '.codestory', 'story.json'), 'utf8')).title,
     'First',
   );
 });
@@ -129,7 +129,7 @@ test('history snapshots never snapshot themselves', () => {
   const repo = repoWithStory();
   assert.equal(snapshotStoryIfChanged(repo, 'history/anything.json'), null);
   assert.deepEqual(listStoryHistory(repo, 'history/anything.json'), []);
-  assert.equal(existsSync(join(repo, '.diffstory', 'history')), false);
+  assert.equal(existsSync(join(repo, '.codestory', 'history')), false);
 });
 
 test('isHistoryStoryId classifies story ids', () => {
@@ -159,7 +159,7 @@ test('storyPathForId resolves history snapshots for read-only review', () => {
   storyFile(repo, 'story.json', tour('First', ['s1']));
   const entry = snapshotStoryIfChanged(repo, 'story.json');
   assert.ok(entry);
-  assert.equal(storyPathForId(repo, entry.id), join(repo, '.diffstory', entry.id));
+  assert.equal(storyPathForId(repo, entry.id), join(repo, '.codestory', entry.id));
   assert.equal(storyPathForId(repo, 'history/missing.json'), null);
   assert.equal(storyPathForId(repo, 'history/../story.json'), null);
 });
@@ -175,7 +175,7 @@ test('snapshots do not dirty the tree for scope selection, real edits still do',
   writeFileSync(join(repo, 'a.txt'), 'one\n');
   g(['add', '.']);
   g(['commit', '-qm', 'init']);
-  mkdirSync(join(repo, '.diffstory'), { recursive: true });
+  mkdirSync(join(repo, '.codestory'), { recursive: true });
   storyFile(repo, 'story.json', tour('First', ['s1']));
   g(['add', '.']);
   g(['commit', '-qm', 'story']);

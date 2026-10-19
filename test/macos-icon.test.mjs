@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import zlib from 'node:zlib';
 
-// The installer's real icon lives at macos/DiffStoryApp/icons/icon.png, which is
+// The installer's real icon lives at macos/CodeStoryApp/icons/icon.png, which is
 // gitignored — a worktree, a fresh clone, or CI has no copy of it. What is under
 // test here is scripts/build-icns.mjs, and that only cares that the iconset holds
 // correctly sized PNGs, so the test draws its own source rather than depending on
@@ -61,20 +61,51 @@ function solidPng(size) {
 test('macOS updater closes and relaunches an already-running installed app', () => {
   const installer = fs.readFileSync('scripts/install-macos-app.sh', 'utf8');
   assert.match(installer, /pgrep -f -x "\$INSTALLED_EXECUTABLE"/);
-  assert.match(installer, /tell application id "local\.diffstory\.desktop" to quit/);
+  assert.match(installer, /tell application id "local\.codestory\.desktop" to quit/);
   assert.match(installer, /pkill -TERM -f -x "\$_server_command"/);
   assert.match(installer, /never kill an arbitrary owner/);
   assert.match(installer, /if \(\( RELAUNCH_APP \)\); then\s+\/usr\/bin\/open "\$APP_PATH"/);
 });
 
+test('the macOS installer replaces the pre-rename diffStory app instead of keeping it beside codeStory', () => {
+  const installer = fs.readFileSync('scripts/install-macos-app.sh', 'utf8');
+  assert.match(installer, /APP_PATH="\$INSTALL_DIR\/codeStory\.app"/);
+  assert.match(installer, /LEGACY_APPS=\("\$INSTALL_DIR\/diffStory\.app" "\/Applications\/diffStory\.app"\)/);
+  assert.match(installer, /LEGACY_APP_ID="local\.diffstory\.desktop"/);
+  // A running old app is closed first, the same way the current one is.
+  assert.match(installer, /tell application id \\"\$LEGACY_APP_ID\\" to quit/);
+  // Only an app that really is the old one is removed, and only after the new
+  // one is in place.
+  const installed = installer.indexOf('/usr/bin/ditto "$BUILD_APP" "$APP_PATH"');
+  const removed = installer.indexOf('/bin/rm -rf "$_legacy_app"');
+  assert.ok(installed > 0 && removed > installed, 'the old app is removed after the new one is installed');
+  assert.match(installer, /PlistBuddy -c 'Print :CFBundleIdentifier' "\$_legacy_app\/Contents\/Info\.plist"/);
+  assert.match(installer, /Removed the old diffStory app at \$_legacy_app; codeStory replaces it\./);
+});
+
+// Cargo cannot build the app offline, so the lookup order is pinned in source:
+// a checkout path set by whoever builds the app wins under its new name, then
+// under the name it had before the codeStory rename, then the crate's checkout.
+test('the macOS build takes CODESTORY_PROJECT_PATH, then the pre-rename DIFFSTORY_PROJECT_PATH', () => {
+  const build = fs.readFileSync('macos/CodeStoryApp/build.rs', 'utf8');
+  const main = fs.readFileSync('macos/CodeStoryApp/src/main.rs', 'utf8');
+  assert.match(build, /const NAMES: \[&str; 2\] = \["CODESTORY_PROJECT_PATH", "DIFFSTORY_PROJECT_PATH"\];/);
+  assert.match(build, /\.find_map\(std::env::var_os\)/, 'the first name that is set wins');
+  assert.match(build, /println!\("cargo:rerun-if-env-changed=\{name\}"\);/, 'changing either name rebuilds');
+  assert.match(build, /let checkout = manifest\.parent\(\)\.and_then\(Path::parent\)\.unwrap\(\);/);
+  assert.match(build, /\.map_or_else\(\|\| checkout\.to_path_buf\(\), PathBuf::from\)/, 'otherwise the checkout');
+  assert.match(build, /"cargo:rustc-env=CODESTORY_PROJECT_PATH=\{\}",\s*project_path\(&manifest\)\.display\(\)/);
+  assert.match(main, /const PROJECT_PATH: &str = env!\("CODESTORY_PROJECT_PATH"\);/);
+});
+
 test('macOS installer builds an iconutil-readable ICNS without iconutil packing', {
   skip: process.platform !== 'darwin',
 }, (t) => {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'diffstory-icon-test-'));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codestory-icon-test-'));
   t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
 
-  const iconset = path.join(tempDir, 'diffStory.iconset');
-  const output = path.join(tempDir, 'diffStory.icns');
+  const iconset = path.join(tempDir, 'codeStory.iconset');
+  const output = path.join(tempDir, 'codeStory.icns');
   const extracted = path.join(tempDir, 'extracted.iconset');
   const source = path.join(tempDir, 'icon.png');
   fs.mkdirSync(iconset);

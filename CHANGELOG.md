@@ -1,13 +1,37 @@
 # Changelog
 
-All notable changes to diffStory are tracked here.
+All notable changes to codeStory are tracked here.
 
 ## Unreleased
 
+- Renamed diffStory to codeStory, now that the app explains code with no diff
+  too: the npm package is `@naveedinno/codestory`, the Claude Code plugin is
+  `codestory@codestory`, the skill is `codestory-storyteller`, the Zed extension
+  is `codestory` (tool `start_codestory`), and the macOS app is `codeStory.app`
+  (`local.codestory.desktop`). Nothing saved is lost:
+  - Opening a repository moves its `.diffstory/` folder into `.codestory/`.
+    Where both hold the same file, the `.codestory/` copy wins and the old file
+    stays where it was; every `.gitignore` rule naming `.diffstory` gains a
+    `.codestory` twin. Leftover `.diffstory/` files never show up as changes.
+  - The first launch copies `recents.json`, `settings.json`,
+    `story-selection.json`, and `verification/` from `~/.diffstory/` into
+    `~/.codestory/`. The old folder is never changed, `src/` included.
+  - The bundled checker reads `.diffstory/` while a repository has no
+    `.codestory/` yet, and still never writes.
+  - **Update skills** and `scripts/install-skills.sh` replace an installed
+    `diffstory-storyteller` copy, as they did for `review-tour`, and the skill
+    still answers requests for a diffStory.
+  - `DIFFSTORY_CODEX_BINARY` and `DIFFSTORY_PROJECT_PATH` still work; the
+    `CODESTORY_` name wins when both are set.
+  - Story bundles now download as `.codestory.json`; older `.diffstory.json`
+    bundles still import.
+  - `scripts/install-macos-app.sh` installs `codeStory.app` and removes the old
+    `diffStory.app` once the new one is in place. The desktop window's zoom and
+    size start fresh, since they live with the app.
 - Code stories: explain existing code with no diff. **Explain code** (from
   Review history or the scope picker) takes a question, optional starting
   paths, and the ref to explain, and the agent writes a guided, read-aloud
-  walkthrough pinned to that commit under `.diffstory/stories/code-*.json`.
+  walkthrough pinned to that commit under `.codestory/stories/code-*.json`.
   The reader frames it as code (no coverage, no change language), flags when
   the files it visits change in the working tree, and offers a rewrite at the
   current code. The checker verifies every file, line, and landing at the
@@ -23,8 +47,8 @@ All notable changes to diffStory are tracked here.
   where they sit.
 - Concept pages are offline by default: a page opts into network access with
   `"network": true` on its step, and opted-in pages carry a Network badge.
-- Story bundles for team handoff: export a story as a `.diffstory.json`
-  download and import it under `.diffstory/stories/` from Review history.
+- Story bundles for team handoff: export a story as a `.codestory.json`
+  download and import it under `.codestory/stories/` from Review history.
 - `storyScope.regenerated` declares generator outputs (ABIs, lockfiles) once
   with their command instead of narrating them as steps; coverage treats them
   as explained and the file list shows one row per generator.
@@ -42,7 +66,7 @@ All notable changes to diffStory are tracked here.
   stories keep a light Overview; a perf smoke test pins the 300-step review
   page inside a 5s budget.
 - History snapshots no longer dirty the tree for scope selection: the
-  committed-story fallback and auto scope ignore `.diffstory/history/`, so a
+  committed-story fallback and auto scope ignore `.codestory/history/`, so a
   clean tree with snapshots still opens its committed diff.
 - Tightened the story step header: the step title now leads its own line with
   the step number, kind, and call flow demoted to quiet reference marks at the

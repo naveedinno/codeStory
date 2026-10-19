@@ -1,7 +1,7 @@
 // Which story the reviewer last opened in each repo, so restarting the app resumes
 // the story they were reading instead of the first one in the list.
 //
-// This lives in the global ~/.diffstory/ store, never in the repo's own .diffstory/.
+// This lives in the global ~/.codestory/ store, never in the repo's own .codestory/.
 // The selection is a personal UI preference: a per-repo file would dirty git status,
 // and under the 'shared' gitignore mode — where only comments.json is ignored — it
 // would be committed and travel with the PR.
@@ -71,7 +71,7 @@ export function loadStorySelections(home: string): StorySelections {
   }
 }
 
-/** Write the selections, creating ~/.diffstory/ if needed. Never throws on a read-only home. */
+/** Write the selections, creating ~/.codestory/ if needed. Never throws on a read-only home. */
 export function saveStorySelections(home: string, selections: StorySelections): void {
   const file = storySelectionFile(home);
   try {

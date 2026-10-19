@@ -236,7 +236,7 @@ export function ExplainApp({ payload }: { payload: ExplainPayload }) {
         setSkills(body.skills);
       })
       .catch(() =>
-        setSkillsError("Could not update skills. Run scripts/install-skills.sh from a diffStory clone."),
+        setSkillsError("Could not update skills. Run scripts/install-skills.sh from a codeStory clone."),
       )
       .finally(() => setSkillsBusy(false));
   };

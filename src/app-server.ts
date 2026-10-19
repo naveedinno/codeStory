@@ -1,4 +1,4 @@
-// Internal development server entry point. Users open the diffStory desktop UI;
+// Internal development server entry point. Users open the codeStory desktop UI;
 // this file only supports the app wrapper, local development, demos, and tests.
 import { resolve } from 'node:path';
 import { isGitRepo } from './git.js';

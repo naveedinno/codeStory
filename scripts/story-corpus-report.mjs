@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Lints every diffStory story under the given roots (default ~/Codes) and
+// Lints every codeStory story under the given roots (default ~/Codes) and
 // prints a Markdown report: basic validity, generation-contract errors, and
 // lint findings by rule. No coverage check: a story's diff has usually moved
 // on since it was written. Read-only.
@@ -22,6 +22,10 @@ if (sinceAt >= 0 && Number.isNaN(since)) {
 const roots = args.filter((a, i) => !a.startsWith('--') && i !== sinceAt + 1);
 if (!roots.length) roots.push(join(homedir(), 'Codes'));
 
+// A repo the app has not opened since the codeStory rename still keeps its
+// stories under the pre-rename folder; read both, as the bundled checker does.
+const DATA_DIRS = new Set(['.codestory', '.diffstory']);
+
 // Heavy or duplicate trees: dependencies, build output, eval/agent worktrees.
 const SKIP = new Set(['node_modules', 'dist', 'build', 'target', 'out', 'worktrees', 'vendor', 'lib']);
 
@@ -36,7 +40,7 @@ function* storyFiles(dir, depth = 0) {
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
     const path = join(dir, entry.name);
-    if (entry.name === '.diffstory') {
+    if (DATA_DIRS.has(entry.name)) {
       const single = join(path, 'story.json');
       if (existsSync(single)) yield single;
       const scoped = join(path, 'stories');
@@ -55,7 +59,7 @@ const totals = {};
 for (const root of roots) {
   for (const file of storyFiles(root)) {
     if (statSync(file).mtimeMs < since) continue;
-    const repo = file.slice(0, file.indexOf('/.diffstory/'));
+    const repo = file.slice(0, file.search(/\/\.(codestory|diffstory)\//));
     const name = `${relative(root, repo) || '.'} :: ${file.slice(repo.length + 12)}`;
     let tour;
     try {

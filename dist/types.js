@@ -1,4 +1,4 @@
-// Shared data shapes for diffStory.
+// Shared data shapes for codeStory.
 //
 // Two authored artifacts flow through the system:
 //   - the *story* (story.json) — written by the AI, describes the reading order.

@@ -1,17 +1,17 @@
 {
-  "name": "diffstory",
-  "description": "diffStory — guided, in-order AI-diff review with a comment loop back to the agent.",
+  "name": "codestory",
+  "description": "codeStory — guided, in-order AI-diff review with a comment loop back to the agent.",
   "owner": {
     "name": "naveedinno",
     "email": "naveed.hashim171@gmail.com"
   },
   "plugins": [
     {
-      "name": "diffstory",
+      "name": "codestory",
       "source": "./",
-      "description": "The diffstory-storyteller + address-review skills that drive the diffStory UI review loop.",
+      "description": "The codestory-storyteller + address-review skills that drive the codeStory UI review loop.",
       "version": "0.1.0",
-      "homepage": "https://github.com/naveedinno/diffstory"
+      "homepage": "https://github.com/naveedinno/codeStory"
     }
   ]
 }

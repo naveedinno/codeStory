@@ -48,10 +48,10 @@ export function codeStory(sha, over = {}) {
   };
 }
 
-/** Write a story under `.diffstory/stories/` and return its path. */
+/** Write a story under `.codestory/stories/` and return its path. */
 export function writeCodeStory(dir, story, name = 'code-cap.json') {
-  mkdirSync(join(dir, '.diffstory', 'stories'), { recursive: true });
-  const path = join(dir, '.diffstory', 'stories', name);
+  mkdirSync(join(dir, '.codestory', 'stories'), { recursive: true });
+  const path = join(dir, '.codestory', 'stories', name);
   writeFileSync(path, JSON.stringify(story));
   return path;
 }
@@ -70,8 +70,8 @@ export async function withServer(repo, fn) {
   }
 }
 
-/** The `__DIFFSTORY_DATA__` payload of a page. */
-export const shellPayload = (html) => JSON.parse(html.match(/id="__DIFFSTORY_DATA__">([\s\S]*?)<\/script>/)[1]);
+/** The `__CODESTORY_DATA__` payload of a page. */
+export const shellPayload = (html) => JSON.parse(html.match(/id="__CODESTORY_DATA__">([\s\S]*?)<\/script>/)[1]);
 
 /** Fetch `/repo/<name><path>` and return its payload. */
 export const pageOf = async (base, dir, path) =>
@@ -91,7 +91,7 @@ export async function withFakeWriter(content, fn) {
     `import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 const prompt = process.argv.join(' ');
-const match = /(?:Write|back to) (\\.diffstory\\/stories\\/[^ ,]+\\.json)/.exec(prompt);
+const match = /(?:Write|back to) (\\.codestory\\/stories\\/[^ ,]+\\.json)/.exec(prompt);
 if (match) {
   mkdirSync(dirname(match[1]), { recursive: true });
   writeFileSync(match[1], ${JSON.stringify(content)});

@@ -120,9 +120,9 @@ async function verifyAloudDaemon(baseUrl: string, capability = ALOUD_BATCH_CAPAB
   const capabilities = (health as { capabilities?: unknown }).capabilities;
   if (!Array.isArray(capabilities) || !capabilities.includes(capability)) {
     if (capability === ALOUD_PREPARE_CAPABILITY) {
-      throw new AloudUnavailableError('Aloud needs an update before DiffStory can prepare narration in the background.');
+      throw new AloudUnavailableError('Aloud needs an update before codeStory can prepare narration in the background.');
     }
-    throw new AloudUnavailableError('Aloud needs an update before it can prefetch DiffStory narration. Reinstall Aloud Services, then try again.');
+    throw new AloudUnavailableError('Aloud needs an update before it can prefetch codeStory narration. Reinstall Aloud Services, then try again.');
   }
 }
 

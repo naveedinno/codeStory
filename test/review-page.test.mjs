@@ -37,6 +37,7 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { basename, join } from "node:path";
@@ -80,7 +81,7 @@ const renderSrc = readFileSync(
 const markup = [reviewApp, sidebar, storyView, reviewViewSrc].join("\n");
 
 const PAYLOAD_BLOCK =
-  /<script type="application\/json" id="__DIFFSTORY_DATA__">([\s\S]*?)<\/script>/;
+  /<script type="application\/json" id="__CODESTORY_DATA__">([\s\S]*?)<\/script>/;
 const shellPayload = (html) => JSON.parse(html.match(PAYLOAD_BLOCK)[1]);
 
 /**
@@ -90,7 +91,7 @@ const shellPayload = (html) => JSON.parse(html.match(PAYLOAD_BLOCK)[1]);
  * tree and the speech cache all have more than one of everything to get wrong.
  */
 function fixtureRepo({ story = true } = {}) {
-  const dir = mkdtempSync(join(tmpdir(), "diffstory-review-"));
+  const dir = mkdtempSync(join(tmpdir(), "codestory-review-"));
   const git = (...args) =>
     execFileSync("git", args, { cwd: dir, stdio: "pipe" });
   git("init", "-q", "-b", "main");
@@ -117,9 +118,9 @@ function fixtureRepo({ story = true } = {}) {
   );
 
   if (story) {
-    mkdirSync(join(dir, ".diffstory"), { recursive: true });
+    mkdirSync(join(dir, ".codestory"), { recursive: true });
     writeFileSync(
-      join(dir, ".diffstory", "story.json"),
+      join(dir, ".codestory", "story.json"),
       JSON.stringify({
         // Concept primers require story version 2 or 3.
         version: 3,
@@ -171,7 +172,11 @@ function fixtureRepo({ story = true } = {}) {
 }
 
 async function boot(repo) {
-  const server = serve({ repo, port: 0, open: false });
+  // Opening a story records the selection in the global store, so every server
+  // gets a throwaway home; a test must never write the real one.
+  const home = mkdtempSync(join(tmpdir(), "ds-review-page-home-"));
+  const server = serve({ repo, port: 0, open: false, homeOverride: home });
+  server.once("close", () => rmSync(home, { recursive: true, force: true }));
   await once(server, "listening");
   const base = `http://127.0.0.1:${server.address().port}`;
   return { server, base, route: `/repo/${encodeURIComponent(basename(repo))}` };
@@ -201,7 +206,7 @@ test("both review entry points serve the same shell", async () => {
         html,
         /<script type="module" blocking="render" data-ds-entry src="\/assets\/client\/review\.js"><\/script>/,
       );
-      assert.match(html, new RegExp(`<title>diffStory — ${title}`));
+      assert.match(html, new RegExp(`<title>codeStory — ${title}`));
       // Painted during boot so the dot field is there before React commits.
       assert.match(html, /<body class="ds-map-bg/);
       const payload = shellPayload(html);
@@ -249,8 +254,8 @@ test("the Overview renders the health row with per-finding repair", () => {
 
 test("a broken story still falls through to the scope picker with an explanation", async () => {
   const repo = fixtureRepo({ story: false });
-  mkdirSync(join(repo, ".diffstory"), { recursive: true });
-  writeFileSync(join(repo, ".diffstory", "story.json"), '{"bogus":true}');
+  mkdirSync(join(repo, ".codestory"), { recursive: true });
+  writeFileSync(join(repo, ".codestory", "story.json"), '{"bogus":true}');
   const { server, base, route } = await boot(repo);
   try {
     const html = await (
@@ -362,7 +367,7 @@ test("the payload is metadata-first: no step ships a rendered diff", async () =>
  * end to end through the panel route.
  */
 function pageConceptRepo() {
-  const dir = mkdtempSync(join(tmpdir(), "diffstory-review-"));
+  const dir = mkdtempSync(join(tmpdir(), "codestory-review-"));
   const git = (...args) =>
     execFileSync("git", args, { cwd: dir, stdio: "pipe" });
   git("init", "-q", "-b", "main");
@@ -379,9 +384,9 @@ function pageConceptRepo() {
     join(dir, "src", "order.ts"),
     "export function place() {\n  return 2;\n}\n",
   );
-  mkdirSync(join(dir, ".diffstory"), { recursive: true });
+  mkdirSync(join(dir, ".codestory"), { recursive: true });
   writeFileSync(
-    join(dir, ".diffstory", "story.json"),
+    join(dir, ".codestory", "story.json"),
     JSON.stringify({
       version: 4,
       title: "Margin moves with price",
@@ -528,9 +533,9 @@ test("the reading-position key is scoped per story, not per scope", async () => 
 
 test("only open comments travel, each with its server-computed anchor", async () => {
   const repo = fixtureRepo();
-  mkdirSync(join(repo, ".diffstory"), { recursive: true });
+  mkdirSync(join(repo, ".codestory"), { recursive: true });
   writeFileSync(
-    join(repo, ".diffstory", "comments.json"),
+    join(repo, ".codestory", "comments.json"),
     JSON.stringify([
       {
         id: "open",
@@ -581,7 +586,7 @@ test("hostile authored text cannot terminate the payload script element", async 
   // escaping, not a sanitizer upstream of it.
   const hostile = "Close </script><img src=x onerror=alert(1)> then <!-- open";
   writeFileSync(
-    join(repo, ".diffstory", "comments.json"),
+    join(repo, ".codestory", "comments.json"),
     JSON.stringify([
       {
         id: "c1",

@@ -58,7 +58,7 @@ test('the selection file lives in the global home, never in the repo', () => {
   try {
     recordStorySelection(home, '/repo/a', 'story.json', 1);
     const file = storySelectionFile(home);
-    assert.equal(file, join(home, '.diffstory', 'story-selection.json'));
+    assert.equal(file, join(home, '.codestory', 'story-selection.json'));
     const parsed = JSON.parse(readFileSync(file, 'utf8'));
     assert.equal(parsed.version, 1);
     assert.equal(parsed.repos['/repo/a'].story, 'story.json');

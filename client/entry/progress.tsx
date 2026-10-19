@@ -10,7 +10,7 @@
 //  1. It is the module the review page imports the component from, and building
 //     it on its own keeps the surface honestly sized and independently
 //     type-checked rather than hiding inside the review bundle.
-//  2. It publishes an imperative bridge on `window.diffStoryProgress` for hosts
+//  2. It publishes an imperative bridge on `window.codeStoryProgress` for hosts
 //     that are not React: the UI-atlas capture drives the panel with fixture
 //     `ProgressEvent`s through exactly this door, and so does any manual check.
 //
@@ -109,7 +109,7 @@ export function mountProgressPanel(
   ) =>
     (...args: T): R => {
       const current = handleRef.current;
-      if (!current) throw new Error("diffStory: the progress panel is not mounted.");
+      if (!current) throw new Error("codeStory: the progress panel is not mounted.");
       if (!flush) return pick(current)(...args);
       let out!: R;
       flushSync(() => {
@@ -139,7 +139,7 @@ export function mountProgressPanel(
 
 declare global {
   interface Window {
-    diffStoryProgress?: {
+    codeStoryProgress?: {
       mount: typeof mountProgressPanel;
       runProgress: typeof runProgress;
     };
@@ -147,5 +147,5 @@ declare global {
 }
 
 if (typeof window !== "undefined") {
-  window.diffStoryProgress = { mount: mountProgressPanel, runProgress };
+  window.codeStoryProgress = { mount: mountProgressPanel, runProgress };
 }

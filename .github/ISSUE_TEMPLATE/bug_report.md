@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Report something broken in diffStory
+about: Report something broken in codeStory
 title: ""
 labels: bug
 assignees: ""
@@ -22,7 +22,7 @@ assignees: ""
 
 - OS:
 - Node version:
-- diffStory version or commit:
+- codeStory version or commit:
 - Install method: macOS app installer / source development
 
 ## Optional tools involved

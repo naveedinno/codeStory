@@ -22,7 +22,7 @@ export interface VerificationReceipt {
 }
 
 function storePath(home: string, repo: string): string {
-  return join(home, '.diffstory', 'verification', `${createHash('sha256').update(repo).digest('hex')}.json`);
+  return join(home, '.codestory', 'verification', `${createHash('sha256').update(repo).digest('hex')}.json`);
 }
 
 export function loadVerificationReceipts(home: string, repo: string): VerificationReceipt[] {

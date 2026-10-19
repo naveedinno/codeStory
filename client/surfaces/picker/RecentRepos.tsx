@@ -304,7 +304,7 @@ function EmptyRecents() {
       </span>
       <p className="m-0 mb-1.5 font-display text-xl font-bold tracking-[-.02em] text-text">No repositories yet</p>
       <p className="m-0 mx-auto max-w-[42ch] text-[12.5px] leading-[1.55]">
-        Point diffStory at any local Git repository — it reads the working tree directly, nothing is uploaded.
+        Point codeStory at any local Git repository — it reads the working tree directly, nothing is uploaded.
       </p>
     </div>
   );

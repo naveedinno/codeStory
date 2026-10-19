@@ -14,13 +14,13 @@ test('the engine points concept frames at the leased page endpoint with the them
 test('forwarded keys are accepted only from a concept frame window', () => {
   assert.match(engine, /function onConceptFrameMessage\(e\)/);
   assert.match(engine, /contentWindow===e\.source/);
-  assert.match(engine, /d\.type!=='diffstory:key'/);
+  assert.match(engine, /d\.type!=='codestory:key'/);
   assert.match(engine, /window\.addEventListener\('message',onConceptFrameMessage\)/);
 });
 
 test('theme changes reach every mounted concept frame', () => {
   assert.match(engine, /function syncConceptPageTheme\(\)/);
-  assert.match(engine, /type:'diffstory:theme'/);
+  assert.match(engine, /type:'codestory:theme'/);
   assert.match(engine, /attributeFilter:\['data-theme'\]/);
 });
 
@@ -58,7 +58,7 @@ function bridge() {
     assert.ok(source, `${name} exists`);
     vm.runInContext(source, context);
   }
-  const send = (source, key, extra = {}) => context.onConceptFrameMessage({ source, data: { type: 'diffstory:key', key, ...extra } });
+  const send = (source, key, extra = {}) => context.onConceptFrameMessage({ source, data: { type: 'codestory:key', key, ...extra } });
   return { context, calls, send, activeWin, hiddenWin, activeFrame, hiddenFrame };
 }
 
@@ -93,7 +93,7 @@ test('an unknown window or malformed message is ignored', () => {
   const b = bridge();
   b.send({ name: 'stranger' }, 'j');
   b.context.onConceptFrameMessage({ source: b.activeWin, data: { type: 'other', key: 'j' } });
-  b.context.onConceptFrameMessage({ source: b.activeWin, data: { type: 'diffstory:key', key: 7 } });
+  b.context.onConceptFrameMessage({ source: b.activeWin, data: { type: 'codestory:key', key: 7 } });
   b.context.onConceptFrameMessage({ source: b.activeWin, data: null });
   assert.equal(b.calls.length, 0);
 });
@@ -205,7 +205,7 @@ test('a page that loads after a theme change gets the current theme', () => {
   t.activate(1);
   t.html.theme = 'light';
   t.frame(1).listeners.load();
-  assert.deepEqual(JSON.parse(JSON.stringify(t.posted)), [[2, { type: 'diffstory:theme', theme: 'light' }]]);
+  assert.deepEqual(JSON.parse(JSON.stringify(t.posted)), [[2, { type: 'codestory:theme', theme: 'light' }]]);
 });
 
 test('step activation unloads off-step pages before mounting the active one', () => {

@@ -57,9 +57,9 @@ test('Zed launch opens the reviewed workspace and exact source location together
 });
 
 test('source editor settings API reads and persists either supported editor', async () => {
-  const home = mkdtempSync(join(tmpdir(), 'diffstory-editor-settings-home-'));
-  mkdirSync(join(home, '.diffstory'), { recursive: true });
-  writeFileSync(join(home, '.diffstory', 'settings.json'), '{"futureSetting":"kept","editor":"zed"}\n');
+  const home = mkdtempSync(join(tmpdir(), 'codestory-editor-settings-home-'));
+  mkdirSync(join(home, '.codestory'), { recursive: true });
+  writeFileSync(join(home, '.codestory', 'settings.json'), '{"futureSetting":"kept","editor":"zed"}\n');
   const server = serve({ repo: null, port: 0, open: false, homeOverride: home });
   await once(server, 'listening');
   const address = server.address();
@@ -84,7 +84,7 @@ test('source editor settings API reads and persists either supported editor', as
     assert.equal(updated.status, 200);
     assert.deepEqual(await updated.json(), { ok: true, editor: 'vscode', label: 'VS Code' });
     assert.deepEqual(
-      JSON.parse(readFileSync(join(home, '.diffstory', 'settings.json'), 'utf8')),
+      JSON.parse(readFileSync(join(home, '.codestory', 'settings.json'), 'utf8')),
       { futureSetting: 'kept', version: 1, editor: 'vscode' },
     );
   } finally {
@@ -100,8 +100,8 @@ test('review assets expose modifier-click navigation without taking ordinary cli
 });
 
 test('leased editor endpoint dispatches only reviewed files to the bridge', async () => {
-  const repo = mkdtempSync(join(tmpdir(), 'diffstory-editor-bridge-'));
-  const home = mkdtempSync(join(tmpdir(), 'diffstory-editor-home-'));
+  const repo = mkdtempSync(join(tmpdir(), 'codestory-editor-bridge-'));
+  const home = mkdtempSync(join(tmpdir(), 'codestory-editor-home-'));
   execFileSync('git', ['init', '-q'], { cwd: repo });
   execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: repo });
   execFileSync('git', ['config', 'user.name', 'Test'], { cwd: repo });
@@ -110,8 +110,8 @@ test('leased editor endpoint dispatches only reviewed files to the bridge', asyn
   execFileSync('git', ['commit', '-qm', 'base'], { cwd: repo });
   writeFileSync(join(repo, 'order.ts'), 'export function executeOrder() { return 2; }\n');
 
-  mkdirSync(join(home, '.diffstory'), { recursive: true });
-  writeFileSync(join(home, '.diffstory', 'settings.json'), '{"version":1,"editor":"zed"}\n');
+  mkdirSync(join(home, '.codestory'), { recursive: true });
+  writeFileSync(join(home, '.codestory', 'settings.json'), '{"version":1,"editor":"zed"}\n');
   const opened = [];
   const server = serve({
     repo,
@@ -131,7 +131,7 @@ test('leased editor endpoint dispatches only reviewed files to the bridge', asyn
     // from React at mount, so the server response no longer carries them as
     // attributes.
     const payload = JSON.parse(
-      html.match(/<script type="application\/json" id="__DIFFSTORY_DATA__">([\s\S]*?)<\/script>/)[1],
+      html.match(/<script type="application\/json" id="__CODESTORY_DATA__">([\s\S]*?)<\/script>/)[1],
     );
     const token = payload.pageToken;
     assert.ok(token);

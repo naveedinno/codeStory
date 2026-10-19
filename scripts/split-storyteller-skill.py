@@ -11,7 +11,7 @@ It refuses to run twice (it checks that references/ does not exist yet).
 import pathlib
 import sys
 
-ROOT = pathlib.Path("skills/diffstory-storyteller")
+ROOT = pathlib.Path("skills/codestory-storyteller")
 SKILL = ROOT / "SKILL.md"
 REFS = ROOT / "references"
 
@@ -33,7 +33,7 @@ MOVES = [
     ("### The splitting test", "## Detail levels", "splitting.md",
      "Split into scoped stories only when the diff passes every test in\n"
      "`references/splitting.md`; read it before writing anything under\n"
-     "`.diffstory/stories/`. Any doubt: one story.\n"),
+     "`.codestory/stories/`. Any doubt: one story.\n"),
     ("### 3.6. What good looks like: the same diff, told twice", "### 3.75. Test for concept gaps", "examples.md",
      "### 3.6. What good looks like\n\n"
      "Before your first story in a session, read `references/examples.md`: the\n"
@@ -74,7 +74,7 @@ MOVES = [
 ]
 
 HEADERS = {
-    "splitting.md": ("Splitting a change into scoped stories", "Read before writing anything under `.diffstory/stories/`."),
+    "splitting.md": ("Splitting a change into scoped stories", "Read before writing anything under `.codestory/stories/`."),
     "examples.md": ("Worked examples", "Read once per session, before your first story."),
     "primers.md": ("Concept primers", "Read when a code stop needs a mental model the reviewer does not have yet."),
     "schema.md": ("Story file schema and narrative markup", "Read immediately before writing or editing story JSON."),
@@ -107,7 +107,7 @@ core.extend(lines[cursor:])
 
 REFS.mkdir()
 for name, (title, when) in HEADERS.items():
-    text = f"# {title}\n\nPart of the diffstory-storyteller skill. {when}\n\n" + "\n".join(bodies[name])
+    text = f"# {title}\n\nPart of the codestory-storyteller skill. {when}\n\n" + "\n".join(bodies[name])
     (REFS / name).write_text(text.rstrip() + "\n")
 SKILL.write_text("\n".join(core).rstrip() + "\n")
 print(f"SKILL.md: {len(lines)} -> {len(core)} lines")

@@ -427,7 +427,7 @@ export function finishRun(
   if (!ok && status !== "stopped" && !next.error) {
     next = showError(next, {
       label: "The connection to the agent ended",
-      detail: "Try again. If it keeps failing, reopen diffStory and check the technical details.",
+      detail: "Try again. If it keeps failing, reopen codeStory and check the technical details.",
     });
   }
   // Revealed, never auto-opened: diagnostics are for the person who asks.

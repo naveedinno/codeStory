@@ -1,6 +1,6 @@
 // The server-side HTML shell for the React surfaces.
 //
-// Every diffStory page used to be a complete, self-contained document: ~300 KB
+// Every codeStory page used to be a complete, self-contained document: ~300 KB
 // of hand-written markup with all CSS and JS inlined from `page-assets.ts`.
 // This module replaces that with the smallest document that can boot a React
 // bundle without a flash of the wrong theme:
@@ -10,7 +10,7 @@
 //   3. the brand favicon + mask-icon links
 //   4. `<link rel="stylesheet" href="/assets/client/app.css">`
 //   5. `<div id="root">` (optionally holding a boot placeholder)
-//   6. `<script type="application/json" id="__DIFFSTORY_DATA__">` — the view-model
+//   6. `<script type="application/json" id="__CODESTORY_DATA__">` — the view-model
 //   7. `<script type="module" src="/assets/client/<surface>.js">`
 //
 // Ordering is load-bearing, not cosmetic:
@@ -48,7 +48,7 @@ import { themeBootstrapScript } from './theme.js';
 export type ShellSurface = 'picker' | 'stories' | 'change' | 'review' | 'progress' | 'explain';
 
 /** The element id the client reads its bootstrap payload from. */
-export const SHELL_PAYLOAD_ID = '__DIFFSTORY_DATA__';
+export const SHELL_PAYLOAD_ID = '__CODESTORY_DATA__';
 
 /** Where the client build publishes its bundles. Served by the `/assets/*` family. */
 export const CLIENT_ASSET_BASE = '/assets/client';
@@ -121,7 +121,7 @@ export interface ShellInput<TPayload> {
   /** Which React entry point boots, and which bundle is requested. */
   surface: ShellSurface;
   /**
-   * Page-specific half of the `<title>`. Rendered as `diffStory — {title}`.
+   * Page-specific half of the `<title>`. Rendered as `codeStory — {title}`.
    * Plain text; it is HTML-escaped here, so pass the raw string.
    */
   title: string;

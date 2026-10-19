@@ -10,13 +10,32 @@ import {
 } from '../dist/codex-tasks.js';
 
 test('configured Codex task runtime overrides platform discovery', () => {
-  const before = process.env.DIFFSTORY_CODEX_BINARY;
-  process.env.DIFFSTORY_CODEX_BINARY = '/tmp/codex-desktop-test';
+  const before = process.env.CODESTORY_CODEX_BINARY;
+  process.env.CODESTORY_CODEX_BINARY = '/tmp/codex-desktop-test';
   try {
     assert.equal(codexTaskBinary(), '/tmp/codex-desktop-test');
   } finally {
-    if (before === undefined) delete process.env.DIFFSTORY_CODEX_BINARY;
-    else process.env.DIFFSTORY_CODEX_BINARY = before;
+    if (before === undefined) delete process.env.CODESTORY_CODEX_BINARY;
+    else process.env.CODESTORY_CODEX_BINARY = before;
+  }
+});
+
+test('the pre-rename DIFFSTORY_CODEX_BINARY still works, and CODESTORY_CODEX_BINARY wins', () => {
+  const names = ['CODESTORY_CODEX_BINARY', 'DIFFSTORY_CODEX_BINARY'];
+  const before = Object.fromEntries(names.map((name) => [name, process.env[name]]));
+  try {
+    delete process.env.CODESTORY_CODEX_BINARY;
+    process.env.DIFFSTORY_CODEX_BINARY = '/tmp/codex-under-the-old-name';
+    assert.equal(codexTaskBinary(), '/tmp/codex-under-the-old-name');
+    process.env.CODESTORY_CODEX_BINARY = '/tmp/codex-under-the-new-name';
+    assert.equal(codexTaskBinary(), '/tmp/codex-under-the-new-name');
+    process.env.CODESTORY_CODEX_BINARY = '   ';
+    assert.equal(codexTaskBinary(), '/tmp/codex-under-the-old-name', 'a blank new name falls through to the old one');
+  } finally {
+    for (const name of names) {
+      if (before[name] === undefined) delete process.env[name];
+      else process.env[name] = before[name];
+    }
   }
 });
 

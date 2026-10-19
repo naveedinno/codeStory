@@ -2,7 +2,7 @@
 // gate against the real git diff, logic-move verification, and the
 // deterministic prose lints, runnable without the app. Agents run it from the
 // skill folder (`node <skill-dir>/scripts/check-story.mjs`); it is bundled by
-// scripts/build-skill-checker.mjs. It is not a diffStory CLI: nothing is
+// scripts/build-skill-checker.mjs. It is not a codeStory CLI: nothing is
 // installed, and it only reads.
 import { readFileSync } from "node:fs";
 import { relative } from "node:path";
@@ -115,8 +115,8 @@ export function runStoryCheck(repo: string, storyPath: string): StoryCheckReport
     ...(tour.version >= 3 ? validateNewGeneratedStory(tour) : validateGeneratedTour(tour)),
   );
   if (report.subject === "code") return checkCodeStory(repo, tour, report);
-  if (/(^|\/)\.diffstory\/stories\//.test(story) && !tour.storyScope?.includedFiles?.length) {
-    report.errors.push("stories under .diffstory/stories/ need storyScope.includedFiles");
+  if (/(^|\/)\.(codestory|diffstory)\/stories\//.test(story) && !tour.storyScope?.includedFiles?.length) {
+    report.errors.push("stories under .codestory/stories/ need storyScope.includedFiles");
   }
 
   const base = resolveBase(repo, tour.base);
@@ -365,7 +365,7 @@ export function formatReport(report: StoryCheckReport, strict = false): string {
   const lintErrors = report.findings.filter((f) => f.severity === "error");
   const warnings = report.findings.filter((f) => f.severity === "warning");
   const errorCount = report.errors.length + lintErrors.length;
-  const out = [`diffStory story check: ${report.story}`];
+  const out = [`codeStory story check: ${report.story}`];
   if (report.diffLabel && report.subject === "code") {
     out.push(`Code: ${report.diffLabel}`);
   } else if (report.diffLabel) {

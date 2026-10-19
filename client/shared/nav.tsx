@@ -1,4 +1,4 @@
-// The persistent top bar for diffStory's front-door screens.
+// The persistent top bar for codeStory's front-door screens.
 //
 // A React port of `navBar()` / `navStyles()` in `src/nav.ts`, shared by the
 // change/scope page and review history (the repo picker has never used it — it
@@ -103,7 +103,7 @@ export function Nav({ home = "/repos", crumbs = [], right }: NavProps) {
           size={22}
         />
         <span className="text-lg tracking-[-.01em] max-[560px]:hidden">
-          <span className="font-medium text-text-2">diff</span>
+          <span className="font-medium text-text-2">code</span>
           <span className="font-semibold text-text">Story</span>
         </span>
       </a>

@@ -1,4 +1,4 @@
-// Load and validate the story file (.diffstory/story.json). Validation is hand-rolled (no schema dep)
+// Load and validate the story file (.codestory/story.json). Validation is hand-rolled (no schema dep)
 // but thorough — a malformed story should fail loudly with a useful message,
 // not render a broken page.
 import { readFileSync } from "node:fs";
@@ -1060,7 +1060,7 @@ export function loadTour(path) {
         raw = readFileSync(path, "utf8");
     }
     catch {
-        throw new TourError(`No review story found at ${path}. Open the diff in the diffStory app and generate one.`);
+        throw new TourError(`No review story found at ${path}. Open the diff in the codeStory app and generate one.`);
     }
     let parsed;
     try {

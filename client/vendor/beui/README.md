@@ -9,7 +9,7 @@ for the upstream copyright notice, which is reproduced verbatim.
 | Upstream | `starc007/ui-components` |
 | Commit | `b3966e2604a8e43537a7b78fa3103a6fd72d1388` (`main`) |
 | Vendored | 2026-08-09, re-vendored broadly 2026-08-11 |
-| Files | 113 — 111 from upstream, plus 2 diffStory-local stand-ins |
+| Files | 113 — 111 from upstream, plus 2 codeStory-local stand-ins |
 
 Every vendored file carries a header naming its upstream path:
 
@@ -137,7 +137,7 @@ the site of the change.
 
 2. **`next-themes` replaced by `lib/use-theme.ts`.** Written for this repo, it
    exposes the same `{ theme, resolvedTheme, systemTheme, setTheme }` surface but
-   reads and writes diffStory's own theme plumbing: the `ds-theme` localStorage
+   reads and writes codeStory's own theme plumbing: the `ds-theme` localStorage
    key, `data-theme` / `data-theme-mode` on `<html>`, `html.style.colorScheme`,
    the `meta[data-ds-theme-color]` tag, and the `ds-theme-change` document event.
    That contract is defined by `src/theme.ts`, which stays the canonical owner —

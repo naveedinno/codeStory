@@ -42,7 +42,7 @@ export function EditorMenu({ className, compact = false }: { className?: string;
     setError("");
     requestJson<EditorPreferenceResponse>("/api/settings/editor", {
       fallback: "Could not load the source editor setting.",
-      networkFallback: "Could not reach diffStory settings.",
+      networkFallback: "Could not reach codeStory settings.",
     })
       .then((data) => setEditor(data.editor))
       .catch((cause: unknown) => setError(failureMessage(cause, "Could not load the source editor setting.")));
@@ -90,7 +90,7 @@ export function EditorMenu({ className, compact = false }: { className?: string;
       method: "PUT",
       body: { editor: next },
       fallback: "Could not save the source editor setting.",
-      networkFallback: "Could not reach diffStory settings.",
+      networkFallback: "Could not reach codeStory settings.",
     })
       .then((data) => {
         setEditor(data.editor);

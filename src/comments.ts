@@ -37,7 +37,7 @@ export interface CommentLoadResult {
 }
 
 const INVALID_RECOVERY =
-  "Repair or restore .diffstory/comments.json, then reload. diffStory will not overwrite the invalid file.";
+  "Repair or restore .codestory/comments.json, then reload. codeStory will not overwrite the invalid file.";
 
 export class InvalidCommentStoreError extends Error {
   readonly health: Extract<CommentStoreHealth, { status: "invalid" }>;
@@ -66,7 +66,7 @@ export function loadCommentsWithHealth(repo: string): CommentLoadResult {
       error instanceof Error && error.message ? ` (${error.message})` : "";
     return invalidLoad(
       "unreadable",
-      `Could not read .diffstory/comments.json${detail}.`,
+      `Could not read .codestory/comments.json${detail}.`,
       null,
     );
   }
@@ -77,14 +77,14 @@ export function loadCommentsWithHealth(repo: string): CommentLoadResult {
   } catch {
     return invalidLoad(
       "invalid-json",
-      ".diffstory/comments.json is not valid JSON.",
+      ".codestory/comments.json is not valid JSON.",
       raw,
     );
   }
   if (!Array.isArray(data)) {
     return invalidLoad(
       "not-array",
-      ".diffstory/comments.json must contain a JSON array.",
+      ".codestory/comments.json must contain a JSON array.",
       raw,
     );
   }
@@ -95,7 +95,7 @@ export function loadCommentsWithHealth(repo: string): CommentLoadResult {
     if (problem) {
       return invalidLoad(
         "invalid-entry",
-        `.diffstory/comments.json has an invalid comment at array index ${index}: ${problem}.`,
+        `.codestory/comments.json has an invalid comment at array index ${index}: ${problem}.`,
         raw,
         index,
       );

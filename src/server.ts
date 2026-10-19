@@ -159,6 +159,7 @@ import {
   type FileScope,
 } from "./progress.js";
 import { skillStatus, updateSkills } from "./repo-setup.js";
+import { migrateLegacyDataDir, migrateLegacyHome } from "./legacy-migration.js";
 import {
   createSession,
   openSession,
@@ -285,6 +286,10 @@ export function serve(opts: ServeOptions): Server {
   // this keeps parallel test servers from following later HOME mutations into
   // another test's recents, skills, or voice cache.
   const home = opts.homeOverride ?? homedir();
+  // The app was renamed from diffStory: copy the old global store over once,
+  // and move the boot repo's data folder into place before the session reads it.
+  migrateLegacyHome(home);
+  if (opts.repo) migrateRepoData(opts.repo);
   const session = createSession({
     repo: opts.repo,
     base: opts.baseOverride,
@@ -350,6 +355,22 @@ export function serve(opts: ServeOptions): Server {
 
 function noRepo(res: ServerResponse): void {
   sendJson(res, 409, { error: "No repo is open." });
+}
+
+/**
+ * Move a repo's pre-rename data folder into DATA_DIR. Every way the server
+ * opens a repository runs this first, so nothing reads a half-empty DATA_DIR.
+ */
+function migrateRepoData(repo: string): void {
+  const { kept } = migrateLegacyDataDir(repo);
+  if (kept.length)
+    console.warn(`  kept ${kept.join(", ")} in ${repo}: ${DATA_DIR}/ already has its own copy`);
+}
+
+/** Open `repo` in the session after moving its pre-rename data into place. */
+function openRepo(session: Session, repo: string): void {
+  migrateRepoData(repo);
+  openSession(session, repo);
 }
 
 /** Undefined means an unscoped legacy caller; null means a supplied dead lease. */
@@ -548,7 +569,7 @@ function handle(
 
   try {
     if (method === "GET" && url.pathname === "/api/health") {
-      return sendJson(res, 200, { app: "diffStory", ready: true });
+      return sendJson(res, 200, { app: "codeStory", ready: true });
     }
     if (method === "GET" && url.pathname === "/api/aloud/status") {
       return runAloudStatus(res, aloud);
@@ -608,7 +629,7 @@ function handle(
     ) {
       const restoredRepo = recentRepoForRoute(url.pathname, home);
       if (!restoredRepo) return redirect(res, "/");
-      openSession(session, restoredRepo);
+      openRepo(session, restoredRepo);
       restoreStorySelection(session, home);
     }
     const repoScreen =
@@ -870,7 +891,7 @@ function handle(
         const label = editorLabel(editor);
         if (!openEditor(editorTarget, editor)) {
           return sendJson(res, 503, {
-            error: `${label} could not be opened. Install ${label} or change the diffStory source editor preference.`,
+            error: `${label} could not be opened. Install ${label} or change the codeStory source editor preference.`,
           });
         }
         return sendJson(res, 200, { ok: true, editor, label });
@@ -911,7 +932,7 @@ function handle(
         }
         if (session.repo && session.repo !== path)
           liveHub.closeRepo(session.repo);
-        openSession(session, path);
+        openRepo(session, path);
         const previous = loadRecents(home).find((entry) => entry.path === path);
         const repoState = {
           path,
@@ -1169,7 +1190,7 @@ function handle(
         return sendJson(res, 404, { error: "This step has no concept page." });
       const theme = url.searchParams.get("theme") === "light" ? "light" : "dark";
       // The author's page runs in an opaque-origin sandbox, and offline unless
-      // it opts into network. diffStory is the only document allowed to frame it.
+      // it opts into network. codeStory is the only document allowed to frame it.
       res.removeHeader("X-Frame-Options");
       res.setHeader("Content-Security-Policy", conceptPageCsp(step.network));
       return sendLeasedHtml(res, session, page, conceptPageDocument(step.page, theme));
@@ -1774,7 +1795,7 @@ function explainScreen(session: Session, params: URLSearchParams): string {
       branch: currentBranch(repo),
       headCommit,
       headSubject: headCommit ? describeCommit(repo, headCommit) : "",
-      // Tracked edits only: saved stories are untracked app files under .diffstory/.
+      // Tracked edits only: saved stories are untracked app files under .codestory/.
       dirty: headCommit ? (changedSinceCommit(repo, headCommit) ?? []).length > 0 : false,
       defaults: {
         mode: normalizeStoryMode(prefs.defaultMode),
@@ -3028,7 +3049,7 @@ export function finishStoryGeneration(
         errorEvent(
           "validation",
           "The story did not pass its final check",
-          "The agent wrote a story, but diffStory cannot safely open it yet. Try again or change the story settings.",
+          "The agent wrote a story, but codeStory cannot safely open it yet. Try again or change the story settings.",
           (e as Error).message,
         ),
       );
@@ -3044,7 +3065,7 @@ export function finishStoryGeneration(
       errorEvent(
         "output_missing",
         "The agent finished without a story",
-        "No .diffstory/story.json was created. Try again, or open technical details to see what the agent returned.",
+        "No .codestory/story.json was created. Try again, or open technical details to see what the agent returned.",
       ),
     );
     status = "failed";
@@ -3376,7 +3397,7 @@ function captureAndStampStoryBaseline(
       );
       if (readFileSync(storyPath, "utf8") !== storySource) {
         throw new Error(
-          "The story changed while DiffStory captured its baseline.",
+          "The story changed while codeStory captured its baseline.",
         );
       }
       stampStoryMetadata(storyPath, diffFingerprint(diff), undefined, snapshot);
@@ -3394,14 +3415,14 @@ function captureAndStampStoryBaseline(
       continue;
     if (readFileSync(storyPath, "utf8") !== storySource) {
       throw new Error(
-        "The story changed while DiffStory captured its baseline.",
+        "The story changed while codeStory captured its baseline.",
       );
     }
     stampStoryMetadata(storyPath, diffFingerprint(diff), undefined, snapshot);
     return snapshot;
   }
   throw new Error(
-    "The repository kept changing while diffStory captured the story baseline.",
+    "The repository kept changing while codeStory captured the story baseline.",
   );
 }
 

@@ -12,7 +12,7 @@ import { loadTour } from '../dist/tour.js';
 
 function repoWithStory() {
   const repo = mkdtempSync(join(tmpdir(), 'ds-bundle-'));
-  mkdirSync(join(repo, '.diffstory'), { recursive: true });
+  mkdirSync(join(repo, '.codestory'), { recursive: true });
   return repo;
 }
 
@@ -30,7 +30,7 @@ function tour(title = 'Exported') {
 
 test('export bundles the validated story with replay metadata', () => {
   const repo = repoWithStory();
-  const path = join(repo, '.diffstory', 'story.json');
+  const path = join(repo, '.codestory', 'story.json');
   writeFileSync(path, JSON.stringify(tour()));
   const bundle = exportStoryBundle(repo, path);
   assert.equal(bundle.bundle, 1);
@@ -42,23 +42,23 @@ test('export bundles the validated story with replay metadata', () => {
 
 test('export refuses an invalid story instead of shipping it', () => {
   const repo = repoWithStory();
-  const path = join(repo, '.diffstory', 'story.json');
+  const path = join(repo, '.codestory', 'story.json');
   writeFileSync(path, JSON.stringify({ version: 4, title: 'x' }));
   assert.throws(() => exportStoryBundle(repo, path), /not a valid story/);
 });
 
 test('bundle file names are download-safe', () => {
-  assert.match(bundleFileName('story.json'), /^story-\d{8}\.diffstory\.json$/);
+  assert.match(bundleFileName('story.json'), /^story-\d{8}\.codestory\.json$/);
   assert.match(
     bundleFileName('stories/Deep Dive.json'),
-    /^stories-deep-dive-\d{8}\.diffstory\.json$/,
+    /^stories-deep-dive-\d{8}\.codestory\.json$/,
   );
-  assert.match(bundleFileName('../../x'), /^[a-z0-9-]+\.diffstory\.json$/);
+  assert.match(bundleFileName('../../x'), /^[a-z0-9-]+\.codestory\.json$/);
 });
 
 test('import saves under stories/ and never touches the primary story', () => {
   const repo = repoWithStory();
-  writeFileSync(join(repo, '.diffstory', 'story.json'), JSON.stringify(tour('Live')));
+  writeFileSync(join(repo, '.codestory', 'story.json'), JSON.stringify(tour('Live')));
   const bundle = {
     bundle: 1,
     exportedAt: new Date().toISOString(),
@@ -67,8 +67,8 @@ test('import saves under stories/ and never touches the primary story', () => {
   };
   const { id } = importStoryBundle(repo, 'teammate walkthrough', bundle);
   assert.equal(id, 'stories/teammate-walkthrough.json');
-  assert.equal(loadTour(join(repo, '.diffstory', id)).title, 'Teammate walkthrough');
-  assert.equal(loadTour(join(repo, '.diffstory', 'story.json')).title, 'Live');
+  assert.equal(loadTour(join(repo, '.codestory', id)).title, 'Teammate walkthrough');
+  assert.equal(loadTour(join(repo, '.codestory', 'story.json')).title, 'Live');
 });
 
 test('import accepts a bare story and sanitizes hostile names', () => {
@@ -86,13 +86,13 @@ test('import rejects invalid bundles without writing', () => {
     () => importStoryBundle(repo, 'bad', { bundle: 1, story: { version: 4 } }),
     /not a valid story/,
   );
-  assert.equal(existsSync(join(repo, '.diffstory', 'stories')), false);
+  assert.equal(existsSync(join(repo, '.codestory', 'stories')), false);
 });
 
 test('imported stories open for review like any named story', () => {
   const repo = repoWithStory();
   const { id } = importStoryBundle(repo, '', tour('Untitled mate'));
   assert.equal(id, 'stories/untitled-mate.json', 'falls back to the story title');
-  const raw = JSON.parse(readFileSync(join(repo, '.diffstory', id), 'utf8'));
+  const raw = JSON.parse(readFileSync(join(repo, '.codestory', id), 'utf8'));
   assert.equal(raw.steps.length, 1);
 });

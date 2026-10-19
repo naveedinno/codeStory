@@ -30,9 +30,9 @@ records the completed experiment, how it works, and what remains uncertain.
 - The repository storyteller skill and both installed copies currently match
   byte-for-byte. All three had SHA-256
   `c428c76e7640439b429b3dee7c5227b7d6e4695f5f6fed659e23866a37a3922a`:
-  `skills/diffstory-storyteller/SKILL.md`,
-  `~/.agents/skills/diffstory-storyteller/SKILL.md`, and
-  `~/.claude/skills/diffstory-storyteller/SKILL.md`.
+  `skills/codestory-storyteller/SKILL.md`,
+  `~/.agents/skills/codestory-storyteller/SKILL.md`, and
+  `~/.claude/skills/codestory-storyteller/SKILL.md`.
 - The checkout is heavily dirty and contains unrelated work. `eval/HANDOVER.md`
   itself is untracked at this snapshot, while the experiment's source, generated
   `dist/`, docs, harness, and tests overlap a much larger set of edits and
@@ -63,7 +63,7 @@ The contract has three layers and they now agree:
    gate. The corresponding compiled files live under `dist/`.
 3. **Generation teaching.** `src/agent.ts` pins the exact field names, the
    effective coverage rule, and the narrow exception for one repeated mechanical
-   pattern in one file. `skills/diffstory-storyteller/SKILL.md` teaches the full
+   pattern in one file. `skills/codestory-storyteller/SKILL.md` teaches the full
    workflow: one representative local camera and beat, every repeated full span
    in top-level `ranges`, a shared skim/sweep chapter, and no merging of separate
    decisions merely to shorten the story. Long-story schema checks and the final
@@ -209,7 +209,7 @@ single-range contract.
    workflow. The finished-JSON verification pass was more reliable than adding
    another paragraph of advice.
 8. **A stale installed skill invalidates a run.** The Claude harness checks
-   `~/.claude/skills/diffstory-storyteller/SKILL.md`, because that is the copy it
+   `~/.claude/skills/codestory-storyteller/SKILL.md`, because that is the copy it
    actually loads. Reinstall after any skill edit and never change the installed
    copy while parallel generations are running.
 9. **Loopback denial is an environment failure.** Several tests create local
@@ -251,8 +251,8 @@ Install both supported local copies, then verify exact equality:
 
 ```bash
 sh scripts/install-skills.sh --claude
-cmp skills/diffstory-storyteller/SKILL.md ~/.agents/skills/diffstory-storyteller/SKILL.md
-cmp skills/diffstory-storyteller/SKILL.md ~/.claude/skills/diffstory-storyteller/SKILL.md
+cmp skills/codestory-storyteller/SKILL.md ~/.agents/skills/codestory-storyteller/SKILL.md
+cmp skills/codestory-storyteller/SKILL.md ~/.claude/skills/codestory-storyteller/SKILL.md
 ```
 
 ### Re-score the preserved ChatGPT stories mechanically

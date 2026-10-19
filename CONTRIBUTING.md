@@ -1,12 +1,12 @@
-# Contributing to diffStory
+# Contributing to codeStory
 
 Thanks for helping make diff review calmer and more useful.
 
 ## Local Setup
 
 ```sh
-git clone https://github.com/naveedinno/diffStory.git
-cd diffStory
+git clone https://github.com/naveedinno/codeStory.git
+cd codeStory
 npm install
 npm run dev
 ```
@@ -34,7 +34,7 @@ build output.
 
 ## Development Notes
 
-- Keep `.diffstory/` local. Do not commit review sessions, comments, or generated
+- Keep `.codestory/` local. Do not commit review sessions, comments, or generated
   story files unless a task explicitly asks for a shared example fixture.
 - Prefer focused tests beside the behavior you change.
 - Keep optional integrations optional. The plain diff viewer should keep working
@@ -44,9 +44,9 @@ build output.
 ## Contribution License
 
 By submitting a contribution, you agree that your contribution may be included
-in diffStory under this repository's license, and you grant naveedinno the right
+in codeStory under this repository's license, and you grant naveedinno the right
 to use, modify, distribute, and commercially relicense your contribution as part
-of diffStory.
+of codeStory.
 
 ## Good First Changes
 

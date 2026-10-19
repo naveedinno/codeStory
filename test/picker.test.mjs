@@ -59,13 +59,13 @@ const themeMenu = read('shared/theme-menu.tsx');
 const sharedCss = read('shared/shared.css');
 const pickerSource = [useModal, folderBrowser, pickerApp, recentRepos, skillBanner, themeMenu].join('\n');
 
-const PAYLOAD_BLOCK = /<script type="application\/json" id="__DIFFSTORY_DATA__">([\s\S]*?)<\/script>/;
+const PAYLOAD_BLOCK = /<script type="application\/json" id="__CODESTORY_DATA__">([\s\S]*?)<\/script>/;
 
 /** Boot a real server against a scratch HOME so the recents store is ours. */
 async function withPicker(recents, run) {
-  const home = mkdtempSync(join(tmpdir(), 'diffstory-picker-home-'));
-  mkdirSync(join(home, '.diffstory'), { recursive: true });
-  writeFileSync(join(home, '.diffstory', 'recents.json'), JSON.stringify(recents));
+  const home = mkdtempSync(join(tmpdir(), 'codestory-picker-home-'));
+  mkdirSync(join(home, '.codestory'), { recursive: true });
+  writeFileSync(join(home, '.codestory', 'recents.json'), JSON.stringify(recents));
   const server = serve({ port: 0, open: false, homeOverride: home });
   await once(server, 'listening');
   try {
@@ -79,7 +79,7 @@ async function withPicker(recents, run) {
       },
       payloadOf(html) {
         const match = PAYLOAD_BLOCK.exec(html);
-        assert.ok(match, 'the shell must embed exactly one __DIFFSTORY_DATA__ block');
+        assert.ok(match, 'the shell must embed exactly one __CODESTORY_DATA__ block');
         return JSON.parse(match[1]);
       },
     });
@@ -90,7 +90,7 @@ async function withPicker(recents, run) {
 }
 
 function gitRepo(name) {
-  const dir = mkdtempSync(join(tmpdir(), `diffstory-picker-${name}-`));
+  const dir = mkdtempSync(join(tmpdir(), `codestory-picker-${name}-`));
   execFileSync('git', ['init', '-q'], { cwd: dir });
   execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: dir });
   execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir });
@@ -108,7 +108,7 @@ test('the picker route serves a React shell, not a hand-built page', async () =>
     assert.equal(response.status, 200);
     assert.match(response.headers.get('content-type') ?? '', /^text\/html/);
 
-    assert.match(html, /<title>diffStory — Pick a repository<\/title>/);
+    assert.match(html, /<title>codeStory — Pick a repository<\/title>/);
     assert.match(html, /<body class="ds-map-bg" data-surface="picker">/, 'the dot field paints before React mounts');
     assert.match(html, /<link rel="stylesheet" href="\/assets\/client\/app\.css">/);
     assert.match(html, /<script type="module" blocking="render" data-ds-entry src="\/assets\/client\/picker\.js"><\/script>/);
@@ -419,8 +419,8 @@ test('the picker keeps its status wording, ordering, and recoverable visible fee
     'places repository selection before optional setup recovery',
   );
   // The three skill branches, in order, verbatim.
-  assert.match(skillBanner, /if \(skills\.legacyInstalled\) return LEGACY_TEXT;\s*if \(skills\.current\) return null;/);
-  assert.match(skillBanner, /review-tour was renamed to diffstory-storyteller/);
+  assert.match(skillBanner, /if \(skills\.legacyInstalled\) return legacyText\(skills\.legacyNames\);\s*if \(skills\.current\) return null;/);
+  assert.match(skillBanner, / renamed to codestory-storyteller\. Update skills to remove the retired /);
   assert.match(skillBanner, /Story-generation skill is installed but does not match this app/);
   assert.match(skillBanner, /Story-generation skill was not found in ~\/\.agents, ~\/\.claude, or ~\/\.codex/);
   assert.match(skillBanner, /Could not update skills\. Run scripts\/install-skills\.sh/);
@@ -601,7 +601,7 @@ test('the built bundle actually ships the picker behaviour', (t) => {
     'Try again',
     'Could not open that path.',
     'Could not reach the server.',
-    'review-tour was renamed to diffstory-storyteller',
+    ' renamed to codestory-storyteller. Update skills to remove the retired ',
     'Add repository',
     'unavailable ',
     // The per-row context menu, which has no other entry point in the DOM.
@@ -617,6 +617,6 @@ test('the built bundle actually ships the picker behaviour', (t) => {
   // has nothing to do with the picker.
   const chunks = [...js.matchAll(/from\s*"\.\/(chunk-[A-Z0-9]+\.js)"/g)].map((m) => m[1]);
   const graph = js + chunks.map((name) => readFileSync(new URL(name, dir), 'utf8')).join('\n');
-  assert.ok(graph.includes('__DIFFSTORY_DATA__'), 'bundle reads the shell payload');
+  assert.ok(graph.includes('__CODESTORY_DATA__'), 'bundle reads the shell payload');
   assert.ok(graph.includes('ds-theme'), 'bundle carries the theme contract');
 });

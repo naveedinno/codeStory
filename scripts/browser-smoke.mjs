@@ -12,14 +12,14 @@ import { serve } from '../dist/server.js';
 import { captureStorySnapshot } from '../dist/story-drift.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const scratch = mkdtempSync(join(tmpdir(), 'diffstory-browser-smoke-'));
-const output = process.env.DIFFSTORY_SMOKE_OUT || join(scratch, 'screenshots');
+const scratch = mkdtempSync(join(tmpdir(), 'codestory-browser-smoke-'));
+const output = process.env.CODESTORY_SMOKE_OUT || join(scratch, 'screenshots');
 mkdirSync(output, { recursive: true });
 const bin = join(scratch, 'bin'); mkdirSync(bin);
 const agentScript = join(scratch, 'fake-agent.mjs');
 const control = join(scratch, 'agent-mode'); writeFileSync(control, 'good');
 writeFileSync(agentScript, `import { readFileSync, writeFileSync } from 'node:fs';
-const file = '.diffstory/story.json'; const story = JSON.parse(readFileSync(file, 'utf8'));
+const file = '.codestory/story.json'; const story = JSON.parse(readFileSync(file, 'utf8'));
 if (readFileSync(${JSON.stringify(control)}, 'utf8') === 'bad') story.steps.find(s => s.id === 's6').title = 'Unrelated rewrite';
 else story.steps.find(s => s.id === 's2').beats[1].text = 'It clamps the derived remaining budget to zero, then compares the amount with that nonnegative value; the equality boundary still needs review.';
 writeFileSync(file, JSON.stringify(story, null, 2) + '\\n');
@@ -29,15 +29,15 @@ writeFileSync(join(bin, 'claude'), `#!/bin/sh\nexec '${process.execPath.replaceA
 chmodSync(join(bin, 'claude'), 0o755);
 const originalPath = process.env.PATH;
 process.env.PATH = `${bin}:/usr/bin:/bin`;
-const candidate = [process.env.DIFFSTORY_SMOKE_BROWSER, chromium.executablePath(), '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge', '/usr/bin/google-chrome', '/usr/bin/chromium'].find(path => path && existsSync(path));
-if (!candidate) throw new Error('Install Chromium with npx playwright-core install chromium, or set DIFFSTORY_SMOKE_BROWSER.');
+const candidate = [process.env.CODESTORY_SMOKE_BROWSER, chromium.executablePath(), '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge', '/usr/bin/google-chrome', '/usr/bin/chromium'].find(path => path && existsSync(path));
+if (!candidate) throw new Error('Install Chromium with npx playwright-core install chromium, or set CODESTORY_SMOKE_BROWSER.');
 const browser = await chromium.launch({ executablePath: candidate, headless: true });
 let activePage;
 try {
   for (const [name, viewport, reducedMotion] of [['desktop', {width:1440,height:960}, 'no-preference'], ['mobile-reduced-motion', {width:390,height:844}, 'reduce']]) {
     const repo = join(scratch, name), home = join(scratch, `${name}-home`);
-    execFileSync(process.execPath, [join(root, 'examples/demo.mjs')], { cwd:root, env:{...process.env,DIFFSTORY_DEMO_NO_SERVE:'1',DIFFSTORY_DEMO_DIR:repo}, stdio:'pipe' });
-    const storyPath = join(repo, '.diffstory/story.json');
+    execFileSync(process.execPath, [join(root, 'examples/demo.mjs')], { cwd:root, env:{...process.env,CODESTORY_DEMO_NO_SERVE:'1',CODESTORY_DEMO_DIR:repo}, stdio:'pipe' });
+    const storyPath = join(repo, '.codestory/story.json');
     const story = JSON.parse(readFileSync(storyPath, 'utf8'));
     delete story.head; delete story.evolution;
     story.storySnapshot = captureStorySnapshot({repo,base:'main',storyScope:{includedFiles:[...new Set(story.steps.filter(s=>s.kind!=='concept').map(s=>s.file))]}});
@@ -70,7 +70,7 @@ try {
       await page.locator('.ds-composer-ta').fill('Smoke review: inspect the exact selected boundary.');
       await page.getByRole('button',{name:'Add to queue',exact:true}).click();
       await page.locator('.ds-composer').waitFor({state:'detached'});
-      const commentsBefore=readFileSync(join(repo,'.diffstory/comments.json'),'utf8');
+      const commentsBefore=readFileSync(join(repo,'.codestory/comments.json'),'utf8');
       assert.equal(JSON.parse(commentsBefore).length,3);
       // Exercise ARIA tab keyboard navigation rather than switching all tabs by script.
       await page.locator('#ds-tab-tour').focus();await page.keyboard.press('End');
@@ -103,7 +103,7 @@ try {
       const afterRefresh=JSON.parse(readFileSync(storyPath,'utf8'));
       assert.deepEqual(afterRefresh.steps.map(s=>s.id),beforeRefresh.steps.map(s=>s.id));
       assert.deepEqual(afterRefresh.steps.find(s=>s.id==='s6'),beforeRefresh.steps.find(s=>s.id==='s6'));
-      assert.equal(readFileSync(join(repo,'.diffstory/comments.json'),'utf8'),commentsBefore);
+      assert.equal(readFileSync(join(repo,'.codestory/comments.json'),'utf8'),commentsBefore);
       assert.notEqual(afterRefresh.storySnapshot.id,beforeRefresh.storySnapshot.id);
       await page.getByRole('button',{name:'Reload story',exact:true}).click();
       await page.getByText('Story current',{exact:true}).waitFor();
@@ -120,7 +120,7 @@ try {
       await page.waitForFunction(()=>!document.querySelector('[data-progress-panel] [data-progress-stop]:not([hidden])'));
       assert.deepEqual(JSON.parse(readFileSync(storyPath,'utf8')),beforeRejected);
       assert.equal(readFileSync(storyPath,'utf8'),beforeRejectedSource,'failed refresh restores the exact original bytes');
-      assert.equal(readFileSync(join(repo,'.diffstory/comments.json'),'utf8'),commentsBefore);
+      assert.equal(readFileSync(join(repo,'.codestory/comments.json'),'utf8'),commentsBefore);
       writeFileSync(control,'good');
       assert.deepEqual(pageErrors,[],'no uncaught browser exceptions');
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'no page-level horizontal overflow');

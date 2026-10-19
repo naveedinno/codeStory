@@ -1,5 +1,5 @@
 // Integration test: boot the app server (no repo) and drive the repo endpoints
-// over HTTP. Uses a temp HOME so recents never touch the real ~/.diffstory.
+// over HTTP. Uses a temp HOME so recents never touch the real ~/.codestory.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -163,7 +163,7 @@ test('fresh desktop server restores a recent repository route and falls back whe
 
 
 // Page facts live in the shell's JSON payload now, not in `<body>` attributes.
-const shellPayload = (html) => JSON.parse(html.match(/id="__DIFFSTORY_DATA__">([\s\S]*?)<\/script>/)[1]);
+const shellPayload = (html) => JSON.parse(html.match(/id="__CODESTORY_DATA__">([\s\S]*?)<\/script>/)[1]);
 
 function reviewPageToken(html) {
   // The page facts travel in the shell's JSON payload now; React stamps them
@@ -180,8 +180,8 @@ function leased(url, token) {
 test('malformed feedback blocks every comment write without losing source bytes', async () => {
   const repo = gitRepo();
   writeFileSync(join(repo, 'README.md'), '# changed\n');
-  mkdirSync(join(repo, '.diffstory'), { recursive: true });
-  const commentsFile = join(repo, '.diffstory', 'comments.json');
+  mkdirSync(join(repo, '.codestory'), { recursive: true });
+  const commentsFile = join(repo, '.codestory', 'comments.json');
   const malformed = '[null, {"partial": true}]';
   writeFileSync(commentsFile, malformed);
   const { server, base } = await boot(repo);
@@ -363,8 +363,8 @@ test('story drift routes keep side-file changes current and lazily render only t
     base: 'HEAD',
     storyScope: { includedFiles: ['contracts/A.sol'] },
   });
-  mkdirSync(join(repo, '.diffstory'), { recursive: true });
-  writeFileSync(join(repo, '.diffstory', 'story.json'), `${JSON.stringify({
+  mkdirSync(join(repo, '.codestory'), { recursive: true });
+  writeFileSync(join(repo, '.codestory', 'story.json'), `${JSON.stringify({
     version: 1,
     title: 'Scoped Solidity story',
     summary: 'Only the production contract belongs to this story.',
@@ -443,8 +443,8 @@ test('story drift preserves metadata-only rename and mode evidence in lazy detai
     base: 'HEAD',
     storyScope: { includedFiles: ['contracts/A.sol'] },
   });
-  mkdirSync(join(repo, '.diffstory'), { recursive: true });
-  writeFileSync(join(repo, '.diffstory', 'story.json'), `${JSON.stringify({
+  mkdirSync(join(repo, '.codestory'), { recursive: true });
+  writeFileSync(join(repo, '.codestory', 'story.json'), `${JSON.stringify({
     version: 1,
     title: 'Metadata drift story',
     summary: 'The contract is selected while metadata-only side changes stay inspectable.',
@@ -517,8 +517,8 @@ test('story drift refuses a snapshot copied into a different story scope', async
     base: 'HEAD',
     storyScope: { includedFiles: ['contracts/A.sol'] },
   });
-  mkdirSync(join(repo, '.diffstory'), { recursive: true });
-  writeFileSync(join(repo, '.diffstory', 'story.json'), `${JSON.stringify({
+  mkdirSync(join(repo, '.codestory'), { recursive: true });
+  writeFileSync(join(repo, '.codestory', 'story.json'), `${JSON.stringify({
     version: 1,
     title: 'Mismatched snapshot story',
     summary: 'The copied snapshot must not define this story scope.',
@@ -575,7 +575,7 @@ test('desktop health probe stays stable while a repository session is open', asy
   try {
     const response = await fetch(`${base}/api/health`);
     assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), { app: 'diffStory', ready: true });
+    assert.deepEqual(await response.json(), { app: 'codeStory', ready: true });
   } finally {
     server.close();
     process.env.HOME = realHome;
@@ -619,8 +619,8 @@ function installFakeStoryRepairClaude(binDir) {
   writeFileSync(
     path,
     `#!/bin/sh
-node -e "const fs=require('fs');const p='.diffstory/story.json';const s=JSON.parse(fs.readFileSync(p,'utf8'));s.steps[0].why='Shortened explanation.';fs.writeFileSync(p,JSON.stringify(s,null,2)+'\\n');"
-printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Edit","input":{"file_path":".diffstory/story.json"}}]}}'
+node -e "const fs=require('fs');const p='.codestory/story.json';const s=JSON.parse(fs.readFileSync(p,'utf8'));s.steps[0].why='Shortened explanation.';fs.writeFileSync(p,JSON.stringify(s,null,2)+'\\n');"
+printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Edit","input":{"file_path":".codestory/story.json"}}]}}'
 `,
   );
   chmodSync(path, 0o755);
@@ -634,8 +634,8 @@ test('POST /api/story/repair runs the selected agent and validates the rewritten
 
   const repo = gitRepo();
   writeFileSync(join(repo, 'README.md'), '# hi\nchanged\n');
-  mkdirSync(join(repo, '.diffstory'), { recursive: true });
-  writeFileSync(join(repo, '.diffstory', 'story.json'), `${JSON.stringify({
+  mkdirSync(join(repo, '.codestory'), { recursive: true });
+  writeFileSync(join(repo, '.codestory', 'story.json'), `${JSON.stringify({
     version: 2,
     mode: 'guided',
     title: 'Review the changed readme',
@@ -660,12 +660,12 @@ test('POST /api/story/repair runs the selected agent and validates the rewritten
     const events = ndjsonEvents(await response.text());
     const done = events.find((event) => event.type === 'run_done');
     assert.equal(done?.status, 'complete');
-    const repaired = JSON.parse(readFileSync(join(repo, '.diffstory', 'story.json'), 'utf8'));
+    const repaired = JSON.parse(readFileSync(join(repo, '.codestory', 'story.json'), 'utf8'));
     assert.equal(repaired.steps[0].why, 'Shortened explanation.');
     assert.match(repaired.diffFingerprint, /^[a-f0-9]{64}$/);
     assert.match(repaired.storySnapshot?.id ?? '', /^[a-f0-9]{64}$/);
     const snapshot = JSON.parse(readFileSync(
-      join(repo, '.diffstory', 'snapshots', `${repaired.storySnapshot.id}.json`),
+      join(repo, '.codestory', 'snapshots', `${repaired.storySnapshot.id}.json`),
       'utf8',
     ));
     assert.deepEqual(snapshot.storyFiles, ['README.md'], 'a story without storyScope is bounded to its actual code-step files');
@@ -717,7 +717,7 @@ test('app server drives picker → open → refs → recent → close', async ()
     // the built bundle. What this test still owns is that / serves the picker
     // shell at all, with the right title and entry point.
     const rootText = await root.text();
-    assert.match(rootText, /<title>diffStory — Pick a repository<\/title>/);
+    assert.match(rootText, /<title>codeStory — Pick a repository<\/title>/);
     assert.match(rootText, /<body class="ds-map-bg" data-surface="picker">/);
     assert.match(rootText, /<script type="module" blocking="render" data-ds-entry src="\/assets\/client\/picker\.js"><\/script>/);
     assert.match(rootText.toLowerCase(), /pick a repo/);
@@ -740,7 +740,7 @@ test('app server drives picker → open → refs → recent → close', async ()
 
     const agents = await (await fetch(`${base}/api/agents`)).json();
     assert.ok(Array.isArray(agents.agents));
-    assert.equal(agents.skills.name, 'diffstory-storyteller');
+    assert.equal(agents.skills.name, 'codestory-storyteller');
     assert.equal(agents.skills.installed, false);
     assert.equal(agents.skills.current, false);
     assert.ok(agents.skills.message.includes('not installed'));
@@ -753,9 +753,9 @@ test('app server drives picker → open → refs → recent → close', async ()
     assert.equal(updatedBody.skills.current, true);
     assert.equal(updatedBody.skills.agents.claude.current, true);
     assert.equal(updatedBody.skills.agents.codex.current, true);
-    assert.ok(existsSync(join(tmpHome, '.agents', 'skills', 'diffstory-storyteller', 'SKILL.md')));
-    assert.ok(existsSync(join(tmpHome, '.claude', 'skills', 'diffstory-storyteller', 'SKILL.md')));
-    assert.ok(existsSync(join(tmpHome, '.codex', 'skills', 'diffstory-storyteller', 'SKILL.md')));
+    assert.ok(existsSync(join(tmpHome, '.agents', 'skills', 'codestory-storyteller', 'SKILL.md')));
+    assert.ok(existsSync(join(tmpHome, '.claude', 'skills', 'codestory-storyteller', 'SKILL.md')));
+    assert.ok(existsSync(join(tmpHome, '.codex', 'skills', 'codestory-storyteller', 'SKILL.md')));
     assert.equal(existsSync(join(tmpHome, '.codex', 'skills', 'address-review')), false);
 
     const agentsAfter = await (await fetch(`${base}/api/agents`)).json();
@@ -813,7 +813,7 @@ test('app server drives picker → open → refs → recent → close', async ()
 
     const picker = await (await fetch(`${base}/repos`)).text();
     const pickerPayload = JSON.parse(
-      /<script type="application\/json" id="__DIFFSTORY_DATA__">([\s\S]*?)<\/script>/.exec(picker)[1],
+      /<script type="application\/json" id="__CODESTORY_DATA__">([\s\S]*?)<\/script>/.exec(picker)[1],
     );
     assert.ok(
       pickerPayload.recents.some((row) => row.path === repo),
@@ -1082,9 +1082,9 @@ test('/api/diff/context serves the story head, not the drifted working tree', as
   );
   // A minimal valid story pinned to base..head — selecting it clears session.head,
   // so the endpoint must read the file at the story's resolved head, not the tree.
-  mkdirSync(join(repo, '.diffstory'), { recursive: true });
+  mkdirSync(join(repo, '.codestory'), { recursive: true });
   writeFileSync(
-    join(repo, '.diffstory', 'story.json'),
+    join(repo, '.codestory', 'story.json'),
     JSON.stringify({
       version: 1,
       title: 'Pinned story',
@@ -1130,8 +1130,8 @@ test('lazy split and full-file responses honour the story scope like the review 
 test('story bundles export as a download and import under stories/', async () => {
   const repo = gitRepo();
   writeFileSync(join(repo, 'README.md'), '# changed\n');
-  mkdirSync(join(repo, '.diffstory'), { recursive: true });
-  writeFileSync(join(repo, '.diffstory', 'story.json'), `${JSON.stringify({
+  mkdirSync(join(repo, '.codestory'), { recursive: true });
+  writeFileSync(join(repo, '.codestory', 'story.json'), `${JSON.stringify({
     version: 4, title: 'Bundle story', summary: 'For the team.', base: 'HEAD',
     steps: [
       { id: 's1', order: 1, title: 'Readme', kind: 'changed', file: 'README.md', range: [1, 1], why: 'The heading changed.' },
@@ -1143,7 +1143,7 @@ test('story bundles export as a download and import under stories/', async () =>
     assert.equal(exp.status, 200);
     assert.match(
       exp.headers.get('content-disposition') ?? '',
-      /attachment; filename="story-\d{8}\.diffstory\.json"/,
+      /attachment; filename="story-\d{8}\.codestory\.json"/,
     );
     const bundle = await exp.json();
     assert.equal(bundle.bundle, 1);
@@ -1178,8 +1178,8 @@ test('story bundles export as a download and import under stories/', async () =>
 test('concept pages are served into a sandbox with their own policy', async () => {
   const repo = gitRepo();
   writeFileSync(join(repo, 'README.md'), '# changed\n');
-  mkdirSync(join(repo, '.diffstory'), { recursive: true });
-  writeFileSync(join(repo, '.diffstory', 'story.json'), `${JSON.stringify({
+  mkdirSync(join(repo, '.codestory'), { recursive: true });
+  writeFileSync(join(repo, '.codestory', 'story.json'), `${JSON.stringify({
     version: 4, title: 'Page story', summary: 'A page concept first.', base: 'HEAD',
     steps: [
       { id: 'page', order: 1, title: 'How it moves', kind: 'concept',
@@ -1211,7 +1211,7 @@ test('concept pages are served into a sandbox with their own policy', async () =
     assert.doesNotMatch(res.headers.get('content-security-policy') ?? '', /allow-same-origin/);
     assert.equal(res.headers.get('cache-control'), 'no-store');
     const body = await res.text();
-    assert.match(body, /data-diffstory-shim/);
+    assert.match(body, /data-codestory-shim/);
     assert.match(body, /cdn\.jsdelivr\.net\/npm\/d3@7/);
     assert.match(body, /data-ds-theme',"dark"/);
 

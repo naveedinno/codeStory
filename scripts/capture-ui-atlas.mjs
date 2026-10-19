@@ -8,12 +8,12 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const OUT = process.env.DIFFSTORY_UI_ATLAS_OUT?.trim() || join(ROOT, 'docs', 'ui-atlas');
+const OUT = process.env.CODESTORY_UI_ATLAS_OUT?.trim() || join(ROOT, 'docs', 'ui-atlas');
 const SHOTS = join(OUT, 'screenshots');
-const FIXTURE = mkdtempSync(join(tmpdir(), 'diffstory-atlas-fixture-'));
-const HOME = mkdtempSync(join(tmpdir(), 'diffstory-atlas-home-'));
-const STORY = join(FIXTURE, '.diffstory', 'story.json');
-const STORY_HOLD = join(FIXTURE, '.diffstory', 'story.atlas-hold.json');
+const FIXTURE = mkdtempSync(join(tmpdir(), 'codestory-atlas-fixture-'));
+const HOME = mkdtempSync(join(tmpdir(), 'codestory-atlas-home-'));
+const STORY = join(FIXTURE, '.codestory', 'story.json');
+const STORY_HOLD = join(FIXTURE, '.codestory', 'story.atlas-hold.json');
 const viewports = { desktop: { width: 1440, height: 960 }, diagramWide: { width: 1896, height: 857 }, reported: { width: 868, height: 569 }, tablet: { width: 920, height: 820 }, mobile: { width: 390, height: 844 } };
 // The panel root is a `data-progress-panel` element after the React rewrite;
 // `.ds-pp` was a class name that no longer exists.
@@ -36,76 +36,76 @@ const definitions = [
   ['pages','Folder browser modal — tablet','The repository chooser sheet at the tablet width.','picker-modal-tablet','dark','tablet','/repos','picker-modal'],
   ['pages','Folder browser modal — mobile','The repository chooser sheet on a phone viewport.','picker-modal-mobile','dark','mobile','/repos','picker-modal'],
   ['pages','Folder browser modal — light','The repository chooser sheet in the light palette.','picker-modal-light','light','desktop','/repos','picker-modal'],
-  ['pages','Review history','Saved review, scope health, and queued-comment status.','history-populated','dark','desktop','/repo/diffstory-atlas-fixture/stories'],
-  ['pages','Review history — glance preview','The saved-review action expands on precise hover to preview scope before navigation.','history-glance','dark','desktop','/repo/diffstory-atlas-fixture/stories'],
-  ['pages','Review history — tablet','Saved reviews at the tablet width.','history-populated-tablet','dark','tablet','/repo/diffstory-atlas-fixture/stories','history-populated'],
-  ['pages','Review history — mobile','Saved reviews with the stacked row footer on a phone viewport.','history-populated-mobile','dark','mobile','/repo/diffstory-atlas-fixture/stories','history-populated'],
-  ['pages','Review history — light','Saved reviews in the light palette.','history-populated-light','light','desktop','/repo/diffstory-atlas-fixture/stories','history-populated'],
-  ['pages','Review history — empty','The no-saved-reviews state with the header Start review still present.','history-empty','dark','desktop','/repo/diffstory-atlas-fixture/stories','history-empty'],
-  ['pages','Review history — empty, mobile','The no-saved-reviews state on a phone viewport.','history-empty-mobile','dark','mobile','/repo/diffstory-atlas-fixture/stories','history-empty'],
+  ['pages','Review history','Saved review, scope health, and queued-comment status.','history-populated','dark','desktop','/repo/codestory-atlas-fixture/stories'],
+  ['pages','Review history — glance preview','The saved-review action expands on precise hover to preview scope before navigation.','history-glance','dark','desktop','/repo/codestory-atlas-fixture/stories'],
+  ['pages','Review history — tablet','Saved reviews at the tablet width.','history-populated-tablet','dark','tablet','/repo/codestory-atlas-fixture/stories','history-populated'],
+  ['pages','Review history — mobile','Saved reviews with the stacked row footer on a phone viewport.','history-populated-mobile','dark','mobile','/repo/codestory-atlas-fixture/stories','history-populated'],
+  ['pages','Review history — light','Saved reviews in the light palette.','history-populated-light','light','desktop','/repo/codestory-atlas-fixture/stories','history-populated'],
+  ['pages','Review history — empty','The no-saved-reviews state with the header Start review still present.','history-empty','dark','desktop','/repo/codestory-atlas-fixture/stories','history-empty'],
+  ['pages','Review history — empty, mobile','The no-saved-reviews state on a phone viewport.','history-empty-mobile','dark','mobile','/repo/codestory-atlas-fixture/stories','history-empty'],
   // An explicit base/head is what actually populates this page. Plain `/change`
   // resolves to the (clean) uncommitted scope, which is why the pre-existing
   // `change-populated` frame was a duplicate of `change-empty` in light theme.
-  ['pages','Choose review scope','Branch comparison and changed-file inventory.','change-populated','light','desktop','/repo/diffstory-atlas-fixture/change?base=main&head=feat%2Fspending-limit'],
-  ['pages','Choose review scope — tablet','Scope selection below the metrics-ledger breakpoint.','change-populated-tablet','light','tablet','/repo/diffstory-atlas-fixture/change?base=main&head=feat%2Fspending-limit','change-populated'],
-  ['pages','Choose review scope — mobile','Scope selection with the icon-only segment tiles on a phone viewport.','change-populated-mobile','light','mobile','/repo/diffstory-atlas-fixture/change?base=main&head=feat%2Fspending-limit','change-populated'],
-  ['pages','Choose review scope — dark','Scope selection in the dark palette.','change-populated-dark','dark','desktop','/repo/diffstory-atlas-fixture/change?base=main&head=feat%2Fspending-limit','change-populated'],
-  ['pages','Empty working tree','The honest no-change state for the uncommitted scope.','change-empty','dark','desktop','/repo/diffstory-atlas-fixture/change?scope=uncommitted'],
-  ['pages','Empty working tree — tablet','The no-change state at the tablet width.','change-empty-tablet','dark','tablet','/repo/diffstory-atlas-fixture/change?scope=uncommitted','change-empty'],
-  ['pages','Empty working tree — mobile','The no-change state on a phone viewport.','change-empty-mobile','dark','mobile','/repo/diffstory-atlas-fixture/change?scope=uncommitted','change-empty'],
-  ['pages','Empty working tree — light','The no-change state in the light palette.','change-empty-light','light','desktop','/repo/diffstory-atlas-fixture/change?scope=uncommitted','change-empty'],
-  ['pages','Ref picker open','The compare panel open with the anchored git-reference listbox.','change-refpicker','dark','desktop','/repo/diffstory-atlas-fixture/change','change-refpicker'],
-  ['pages','Ref picker open — tablet','The anchored reference listbox at the tablet width.','change-refpicker-tablet','dark','tablet','/repo/diffstory-atlas-fixture/change','change-refpicker'],
-  ['pages','Ref picker open — mobile','The anchored reference listbox on a phone viewport, where compare rows stack.','change-refpicker-mobile','dark','mobile','/repo/diffstory-atlas-fixture/change','change-refpicker'],
-  ['pages','Raw diff','Story-free inspection of the exact selected change.','raw-diff','dark','desktop','/repo/diffstory-atlas-fixture/diff?base=main&head=feat%2Fspending-limit'],
-  ['pages','Raw diff — tablet','Story-free diff inspection at the tablet width.','raw-diff-tablet','dark','tablet','/repo/diffstory-atlas-fixture/diff?base=main&head=feat%2Fspending-limit','raw-diff'],
-  ['pages','Raw diff — mobile','Story-free diff inspection on a phone viewport.','raw-diff-mobile','dark','mobile','/repo/diffstory-atlas-fixture/diff?base=main&head=feat%2Fspending-limit','raw-diff'],
-  ['pages','Raw diff — light','Story-free diff inspection in the light palette.','raw-diff-light','light','desktop','/repo/diffstory-atlas-fixture/diff?base=main&head=feat%2Fspending-limit','raw-diff'],
-  ['review','Guided review overview','Intent, reading path, scope, and walkthrough entry.','overview','dark','desktop','/repo/diffstory-atlas-fixture/review'],
-  ['review','Guided review overview — mobile','The same reading path remains quiet above the walkthrough action on a phone viewport.','overview-mobile','dark','mobile','/repo/diffstory-atlas-fixture/review','overview'],
-  ['review','Commit evolution — open','The native disclosure shows frozen first-parent phases without competing with the walkthrough.','evolution-open','dark','desktop','/repo/diffstory-atlas-fixture/review','evolution-open'],
-  ['review','Commit evolution — open, mobile','Commit phases stay readable and full-width on a phone viewport.','evolution-open-mobile','dark','mobile','/repo/diffstory-atlas-fixture/review','evolution-open'],
-  ['review','Narration control — active','The narration action expands into its pause and waveform state while speech is audible.','narration-active','dark','desktop','/repo/diffstory-atlas-fixture/review'],
-  ['review','Logic-move walkthrough','Focused code with a local semantic move, narrative beats, and filmstrip.','code-step','dark','desktop','/repo/diffstory-atlas-fixture/review'],
-  ['review','Logic-move walkthrough — proximity dock','Pointer proximity magnifies the target stop and its neighbours without changing review order.','code-step-dock','dark','desktop','/repo/diffstory-atlas-fixture/review'],
-  ['review','Focused code walkthrough','A deliberately quiet code scene without semantic-move annotation ink.','code-focus','dark','desktop','/repo/diffstory-atlas-fixture/review'],
-  ['review','Paired-code walkthrough','A cross-file relationship presented as a before-and-after scene.','paired-code','dark','desktop','/repo/diffstory-atlas-fixture/review'],
-  ['review','Concept primer with diagram','A mental model composed as copy and diagram rather than a long document.','concept-step','light','desktop','/repo/diffstory-atlas-fixture/review'],
-  ['review','Tall concept diagram','A portrait flowchart remains bounded by the wide desktop stage instead of stretching the scene.','concept-tall','dark','diagramWide','/repo/diffstory-atlas-fixture/review','concept-tall'],
-  ['review','Tall concept diagram — tablet','The same portrait flowchart uses a bounded canvas in the stacked tablet layout.','concept-tall-tablet','dark','tablet','/repo/diffstory-atlas-fixture/review','concept-tall'],
-  ['review','Tall concept diagram — mobile','The same portrait flowchart uses a bounded canvas in the stacked mobile layout.','concept-tall-mobile','dark','mobile','/repo/diffstory-atlas-fixture/review','concept-tall'],
-  ['review','Concept primer with diagram — tablet entry','The DOM-order concept stack opens at its thesis at the tablet breakpoint.','concept-step-tablet','dark','tablet','/repo/diffstory-atlas-fixture/review','concept-step'],
-  ['review','Concept primer with diagram — tablet evidence','The same tablet scene scrolled to prove its diagram, caption, and next action remain reachable.','concept-step-tablet-evidence','dark','tablet','/repo/diffstory-atlas-fixture/review','concept-step-evidence'],
-  ['review','Concept primer with diagram — mobile entry','The DOM-order concept stack opens at its thesis on a phone viewport.','concept-step-mobile','light','mobile','/repo/diffstory-atlas-fixture/review','concept-step'],
-  ['review','Concept primer with diagram — mobile evidence','The same phone scene scrolled to prove its diagram, caption, and next action remain reachable.','concept-step-mobile-evidence','light','mobile','/repo/diffstory-atlas-fixture/review','concept-step-evidence'],
-  ['review','Concept document','A document-led primer when the story has no diagram to compose beside it.','concept-document','dark','desktop','/repo/diffstory-atlas-fixture/review'],
-  ['review','All files — unified','Complete file inventory in the primary unified-diff mode.','files-unified','dark','desktop','/repo/diffstory-atlas-fixture/review'],
-  ['review','All files — split','Side-by-side review with the resizable before/after divider.','files-split','light','desktop','/repo/diffstory-atlas-fixture/review'],
-  ['review','Source editor chooser','The anchored source-editor chooser clears the sticky diff controls beneath it.','editor-menu-open','dark','reported','/repo/diffstory-atlas-fixture/review'],
-  ['review','Review page','Coverage, queued comments, challenge checks, and saved reviews — as a page.','review-menu','dark','desktop','/repo/diffstory-atlas-fixture/review'],
-  ['review','Review comments','Queued comments grouped by file with code anchors, editing, removal, and Copy all.','comment-queue','dark','desktop','/repo/diffstory-atlas-fixture/review'],
-  ['review','Review comments — copied','Copy all confirms completion in the action itself before returning to its resting label.','comment-copy-success','dark','desktop','/repo/diffstory-atlas-fixture/review'],
-  ['review','Inline comment','A compact selected-code composer with Copy as the default and Queue as persistence.','comment-composer','dark','desktop','/repo/diffstory-atlas-fixture/review'],
-  ['review','Comment anchor','A queued comment traced back to highlighted code without opening a modal.','comment-anchor','light','desktop','/repo/diffstory-atlas-fixture/review'],
-  ['communication','Agent working','Floating progress panel mid-run: milestones, plan, activity, and the stop control.','pp-running','dark','desktop','/repo/diffstory-atlas-fixture/review','pp-running'],
-  ['communication','Agent working — tablet','The floating progress panel at the tablet width.','pp-running-tablet','dark','tablet','/repo/diffstory-atlas-fixture/review','pp-running'],
-  ['communication','Agent working — mobile','The progress panel below its 520px head-grid breakpoint.','pp-running-mobile','dark','mobile','/repo/diffstory-atlas-fixture/review','pp-running'],
-  ['communication','Agent working — light host','The panel stays dark on a light page; only its ink lifts.','pp-running-light','light','desktop','/repo/diffstory-atlas-fixture/review','pp-running'],
-  ['communication','Agent working — panel detail','The running panel captured at element scale.','pp-detail-running','dark','desktop','/repo/diffstory-atlas-fixture/review','pp-detail-running'],
-  ['communication','Agent complete','Terminal success: every milestone done, Close replaces Stop.','pp-complete','dark','desktop','/repo/diffstory-atlas-fixture/review','pp-complete'],
-  ['communication','Agent stopped','User-cancelled run with an explicit terminal status.','pp-stopped','dark','desktop','/repo/diffstory-atlas-fixture/review','pp-stopped'],
-  ['communication','Agent failure','Actionable failure summary with technical details kept collapsed.','pp-failed','dark','desktop','/repo/diffstory-atlas-fixture/review','pp-failed'],
-  ['communication','Agent failure — panel detail','The failed panel captured at element scale.','pp-detail-failed','dark','desktop','/repo/diffstory-atlas-fixture/review','pp-detail-failed'],
-  ['communication','Agent cannot start','The pre-stream blocked state, before any run events arrive.','pp-blocked','dark','desktop','/repo/diffstory-atlas-fixture/review','pp-blocked'],
+  ['pages','Choose review scope','Branch comparison and changed-file inventory.','change-populated','light','desktop','/repo/codestory-atlas-fixture/change?base=main&head=feat%2Fspending-limit'],
+  ['pages','Choose review scope — tablet','Scope selection below the metrics-ledger breakpoint.','change-populated-tablet','light','tablet','/repo/codestory-atlas-fixture/change?base=main&head=feat%2Fspending-limit','change-populated'],
+  ['pages','Choose review scope — mobile','Scope selection with the icon-only segment tiles on a phone viewport.','change-populated-mobile','light','mobile','/repo/codestory-atlas-fixture/change?base=main&head=feat%2Fspending-limit','change-populated'],
+  ['pages','Choose review scope — dark','Scope selection in the dark palette.','change-populated-dark','dark','desktop','/repo/codestory-atlas-fixture/change?base=main&head=feat%2Fspending-limit','change-populated'],
+  ['pages','Empty working tree','The honest no-change state for the uncommitted scope.','change-empty','dark','desktop','/repo/codestory-atlas-fixture/change?scope=uncommitted'],
+  ['pages','Empty working tree — tablet','The no-change state at the tablet width.','change-empty-tablet','dark','tablet','/repo/codestory-atlas-fixture/change?scope=uncommitted','change-empty'],
+  ['pages','Empty working tree — mobile','The no-change state on a phone viewport.','change-empty-mobile','dark','mobile','/repo/codestory-atlas-fixture/change?scope=uncommitted','change-empty'],
+  ['pages','Empty working tree — light','The no-change state in the light palette.','change-empty-light','light','desktop','/repo/codestory-atlas-fixture/change?scope=uncommitted','change-empty'],
+  ['pages','Ref picker open','The compare panel open with the anchored git-reference listbox.','change-refpicker','dark','desktop','/repo/codestory-atlas-fixture/change','change-refpicker'],
+  ['pages','Ref picker open — tablet','The anchored reference listbox at the tablet width.','change-refpicker-tablet','dark','tablet','/repo/codestory-atlas-fixture/change','change-refpicker'],
+  ['pages','Ref picker open — mobile','The anchored reference listbox on a phone viewport, where compare rows stack.','change-refpicker-mobile','dark','mobile','/repo/codestory-atlas-fixture/change','change-refpicker'],
+  ['pages','Raw diff','Story-free inspection of the exact selected change.','raw-diff','dark','desktop','/repo/codestory-atlas-fixture/diff?base=main&head=feat%2Fspending-limit'],
+  ['pages','Raw diff — tablet','Story-free diff inspection at the tablet width.','raw-diff-tablet','dark','tablet','/repo/codestory-atlas-fixture/diff?base=main&head=feat%2Fspending-limit','raw-diff'],
+  ['pages','Raw diff — mobile','Story-free diff inspection on a phone viewport.','raw-diff-mobile','dark','mobile','/repo/codestory-atlas-fixture/diff?base=main&head=feat%2Fspending-limit','raw-diff'],
+  ['pages','Raw diff — light','Story-free diff inspection in the light palette.','raw-diff-light','light','desktop','/repo/codestory-atlas-fixture/diff?base=main&head=feat%2Fspending-limit','raw-diff'],
+  ['review','Guided review overview','Intent, reading path, scope, and walkthrough entry.','overview','dark','desktop','/repo/codestory-atlas-fixture/review'],
+  ['review','Guided review overview — mobile','The same reading path remains quiet above the walkthrough action on a phone viewport.','overview-mobile','dark','mobile','/repo/codestory-atlas-fixture/review','overview'],
+  ['review','Commit evolution — open','The native disclosure shows frozen first-parent phases without competing with the walkthrough.','evolution-open','dark','desktop','/repo/codestory-atlas-fixture/review','evolution-open'],
+  ['review','Commit evolution — open, mobile','Commit phases stay readable and full-width on a phone viewport.','evolution-open-mobile','dark','mobile','/repo/codestory-atlas-fixture/review','evolution-open'],
+  ['review','Narration control — active','The narration action expands into its pause and waveform state while speech is audible.','narration-active','dark','desktop','/repo/codestory-atlas-fixture/review'],
+  ['review','Logic-move walkthrough','Focused code with a local semantic move, narrative beats, and filmstrip.','code-step','dark','desktop','/repo/codestory-atlas-fixture/review'],
+  ['review','Logic-move walkthrough — proximity dock','Pointer proximity magnifies the target stop and its neighbours without changing review order.','code-step-dock','dark','desktop','/repo/codestory-atlas-fixture/review'],
+  ['review','Focused code walkthrough','A deliberately quiet code scene without semantic-move annotation ink.','code-focus','dark','desktop','/repo/codestory-atlas-fixture/review'],
+  ['review','Paired-code walkthrough','A cross-file relationship presented as a before-and-after scene.','paired-code','dark','desktop','/repo/codestory-atlas-fixture/review'],
+  ['review','Concept primer with diagram','A mental model composed as copy and diagram rather than a long document.','concept-step','light','desktop','/repo/codestory-atlas-fixture/review'],
+  ['review','Tall concept diagram','A portrait flowchart remains bounded by the wide desktop stage instead of stretching the scene.','concept-tall','dark','diagramWide','/repo/codestory-atlas-fixture/review','concept-tall'],
+  ['review','Tall concept diagram — tablet','The same portrait flowchart uses a bounded canvas in the stacked tablet layout.','concept-tall-tablet','dark','tablet','/repo/codestory-atlas-fixture/review','concept-tall'],
+  ['review','Tall concept diagram — mobile','The same portrait flowchart uses a bounded canvas in the stacked mobile layout.','concept-tall-mobile','dark','mobile','/repo/codestory-atlas-fixture/review','concept-tall'],
+  ['review','Concept primer with diagram — tablet entry','The DOM-order concept stack opens at its thesis at the tablet breakpoint.','concept-step-tablet','dark','tablet','/repo/codestory-atlas-fixture/review','concept-step'],
+  ['review','Concept primer with diagram — tablet evidence','The same tablet scene scrolled to prove its diagram, caption, and next action remain reachable.','concept-step-tablet-evidence','dark','tablet','/repo/codestory-atlas-fixture/review','concept-step-evidence'],
+  ['review','Concept primer with diagram — mobile entry','The DOM-order concept stack opens at its thesis on a phone viewport.','concept-step-mobile','light','mobile','/repo/codestory-atlas-fixture/review','concept-step'],
+  ['review','Concept primer with diagram — mobile evidence','The same phone scene scrolled to prove its diagram, caption, and next action remain reachable.','concept-step-mobile-evidence','light','mobile','/repo/codestory-atlas-fixture/review','concept-step-evidence'],
+  ['review','Concept document','A document-led primer when the story has no diagram to compose beside it.','concept-document','dark','desktop','/repo/codestory-atlas-fixture/review'],
+  ['review','All files — unified','Complete file inventory in the primary unified-diff mode.','files-unified','dark','desktop','/repo/codestory-atlas-fixture/review'],
+  ['review','All files — split','Side-by-side review with the resizable before/after divider.','files-split','light','desktop','/repo/codestory-atlas-fixture/review'],
+  ['review','Source editor chooser','The anchored source-editor chooser clears the sticky diff controls beneath it.','editor-menu-open','dark','reported','/repo/codestory-atlas-fixture/review'],
+  ['review','Review page','Coverage, queued comments, challenge checks, and saved reviews — as a page.','review-menu','dark','desktop','/repo/codestory-atlas-fixture/review'],
+  ['review','Review comments','Queued comments grouped by file with code anchors, editing, removal, and Copy all.','comment-queue','dark','desktop','/repo/codestory-atlas-fixture/review'],
+  ['review','Review comments — copied','Copy all confirms completion in the action itself before returning to its resting label.','comment-copy-success','dark','desktop','/repo/codestory-atlas-fixture/review'],
+  ['review','Inline comment','A compact selected-code composer with Copy as the default and Queue as persistence.','comment-composer','dark','desktop','/repo/codestory-atlas-fixture/review'],
+  ['review','Comment anchor','A queued comment traced back to highlighted code without opening a modal.','comment-anchor','light','desktop','/repo/codestory-atlas-fixture/review'],
+  ['communication','Agent working','Floating progress panel mid-run: milestones, plan, activity, and the stop control.','pp-running','dark','desktop','/repo/codestory-atlas-fixture/review','pp-running'],
+  ['communication','Agent working — tablet','The floating progress panel at the tablet width.','pp-running-tablet','dark','tablet','/repo/codestory-atlas-fixture/review','pp-running'],
+  ['communication','Agent working — mobile','The progress panel below its 520px head-grid breakpoint.','pp-running-mobile','dark','mobile','/repo/codestory-atlas-fixture/review','pp-running'],
+  ['communication','Agent working — light host','The panel stays dark on a light page; only its ink lifts.','pp-running-light','light','desktop','/repo/codestory-atlas-fixture/review','pp-running'],
+  ['communication','Agent working — panel detail','The running panel captured at element scale.','pp-detail-running','dark','desktop','/repo/codestory-atlas-fixture/review','pp-detail-running'],
+  ['communication','Agent complete','Terminal success: every milestone done, Close replaces Stop.','pp-complete','dark','desktop','/repo/codestory-atlas-fixture/review','pp-complete'],
+  ['communication','Agent stopped','User-cancelled run with an explicit terminal status.','pp-stopped','dark','desktop','/repo/codestory-atlas-fixture/review','pp-stopped'],
+  ['communication','Agent failure','Actionable failure summary with technical details kept collapsed.','pp-failed','dark','desktop','/repo/codestory-atlas-fixture/review','pp-failed'],
+  ['communication','Agent failure — panel detail','The failed panel captured at element scale.','pp-detail-failed','dark','desktop','/repo/codestory-atlas-fixture/review','pp-detail-failed'],
+  ['communication','Agent cannot start','The pre-stream blocked state, before any run events arrive.','pp-blocked','dark','desktop','/repo/codestory-atlas-fixture/review','pp-blocked'],
   // The storyless intro that hosts the stage variant lives on the diff route
   // with no story file present, not on /review.
-  ['communication','Agent working — stage variant','The same panel node re-parented into the storyless intro as the stage variant.','pp-stage','dark','desktop','/repo/diffstory-atlas-fixture/diff?base=main&head=feat%2Fspending-limit','pp-stage'],
-  ['responsive','Tablet review','The review workspace at the rail-collapse breakpoint.','tablet-review','dark','tablet','/repo/diffstory-atlas-fixture/review'],
-  ['responsive','Mobile focused-code walkthrough','Compact chrome and a quiet code-focus scene on a phone viewport.','mobile-step','light','mobile','/repo/diffstory-atlas-fixture/review','code-focus-mobile'],
-  ['responsive','Mobile inline comment','The code-anchored composer in the mobile review flow.','mobile-comment-composer','dark','mobile','/repo/diffstory-atlas-fixture/review'],
-  ['responsive','Mobile comments','The comment queue as a full-height mobile workspace.','mobile-comments','dark','mobile','/repo/diffstory-atlas-fixture/review']
+  ['communication','Agent working — stage variant','The same panel node re-parented into the storyless intro as the stage variant.','pp-stage','dark','desktop','/repo/codestory-atlas-fixture/diff?base=main&head=feat%2Fspending-limit','pp-stage'],
+  ['responsive','Tablet review','The review workspace at the rail-collapse breakpoint.','tablet-review','dark','tablet','/repo/codestory-atlas-fixture/review'],
+  ['responsive','Mobile focused-code walkthrough','Compact chrome and a quiet code-focus scene on a phone viewport.','mobile-step','light','mobile','/repo/codestory-atlas-fixture/review','code-focus-mobile'],
+  ['responsive','Mobile inline comment','The code-anchored composer in the mobile review flow.','mobile-comment-composer','dark','mobile','/repo/codestory-atlas-fixture/review'],
+  ['responsive','Mobile comments','The comment queue as a full-height mobile workspace.','mobile-comments','dark','mobile','/repo/codestory-atlas-fixture/review']
 ].map(([category,title,description,state,theme,viewport,route,surface])=>({category,title,description,state,theme,viewport,route,surface:surface||state}))
-  .filter((definition)=>{const selected=process.env.DIFFSTORY_UI_ATLAS_STATES?.split(',').map((state)=>state.trim()).filter(Boolean);return !selected?.length||selected.includes(definition.state);});
+  .filter((definition)=>{const selected=process.env.CODESTORY_UI_ATLAS_STATES?.split(',').map((state)=>state.trim()).filter(Boolean);return !selected?.length||selected.includes(definition.state);});
 
 // A surface is only "covered" if the frame actually contains it. Each entry is
 // a selector that must exist and have a non-zero box before the shutter fires,
@@ -159,7 +159,7 @@ const evidence = {
 const knownDegraded = {};
 
 function browserExecutable(){
-  const configured=process.env.DIFFSTORY_ATLAS_BROWSER?.trim();
+  const configured=process.env.CODESTORY_ATLAS_BROWSER?.trim();
   const choices=[configured,'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome','/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge','/usr/bin/google-chrome','/usr/bin/chromium'];
   return choices.find((path)=>Boolean(path)&&existsSync(path));
 }
@@ -181,7 +181,7 @@ function seedBrowsableHome(){
   for(const name of ['notes-archive','Projects','Sandbox'])mkdirSync(join(HOME,name),{recursive:true});
   mkdirSync(join(HOME,'workbench-demo','.git'),{recursive:true});
 }
-function waitReady(url,child){return new Promise((resolve,reject)=>{let tries=0;const tick=async()=>{if(child.exitCode!==null)return reject(new Error('diffStory server exited before capture.'));try{const r=await fetch(url);if(r.ok)return resolve();}catch{}if(++tries>100)return reject(new Error('Timed out waiting for diffStory.'));setTimeout(tick,100);};tick();});}
+function waitReady(url,child){return new Promise((resolve,reject)=>{let tries=0;const tick=async()=>{if(child.exitCode!==null)return reject(new Error('codeStory server exited before capture.'));try{const r=await fetch(url);if(r.ok)return resolve();}catch{}if(++tries>100)return reject(new Error('Timed out waiting for codeStory.'));setTimeout(tick,100);};tick();});}
 function setStoryForSurface(surface){
   if(surface==='history-empty'||surface==='pp-stage'){
     if(existsSync(STORY)){copyFileSync(STORY,STORY_HOLD);rmSync(STORY);}
@@ -238,13 +238,13 @@ async function forgetAllRecents(page){
  * Load the panel's imperative bridge.
  *
  * The review page imports the component from the barrel, not the bundle entry,
- * so `window.diffStoryProgress` is not present until we ask for it. The entry
+ * so `window.codeStoryProgress` is not present until we ask for it. The entry
  * publishes it on load precisely so a non-React driver like this one can mount
  * a panel and step it through fixture events.
  */
 async function ensureProgressBridge(page){
   await page.addScriptTag({type:'module',url:'/assets/client/progress.js'});
-  await page.waitForFunction(()=>typeof window.diffStoryProgress?.mount==='function',undefined,{timeout:5000});
+  await page.waitForFunction(()=>typeof window.codeStoryProgress?.mount==='function',undefined,{timeout:5000});
 }
 
 async function progressState(page,kind){
@@ -256,15 +256,15 @@ async function progressState(page,kind){
     if(!host)throw new Error('No progress panel host (#ds-storystage / #ds-agentpanel) on this page.');
     window.__atlasPanel?.unmount();
     const variant=host.id==='ds-storystage'?'stage':'floating';
-    const panel=window.diffStoryProgress.mount(host,{variant});
+    const panel=window.codeStoryProgress.mount(host,{variant});
     window.__atlasPanel=panel;
     panel.start();
     if(terminal==='blocked'){
-      panel.blocked({label:'No story agent available',detail:'diffStory could not find Claude Code or Codex on this machine. Install one, then start the review again.',technicalDetail:'looked for: claude, codex; PATH had neither'});
+      panel.blocked({label:'No story agent available',detail:'codeStory could not find Claude Code or Codex on this machine. Install one, then start the review again.',technicalDetail:'looked for: claude, codex; PATH had neither'});
       return;
     }
     panel.handle({type:'run_started',workflow:'guided_review'});
-    panel.handle({type:'context',agent:'codex',model:'gpt-5.6-codex',repoName:'diffstory-atlas-fixture',base:'main',head:'feat/spending-limit'});
+    panel.handle({type:'context',agent:'codex',model:'gpt-5.6-codex',repoName:'codestory-atlas-fixture',base:'main',head:'feat/spending-limit'});
     panel.handle({type:'phase',phase:'reading_changes'});
     panel.handle({type:'plan',items:[
       {text:'Read every changed file and recover the intent',status:'done'},
@@ -528,12 +528,12 @@ async function assertChangeMotionReplay(browser,origin){
 }
 
 async function main(){
-  const executable=browserExecutable();if(!executable)throw new Error('Install Google Chrome or Microsoft Edge, or set DIFFSTORY_ATLAS_BROWSER.');
+  const executable=browserExecutable();if(!executable)throw new Error('Install Google Chrome or Microsoft Edge, or set CODESTORY_ATLAS_BROWSER.');
   mkdirSync(SHOTS,{recursive:true});for(const old of definitions)rmSync(join(SHOTS,`${old.category}-${old.state}.png`),{force:true});
-  execFileSync(process.execPath,[join(ROOT,'examples','demo.mjs')],{cwd:ROOT,env:{...process.env,DIFFSTORY_DEMO_DIR:FIXTURE,DIFFSTORY_DEMO_NO_SERVE:'1'},stdio:'pipe'});copyFileSync(STORY,STORY_HOLD);
+  execFileSync(process.execPath,[join(ROOT,'examples','demo.mjs')],{cwd:ROOT,env:{...process.env,CODESTORY_DEMO_DIR:FIXTURE,CODESTORY_DEMO_NO_SERVE:'1'},stdio:'pipe'});copyFileSync(STORY,STORY_HOLD);
   seedBrowsableHome();
   const fake=join(HOME,'codex-atlas');fakeCodex(fake);const port=await freePort();const origin=`http://127.0.0.1:${port}`;
-  const server=spawn(process.execPath,[join(ROOT,'dist','app-server.js'),'--dir',FIXTURE,'--port',String(port),'--no-open'],{cwd:ROOT,env:{...process.env,HOME,DIFFSTORY_CODEX_BINARY:fake},stdio:['ignore','pipe','pipe']});
+  const server=spawn(process.execPath,[join(ROOT,'dist','app-server.js'),'--dir',FIXTURE,'--port',String(port),'--no-open'],{cwd:ROOT,env:{...process.env,HOME,CODESTORY_CODEX_BINARY:fake},stdio:['ignore','pipe','pipe']});
   let serverLog='';server.stdout.on('data',c=>serverLog+=c);server.stderr.on('data',c=>serverLog+=c);
   let browser;
   try{
@@ -546,7 +546,7 @@ async function main(){
       // is driven by ds-theme, so the emulation stays dark for them.
       const motionEvidence=['history-glance','narration-active','code-step-dock','comment-copy-success','change-refpicker'].includes(def.surface);
       await page.emulateMedia({colorScheme:def.surface.startsWith('pp-')&&def.theme==='light'?'light':'dark',reducedMotion:motionEvidence?'no-preference':'reduce'});
-      let runtimeRoute=def.route.replace('/repo/diffstory-atlas-fixture',`/repo/${encodeURIComponent(basename(FIXTURE))}`);
+      let runtimeRoute=def.route.replace('/repo/codestory-atlas-fixture',`/repo/${encodeURIComponent(basename(FIXTURE))}`);
       if(runtimeRoute.endsWith('/review'))runtimeRoute+='?story=story.json';
       await page.goto(origin+runtimeRoute,{waitUntil:'domcontentloaded'});await settled(page);
       if(def.surface==='picker-recent'){
@@ -661,7 +661,7 @@ async function main(){
     }
     await assertChangeMotionReplay(browser,origin);
     await assertStoryInteractionReplay(browser,origin);
-    const source=execFileSync('git',['rev-parse','--short','HEAD'],{cwd:ROOT,encoding:'utf8'}).trim();const dirty=execFileSync('git',['status','--porcelain'],{cwd:ROOT,encoding:'utf8'}).trim();const manifest={version:1,generatedAt:new Date().toISOString(),source:`commit ${source}${dirty?' + working tree':''} · deterministic demo`,shots};const json=JSON.stringify(manifest,null,2)+'\n';writeFileSync(join(OUT,'manifest.json'),json);writeFileSync(join(OUT,'manifest.js'),`window.DIFFSTORY_UI_ATLAS=${JSON.stringify(manifest)};\n`);console.log(`\nUI atlas: ${relative(ROOT,OUT)}/index.html (${shots.length} frames)`);
+    const source=execFileSync('git',['rev-parse','--short','HEAD'],{cwd:ROOT,encoding:'utf8'}).trim();const dirty=execFileSync('git',['status','--porcelain'],{cwd:ROOT,encoding:'utf8'}).trim();const manifest={version:1,generatedAt:new Date().toISOString(),source:`commit ${source}${dirty?' + working tree':''} · deterministic demo`,shots};const json=JSON.stringify(manifest,null,2)+'\n';writeFileSync(join(OUT,'manifest.json'),json);writeFileSync(join(OUT,'manifest.js'),`window.CODESTORY_UI_ATLAS=${JSON.stringify(manifest)};\n`);console.log(`\nUI atlas: ${relative(ROOT,OUT)}/index.html (${shots.length} frames)`);
     const degradedShots=shots.filter((shot)=>shot.degraded);
     if(degradedShots.length)console.log(`\n${degradedShots.length} frame(s) captured a degraded surface:\n${degradedShots.map((shot)=>`  ${shot.state} — ${shot.degraded}`).join('\n')}`);
   }catch(error){throw new Error(`${error.message}\n${serverLog.trim()}`);}finally{if(browser)await browser.close();server.kill('SIGTERM');rmSync(FIXTURE,{recursive:true,force:true});rmSync(HOME,{recursive:true,force:true});}

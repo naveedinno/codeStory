@@ -4,7 +4,7 @@
 // SKILL.md alone.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 
-const DIR = new URL('../../skills/diffstory-storyteller/', import.meta.url);
+const DIR = new URL('../../skills/codestory-storyteller/', import.meta.url);
 
 /** SKILL.md only: what every agent loads before anything else. */
 export function skillCore() {

@@ -1,15 +1,15 @@
 {
-  "name": "@naveedinno/diffstory",
+  "name": "@naveedinno/codestory",
   "version": "0.1.0",
-  "description": "diffStory — guided, in-order diff review with a local queued-comment handoff.",
+  "description": "codeStory — guided, in-order diff review with a local queued-comment handoff.",
   "type": "module",
   "author": "naveedinno <naveedinno@proton.me>",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/naveedinno/diffstory.git"
+    "url": "git+https://github.com/naveedinno/codeStory.git"
   },
-  "homepage": "https://github.com/naveedinno/diffstory#readme",
-  "bugs": "https://github.com/naveedinno/diffstory/issues",
+  "homepage": "https://github.com/naveedinno/codeStory#readme",
+  "bugs": "https://github.com/naveedinno/codeStory/issues",
   "publishConfig": {
     "access": "public"
   },
@@ -42,7 +42,7 @@
     "node": ">=20"
   },
   "keywords": [
-    "diffstory",
+    "codestory",
     "code-review",
     "diff",
     "ai",

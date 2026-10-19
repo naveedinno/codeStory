@@ -5,7 +5,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { DATA_DIR } from './config.js';
+import { APP_DATA_DIRS, DATA_DIR } from './config.js';
 import { assertSafeRepoPath, readWholeFile, resolveCommit } from './git.js';
 import { isCodeStep } from './types.js';
 const SLUG_MAX = 48;
@@ -38,7 +38,7 @@ export function changedSinceCommit(repo, commit, files) {
     }
     const args = paths
         ? ['--literal-pathspecs', 'diff', '--name-only', '-z', '--no-renames', commit, '--', ...paths]
-        : ['diff', '--name-only', '-z', '--no-renames', commit, '--', '.', `:(exclude)${DATA_DIR}`];
+        : ['diff', '--name-only', '-z', '--no-renames', commit, '--', '.', ...APP_DATA_DIRS.map((dir) => `:(exclude)${dir}`)];
     try {
         const out = execFileSync('git', args, {
             cwd: repo,
@@ -150,7 +150,7 @@ export function codeStorySlug(input) {
     const atWord = cut.slice(0, cut.lastIndexOf('-'));
     return (atWord.length > 'code-'.length ? atWord : cut).replace(/-+$/, '');
 }
-/** `.diffstory/stories/<slug>.json`, numbered `-2`, `-3`, … when the name is taken. */
+/** `.codestory/stories/<slug>.json`, numbered `-2`, `-3`, … when the name is taken. */
 export function codeStoryOutputPath(repo, slug) {
     const dir = join(repo, DATA_DIR, 'stories');
     let candidate = join(dir, `${slug}.json`);

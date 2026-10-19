@@ -197,7 +197,7 @@ test("Copy all exports queued comments only, including exact code context", () =
     PAGE_JS,
     /function queuedComments\(\)\{return allComments\.filter\((?:function\(c\)\{return c&&c\.status==='open';\}|\(c\)=> c&&c\.status==='open')\);\}/,
   );
-  assert.match(PAGE_JS, /Code review comments from diffStory/);
+  assert.match(PAGE_JS, /Code review comments from codeStory/);
   assert.match(PAGE_JS, /Selected code:/);
   assert.match(PAGE_JS, /Comment:/);
   assert.doesNotMatch(

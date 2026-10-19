@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { serve } from '../dist/server.js';
 
 async function withServer(run) {
-  const repo = mkdtempSync(join(tmpdir(), 'diffstory-client-assets-'));
+  const repo = mkdtempSync(join(tmpdir(), 'codestory-client-assets-'));
   execFileSync('git', ['init', '-q'], { cwd: repo });
   execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: repo });
   execFileSync('git', ['config', 'user.name', 'Test'], { cwd: repo });
@@ -19,13 +19,17 @@ async function withServer(run) {
   execFileSync('git', ['add', '.'], { cwd: repo });
   execFileSync('git', ['commit', '-qm', 'base'], { cwd: repo });
 
-  const server = serve({ repo, port: 0, open: false });
+  // A throwaway home: the server reads and writes its global store there, and
+  // a test must never reach the real one.
+  const home = mkdtempSync(join(tmpdir(), 'ds-client-assets-home-'));
+  const server = serve({ repo, port: 0, open: false, homeOverride: home });
   await once(server, 'listening');
   try {
     await run(`http://127.0.0.1:${server.address().port}`);
   } finally {
     server.close();
     rmSync(repo, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true });
   }
 }
 

@@ -123,14 +123,14 @@ test('code arcs use code shapes and no changeType', () => {
     assert.deepEqual(validateTour(codeStory({ storyArc: { shape, readingPath: 'a -> b' } })), [], shape);
   }
   // The diff vocabulary does not grow: a diff story still cannot pick a code-only shape.
-  const diffStory = {
+  const diffSubjectStory = {
     version: 3,
     title: 'A diff story',
     summary: '',
     storyArc: { changeType: 'feature', shape: 'lifecycle', readingPath: 'a -> b' },
     steps: [{ ...codeStep({ order: 1 }), kind: 'changed' }],
   };
-  assert.ok(validateTour(diffStory).some((e) => /storyArc\.shape must be one of cause-effect/.test(e)));
+  assert.ok(validateTour(diffSubjectStory).some((e) => /storyArc\.shape must be one of cause-effect/.test(e)));
 });
 
 test('codeScope stays plain text with safe paths', () => {
@@ -278,10 +278,10 @@ test('slugs come from the question and stay unique', () => {
   assert.ok(long.startsWith('code-walk-me-through'), long);
   withCommittedRepo(({ dir }) => {
     const first = codeStoryOutputPath(dir, 'code-x');
-    assert.equal(first, join(dir, '.diffstory', 'stories', 'code-x.json'));
-    mkdirSync(join(dir, '.diffstory', 'stories'), { recursive: true });
+    assert.equal(first, join(dir, '.codestory', 'stories', 'code-x.json'));
+    mkdirSync(join(dir, '.codestory', 'stories'), { recursive: true });
     writeFileSync(first, '{}');
-    assert.equal(codeStoryOutputPath(dir, 'code-x'), join(dir, '.diffstory', 'stories', 'code-x-2.json'));
+    assert.equal(codeStoryOutputPath(dir, 'code-x'), join(dir, '.codestory', 'stories', 'code-x-2.json'));
   });
 });
 

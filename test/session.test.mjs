@@ -46,7 +46,7 @@ test('repo entry starts at review history', () => {
 test('repo entry resumes only an explicitly selected review', () => {
   const s = createSession({ repo: '/r' });
   s.chooseStory = false;
-  s.selectedStory = '/r/.diffstory/stories/security.json';
+  s.selectedStory = '/r/.codestory/stories/security.json';
   assert.equal(sessionEntryScreen(s), 'review');
 
   s.selectedStory = null;
@@ -58,7 +58,7 @@ test('review page leases are opaque, coexist across tabs, expire, and clear acro
   const input = {
     repo: '/r', base: 'HEAD', fingerprint: 'fingerprint', scopeKey: 'scope',
     mode: 'since', from: 'snapshot-1', fromSnapshotDigest: 'snapshot-digest', storyIdentity: 'storyless',
-    storyPath: '/r/.diffstory/story.json', storyFingerprint: 'story-fingerprint', fileFingerprints: {},
+    storyPath: '/r/.codestory/story.json', storyFingerprint: 'story-fingerprint', fileFingerprints: {},
   };
   const first = issueReviewPageLease(s, input, 1000);
   assert.ok(first.token.length >= 20);
@@ -81,7 +81,7 @@ test('review page lease registry evicts its least recently used tab at the bound
   const s = createSession({ repo: '/r' });
   const input = {
     repo: '/r', base: 'HEAD', fingerprint: 'fingerprint', scopeKey: 'scope', mode: 'full',
-    storyIdentity: 'storyless', storyPath: '/r/.diffstory/story.json', storyFingerprint: 'missing',
+    storyIdentity: 'storyless', storyPath: '/r/.codestory/story.json', storyFingerprint: 'missing',
     fileFingerprints: {},
   };
   const leases = Array.from({ length: 24 }, (_, index) => issueReviewPageLease(s, input, 1000 + index));
@@ -98,7 +98,7 @@ test('re-opening the same repo keeps existing review page leases', () => {
   const s = createSession({ repo: '/r' });
   const input = {
     repo: '/r', base: 'HEAD', fingerprint: 'fingerprint', scopeKey: 'scope', mode: 'full',
-    storyIdentity: 'storyless', storyPath: '/r/.diffstory/story.json', storyFingerprint: 'missing',
+    storyIdentity: 'storyless', storyPath: '/r/.codestory/story.json', storyFingerprint: 'missing',
     fileFingerprints: {},
   };
   const lease = issueReviewPageLease(s, input, 1000);

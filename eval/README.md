@@ -55,7 +55,7 @@ a multi-minute run never looks like a hang. The full stream is always written to
 each case's `generate.log`.
 
 **The installed skill is what gets measured.** The agent loads
-`~/.claude/skills/diffstory-storyteller/SKILL.md`, not this repo's copy, so the
+`~/.claude/skills/codestory-storyteller/SKILL.md`, not this repo's copy, so the
 harness refuses to run when the two differ — a stale install silently scores the
 old skill and makes every label comparison a lie. After editing the skill:
 
@@ -65,7 +65,7 @@ sh scripts/install-skills.sh --claude
 
 **Your working tree is never touched.** Every generation runs in its own
 detached git worktree under `.eval-worktrees/`, so each case gets a private
-`.diffstory/story.json` and the live repo is left alone. You can keep editing,
+`.codestory/story.json` and the live repo is left alone. You can keep editing,
 and `npm test` stays green, while a run is in flight. Worktrees are removed on
 completion, on error, and on Ctrl-C.
 
@@ -154,7 +154,7 @@ comparable.
 
 ## Real-world corpus
 
-`node scripts/story-corpus-report.mjs` lints every diffStory story under the
+`node scripts/story-corpus-report.mjs` lints every codeStory story under the
 given roots (default `~/Codes`) and prints a Markdown report: basic validity,
 generation-contract errors, and lint findings by rule. There is no coverage
 check — a story's diff has usually moved on since it was written. Pass

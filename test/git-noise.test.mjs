@@ -138,11 +138,11 @@ test('untracked review-noise files are still excluded', () => {
   }
 });
 
-test('diffStory review state never appears in the reviewed diff', () => {
+test('codeStory review state never appears in the reviewed diff', () => {
   const { d } = repo();
   try {
-    mkdirSync(join(d, '.diffstory'));
-    writeFileSync(join(d, '.diffstory', 'review-state.json'), '{"version":1}\n');
+    mkdirSync(join(d, '.codestory'));
+    writeFileSync(join(d, '.codestory', 'review-state.json'), '{"version":1}\n');
     writeFileSync(join(d, 'useful.ts'), 'export const useful = true;\n');
     const files = parseUnifiedDiff(getDiff(d, 'HEAD')).map((f) => f.newPath);
     assert.deepEqual(files, ['useful.ts']);
@@ -324,8 +324,8 @@ test('metadata index includes every review path without carrying diff bodies', (
     writeFileSync(join(d, 'dist', 'bundle.js'), 'generated\n');
     writeFileSync(join(d, 'binary.dat'), Buffer.from([0, 1, 2, 3]));
     chmodSync(join(d, 'seed.txt'), 0o755);
-    mkdirSync(join(d, '.diffstory'));
-    writeFileSync(join(d, '.diffstory', 'review-state.json'), '{"version":1}\n');
+    mkdirSync(join(d, '.codestory'));
+    writeFileSync(join(d, '.codestory', 'review-state.json'), '{"version":1}\n');
 
     const index = reviewFileIndex(d, 'HEAD');
     assert.deepEqual(index.map((file) => file.path), [
@@ -341,7 +341,7 @@ test('metadata index includes every review path without carrying diff bodies', (
     assert.equal(index.find((file) => file.path === 'seed.txt').metadataOnly, true);
     assert.match(index.find((file) => file.path === 'ordinary.ts').reviewHash, /^[0-9a-f]{64}$/);
     assert.ok(
-      !index.some((file) => file.path.startsWith('.diffstory/')),
+      !index.some((file) => file.path.startsWith('.codestory/')),
       'app state is never part of the review index',
     );
 

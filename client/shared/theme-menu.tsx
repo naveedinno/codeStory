@@ -2,7 +2,7 @@
 //
 // A faithful React port of `themeControl()` in `src/theme.ts`, not beUI's
 // `motion/theme-toggle.tsx`. The vendored toggle is a two-state light↔dark
-// switch; diffStory's control is a menu whose third state, System, is stored as
+// switch; codeStory's control is a menu whose third state, System, is stored as
 // the *absence* of the `ds-theme` key and follows `prefers-color-scheme` live.
 // Swapping in the two-state toggle would silently delete System, so this wraps
 // the shared `useTheme()` hook instead (which is where the real storage,

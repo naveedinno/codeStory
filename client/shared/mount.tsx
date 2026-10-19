@@ -16,7 +16,7 @@ import { flushSync } from "react-dom";
 
 export function mountSurface(tree: ReactNode, containerId = "root"): void {
   const container = document.getElementById(containerId);
-  if (!container) throw new Error(`diffStory: no #${containerId} element to mount into.`);
+  if (!container) throw new Error(`codeStory: no #${containerId} element to mount into.`);
   flushSync(() => {
     createRoot(container).render(tree);
   });

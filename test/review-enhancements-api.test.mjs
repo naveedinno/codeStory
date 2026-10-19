@@ -10,7 +10,7 @@ import { serve } from '../dist/server.js';
 test('evidence endpoints require a current lease, an authored check, and confirmation; drift and checkout changes fail closed', async () => {
   const root = mkdtempSync(join(tmpdir(), 'ds-enhance-api-'));
   const repo = join(root, 'repo'), home = join(root, 'home');
-  execFileSync(process.execPath, ['examples/demo.mjs'], { env: { ...process.env, DIFFSTORY_DEMO_NO_SERVE:'1', DIFFSTORY_DEMO_DIR:repo }, stdio:'pipe' });
+  execFileSync(process.execPath, ['examples/demo.mjs'], { env: { ...process.env, CODESTORY_DEMO_NO_SERVE:'1', CODESTORY_DEMO_DIR:repo }, stdio:'pipe' });
   const opened = [];
   const server = serve({ repo, homeOverride:home, port:0, open:false, openEditor:target => { opened.push(target); return true; } });
   await once(server, 'listening');

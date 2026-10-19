@@ -16,9 +16,17 @@ function repoFixture() {
   execFileSync('git', ['add', 'README.md'], { cwd: repo });
   execFileSync('git', ['commit', '-qm', 'initial'], { cwd: repo });
   writeFileSync(join(repo, 'README.md'), '# after\n');
-  mkdirSync(join(repo, '.diffstory'), { recursive: true });
-  writeFileSync(join(repo, '.diffstory', 'comments.json'), '[]\n');
+  mkdirSync(join(repo, '.codestory'), { recursive: true });
+  writeFileSync(join(repo, '.codestory', 'comments.json'), '[]\n');
   return repo;
+}
+
+/** A server on `repo` with a throwaway home, removed once the server closes. */
+function serveRepo(repo) {
+  const home = mkdtempSync(join(tmpdir(), 'ds-live-http-home-'));
+  const server = serve({ repo, port: 0, open: false, homeOverride: home });
+  server.once('close', () => rmSync(home, { recursive: true, force: true }));
+  return server;
 }
 
 function tokenFrom(html) {
@@ -54,7 +62,7 @@ async function readUntil(reader, pattern, timeoutMs = 3000) {
 
 test('HTTP live stream authenticates leases, keeps two tabs valid, and emits file invalidations', async () => {
   const repo = repoFixture();
-  const server = serve({ repo, port: 0, open: false });
+  const server = serveRepo(repo);
   await once(server, 'listening');
   const address = server.address();
   const base = `http://localhost:${address.port}`;
@@ -78,7 +86,7 @@ test('HTTP live stream authenticates leases, keeps two tabs valid, and emits fil
     const initialState = await readUntil(reader, /event: state/);
     assert.match(initialState, /"diffChanged":false/, 'a freshly rendered page must start current');
 
-    writeFileSync(join(repo, '.diffstory', 'comments.json'), `${JSON.stringify([{
+    writeFileSync(join(repo, '.codestory', 'comments.json'), `${JSON.stringify([{
       id: 'external', file: 'README.md', line: 1, type: 'question', severity: 'concern',
       body: 'Did this arrive live?', status: 'open', createdAt: new Date().toISOString(), turns: [],
     }], null, 2)}\n`);
@@ -92,7 +100,7 @@ test('HTTP live stream authenticates leases, keeps two tabs valid, and emits fil
 
 test('graceful server.close() completes while a live stream is connected', async () => {
   const repo = repoFixture();
-  const server = serve({ repo, port: 0, open: false });
+  const server = serveRepo(repo);
   await once(server, 'listening');
   const base = `http://localhost:${server.address().port}`;
   const route = `/repo/${encodeURIComponent(basename(repo))}/diff`;
@@ -117,7 +125,7 @@ test('graceful server.close() completes while a live stream is connected', async
 
 test('lease-scoped review state and comment mutations tolerate a story mid-rewrite', async () => {
   const repo = repoFixture();
-  writeFileSync(join(repo, '.diffstory', 'story.json'), JSON.stringify({
+  writeFileSync(join(repo, '.codestory', 'story.json'), JSON.stringify({
     version: 1, title: 'Focused review', summary: 'Review the README change.', base: 'HEAD',
     storyScope: { includedFiles: ['README.md'] },
     steps: [{
@@ -125,7 +133,7 @@ test('lease-scoped review state and comment mutations tolerate a story mid-rewri
       range: [1, 1], kind: 'changed', why: 'Verify the visible documentation change.',
     }],
   }));
-  const server = serve({ repo, port: 0, open: false });
+  const server = serveRepo(repo);
   await once(server, 'listening');
   const base = `http://localhost:${server.address().port}`;
   try {
@@ -134,7 +142,7 @@ test('lease-scoped review state and comment mutations tolerate a story mid-rewri
 
     // The agent rewrites the story in place; lease-scoped reads must fall back
     // to the real diff underneath instead of failing.
-    writeFileSync(join(repo, '.diffstory', 'story.json'), '{"version":1,"title":');
+    writeFileSync(join(repo, '.codestory', 'story.json'), '{"version":1,"title":');
 
     const state = await fetch(`${base}/api/review-state?page=${page}`);
     assert.equal(state.status, 200, 'review state must tolerate a story mid-rewrite');

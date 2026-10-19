@@ -49,7 +49,7 @@ export function bundleFileName(storyId: string): string {
       .replace(/^-+|-+$/g, '')
       .slice(0, 40) || 'story';
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  return `${slug}-${date}.diffstory.json`;
+  return `${slug}-${date}.codestory.json`;
 }
 
 function slugForImport(name: string, tour: Tour): string {
@@ -68,7 +68,7 @@ export interface ImportedBundle {
 }
 
 /**
- * Validate an uploaded bundle and save its story under `.diffstory/stories/`.
+ * Validate an uploaded bundle and save its story under `.codestory/stories/`.
  * Accepts a full bundle or a bare story object. Never writes anywhere else:
  * the primary story.json is only ever written by generation. Returns the new
  * story id, or throws a TourError-flavoured Error callers surface as a 400.

@@ -2,7 +2,7 @@
 //
 // This surface is unlike the other four: it has no route, so the picker's
 // "1. the route / 2. the payload" layers have nothing to point at. There is no
-// HTML to request and no `__DIFFSTORY_DATA__` block to parse — the panel's whole
+// HTML to request and no `__CODESTORY_DATA__` block to parse — the panel's whole
 // input is the NDJSON body of `POST /api/generate` or `POST /api/story/repair`.
 // The four layers are therefore:
 //
@@ -445,7 +445,7 @@ test('the built bundle ships the panel behaviour', (t) => {
     'Cannot start',
     'Could not start.',
     'The connection to the agent ended',
-    'reopen diffStory and check the technical details',
+    'reopen codeStory and check the technical details',
     'The run failed',
     'Technical details',
     'Recovering the why',

@@ -538,7 +538,7 @@ export function startReviewEngine(options){
     $all('[data-concept-frame]',panel).forEach(function(frame){
       if(frame._dsMounted||!live||!live.contains(frame))return;frame._dsMounted=true;
       var figure=closest(frame,'[data-concept-page]');
-      frame.addEventListener('load',function(){if(!frame._dsMounted)return;if(figure)figure.classList.add('is-loaded');if(frame.contentWindow)frame.contentWindow.postMessage({type:'diffstory:theme',theme:conceptPageTheme()},'*');});
+      frame.addEventListener('load',function(){if(!frame._dsMounted)return;if(figure)figure.classList.add('is-loaded');if(frame.contentWindow)frame.contentWindow.postMessage({type:'codestory:theme',theme:conceptPageTheme()},'*');});
       frame.src=reviewPageUrl('/api/review/concept-page?index='+encodeURIComponent(frame.getAttribute('data-concept-index')||'')+'&theme='+conceptPageTheme());
     });
   }
@@ -565,7 +565,7 @@ export function startReviewEngine(options){
   }
   function syncConceptPageTheme(){
     var theme=conceptPageTheme();
-    $all('[data-concept-frame]').forEach(function(frame){if(frame.contentWindow)frame.contentWindow.postMessage({type:'diffstory:theme',theme:theme},'*');});
+    $all('[data-concept-frame]').forEach(function(frame){if(frame.contentWindow)frame.contentWindow.postMessage({type:'codestory:theme',theme:theme},'*');});
   }
   // Any mounted concept page can post to this window, so a forwarded key is
   // replayed only from the focused frame on the active step, and only when it
@@ -573,7 +573,7 @@ export function startReviewEngine(options){
   // forwards exactly this list.
   var CONCEPT_FRAME_KEYS=['ArrowLeft','ArrowRight','j','k',' '];
   function conceptFrameForMessage(e){
-    var d=e.data;if(!d||d.type!=='diffstory:key'||typeof d.key!=='string'||CONCEPT_FRAME_KEYS.indexOf(d.key)<0)return null;
+    var d=e.data;if(!d||d.type!=='codestory:key'||typeof d.key!=='string'||CONCEPT_FRAME_KEYS.indexOf(d.key)<0)return null;
     var panel=stepPanels&&stepPanels[active];if(!panel)return null;
     var frame=null;$all('[data-concept-frame]',panel).forEach(function(f){if(f.contentWindow===e.source)frame=f;});
     return frame&&document.activeElement===frame?frame:null;
@@ -585,7 +585,7 @@ export function startReviewEngine(options){
   var STORY_MODELS={
     claude:[['Best quality','opus','Use the strongest available model for the clearest story'],['Lower cost','haiku','Use a smaller model for a faster, cheaper run']],
     // Safe while the live catalog loads: use the default from the exact Codex
-    // runtime diffStory will launch, never a guessed hard-coded model name.
+    // runtime codeStory will launch, never a guessed hard-coded model name.
     codex:[['Codex default','','Use the default model from your installed Codex app']]
   };
 
@@ -1496,9 +1496,9 @@ export function startReviewEngine(options){
       .replace(/→/g,' to ')
       .replace(/↵/g,' return ')
       // Our own name is one word. The camelCase rule below would otherwise read it
-      // as "diff Story" every time a beat mentions the tool, which is most of them;
+      // as "code Story" every time a beat mentions the tool, which is most of them;
       // lowering the inner capital removes the boundary without a placeholder.
-      .replace(/\bdiffStory\b/g,'diffstory')
+      .replace(/\bcodeStory\b/g,'codestory')
       .replace(/\bfn\b/g,'function')
       .replace(/\(\)/g,' function ')
       // Operators, before punctuation stripping removes the characters they use.
@@ -1948,7 +1948,7 @@ export function startReviewEngine(options){
       if(token!==aloudRequestToken)return;
       if(aloudSequence.length&&(!status.state||status.state.total!==aloudSequence.length)){
         aloudControl('stop',true);
-        throw new Error('Aloud needs an update before it can prefetch DiffStory narration. Reinstall Aloud Services, then try again.');
+        throw new Error('Aloud needs an update before it can prefetch codeStory narration. Reinstall Aloud Services, then try again.');
       }
       aloudRequestAbort=null;speechLoadingLabel='';aloudJobId=status.jobId||'';applyAloudStatus(status);
       applyAloudSequenceProgress(status);updateReadAloudButton();pollAloudSpeech(token,opts);
@@ -3658,7 +3658,8 @@ export function startReviewEngine(options){
     var where=st.dir||'~/.agents, ~/.claude, or ~/.codex';
     if(sk.legacyInstalled){
       e.warn.hidden=false;e.updateBtn.hidden=false;e.updateBtn.disabled=false;e.updateBtn.textContent='Update skills';
-      e.warnText.textContent='review-tour was renamed to diffstory-storyteller. Update skills to remove the retired copy before generating.';
+      var retired=sk.legacyNames&&sk.legacyNames.length?sk.legacyNames:[];
+      e.warnText.textContent=(retired.length?retired.join(' and '):'An older storyteller skill')+(retired.length>1?' were':' was')+' renamed to codestory-storyteller. Update skills to remove the retired '+(retired.length>1?'copies':'copy')+' before generating.';
       return;
     }
     if(st.current){
@@ -3674,12 +3675,12 @@ export function startReviewEngine(options){
   function wireStorySkillUpdate(){
     var e=storyGenEls();if(!e.updateBtn)return;
     e.updateBtn.onclick=function(){
-      e.updateBtn.disabled=true;e.updateBtn.textContent='Updating…';if(e.warnText)e.warnText.textContent='Installing bundled diffStory skills locally…';
+      e.updateBtn.disabled=true;e.updateBtn.textContent='Updating…';if(e.warnText)e.warnText.textContent='Installing bundled codeStory skills locally…';
       fetch('/api/skills/update',{method:'POST'}).then(function(r){return r.json();}).then(function(d){
         if(d&&d.skills)showStorySkillState(d.skills);else throw new Error('bad response');
       }).catch(function(){
         e.updateBtn.disabled=false;e.updateBtn.textContent='Try again';
-        if(e.warnText)e.warnText.textContent='Could not update skills. Run scripts/install-skills.sh from this repo, or re-run the diffStory installer.';
+        if(e.warnText)e.warnText.textContent='Could not update skills. Run scripts/install-skills.sh from this repo, or re-run the codeStory installer.';
       });
     };
   }
@@ -3808,7 +3809,7 @@ export function startReviewEngine(options){
     if(!isError)toastTimer=setTimeout(function(){if(sequence!==toastSequence)return;toastEl.classList.remove('is-show');setTimeout(function(){if(sequence!==toastSequence)return;toastEl.textContent='';toastEl.classList.remove('is-error');toastEl.setAttribute('role','status');toastEl.setAttribute('aria-live','polite');},220);},5000);
   }
   function commentsToText(list){
-    var out=[list.length===1?'Review comment from diffStory':'Code review comments from diffStory',''];
+    var out=[list.length===1?'Review comment from codeStory':'Code review comments from codeStory',''];
     list.forEach(function(c,i){
       var label=(FLAVOR[c.type]&&FLAVOR[c.type].label)||c.type;
       var sel=c.selection||{},start=sel.startLine||c.line,end=sel.endLine||start;
@@ -4337,7 +4338,7 @@ export function startReviewEngine(options){
     // Reloading or closing the tab must not leave Aloud reading to a page that
     // no longer exists. The fresh page starts idle, so it hides the stop button
     // and every control refers to a job it has never heard of — there was no way
-    // left in diffStory to silence a voice the reviewer could still hear.
+    // left in codeStory to silence a voice the reviewer could still hear.
     window.addEventListener('pagehide',function(){
       if(aloudIntent==='off'&&!aloudActive&&!aloudJobId&&!speechLoadingLabel)return;
       try{

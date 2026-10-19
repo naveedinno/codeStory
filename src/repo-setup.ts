@@ -1,4 +1,4 @@
-// Per-repo setup: choose how .diffstory/ is tracked in git, and check the
+// Per-repo setup: choose how .codestory/ is tracked in git, and check the
 // producer skill is installed for some agent. Pure FS; no CLI dependencies.
 import { createHash } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -8,8 +8,13 @@ import { DATA_DIR } from './config.js';
 
 const SHARED_LINE = `${DATA_DIR}/comments.json`;
 const LOCAL_LINE = `${DATA_DIR}/`;
-const STORYTELLER_SKILL = 'diffstory-storyteller';
-const LEGACY_STORYTELLER_SKILL = 'review-tour';
+const STORYTELLER_SKILL = 'codestory-storyteller';
+/**
+ * Earlier names of the storyteller, oldest first: it shipped as review-tour,
+ * then as diffstory-storyteller until the app was renamed to codeStory. A copy
+ * under any of them is reported as legacy and removed by updateSkills.
+ */
+const RETIRED_STORYTELLER_SKILLS = ['review-tour', 'diffstory-storyteller'] as const;
 const RETIRED_REVIEW_SKILL = 'address-review';
 const SKILLS = [STORYTELLER_SKILL] as const;
 
@@ -27,11 +32,13 @@ export interface AgentSkillStatus extends SkillCandidate {
 }
 
 export interface SkillStatus {
-  name: 'diffstory-storyteller';
+  name: 'codestory-storyteller';
   expected: string;
   installed: boolean;
   current: boolean;
   legacyInstalled: boolean;
+  /** The retired storyteller names still installed somewhere, oldest first. */
+  legacyNames: string[];
   message: string;
   candidates: SkillCandidate[];
   matches: SkillCandidate[];
@@ -46,7 +53,7 @@ export interface UpdateSkillsResult {
 /**
  * Edit the repo's .gitignore for the chosen tracking mode (idempotent):
  *  - 'shared': only comments.json is ignored (story.json stays tracked, travels with a PR).
- *  - 'local' : the whole .diffstory/ dir is ignored.
+ *  - 'local' : the whole .codestory/ dir is ignored.
  * Removes the other mode's line so switching modes is clean.
  */
 export function setGitignore(repo: string, mode: 'shared' | 'local'): void {
@@ -58,7 +65,7 @@ export function setGitignore(repo: string, mode: 'shared' | 'local'): void {
   writeFileSync(path, kept.join('\n') + '\n', 'utf8');
 }
 
-/** True if the diffStory producer skill is installed for any agent under `home`. */
+/** True if the codeStory producer skill is installed for any agent under `home`. */
 export function skillsInstalled(home: string): boolean {
   return skillStatus(home).installed;
 }
@@ -84,9 +91,10 @@ export function skillStatus(home: string, expected = bundledStorytellerSkill()):
     const current = installed && expectedDigest != null && skillDirDigest(dirname(path)) === expectedDigest;
     return { path, installed, current };
   });
-  const legacyInstalled = skillRoots.some((root) =>
-    existsSync(join(root, LEGACY_STORYTELLER_SKILL, 'SKILL.md')),
+  const legacyNames = RETIRED_STORYTELLER_SKILLS.filter((name) =>
+    skillRoots.some((root) => existsSync(join(root, name, 'SKILL.md'))),
   );
+  const legacyInstalled = legacyNames.length > 0;
   const matches = candidates.filter((c) => c.installed);
   // A matching new copy is not enough while the retired producer remains: an
   // agent may discover both commands and invoke the stale one. Keep Update
@@ -102,17 +110,18 @@ export function skillStatus(home: string, expected = bundledStorytellerSkill()):
     installed: matches.length > 0,
     current,
     legacyInstalled,
+    legacyNames,
     candidates,
     matches,
     agents,
     message:
       legacyInstalled
-        ? 'review-tour was renamed to diffstory-storyteller. Update skills to finish the migration.'
+        ? `${legacyNames.join(' and ')} ${legacyNames.length > 1 ? 'were' : 'was'} renamed to ${STORYTELLER_SKILL}. Update skills to finish the migration.`
         : matches.length === 0
-          ? 'diffstory-storyteller skill is not installed.'
+          ? 'codestory-storyteller skill is not installed.'
           : current
-            ? 'diffstory-storyteller skill is installed and up to date.'
-            : 'diffstory-storyteller skill is installed but out of date.',
+            ? 'codestory-storyteller skill is installed and up to date.'
+            : 'codestory-storyteller skill is installed but out of date.',
   };
 }
 
@@ -134,9 +143,9 @@ export function updateSkills(home: string, sourceRoot = bundledSkillsRoot()): Up
   const installed: string[] = [];
   for (const targetRoot of targets) {
     mkdirSync(targetRoot, { recursive: true });
-    // The producer skill was renamed in place. Remove the old install so agents
-    // do not expose two commands that write the same story artifact.
-    rmSync(join(targetRoot, LEGACY_STORYTELLER_SKILL), { recursive: true, force: true });
+    // The producer skill has been renamed twice. Remove every retired install so
+    // agents do not expose two commands that write the same story artifact.
+    for (const retired of RETIRED_STORYTELLER_SKILLS) rmSync(join(targetRoot, retired), { recursive: true, force: true });
     rmSync(join(targetRoot, RETIRED_REVIEW_SKILL), { recursive: true, force: true });
     for (const skill of SKILLS) {
       const source = join(sourceRoot, skill);

@@ -1,13 +1,13 @@
-# diffStory
+# codeStory
 
-[![CI](https://github.com/naveedinno/diffStory/actions/workflows/ci.yml/badge.svg)](https://github.com/naveedinno/diffStory/actions/workflows/ci.yml)
+[![CI](https://github.com/naveedinno/codeStory/actions/workflows/ci.yml/badge.svg)](https://github.com/naveedinno/codeStory/actions/workflows/ci.yml)
 [![license: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-blue.svg)](LICENSE)
 
 Read a code change in the order it actually makes sense.
 
-![diffStory guided review screen](assets/demo/diffstory-review.png)
+![codeStory guided review screen](assets/demo/codestory-review.png)
 
-diffStory is a local desktop app for reviewing git diffs. Open the app,
+codeStory is a local desktop app for reviewing git diffs. Open the app,
 pick a repo, choose what changed, and review the real diff with an optional
 AI-written walkthrough. When something needs work, select the exact text, add a
 comment, then copy it or keep it in the review queue.
@@ -37,14 +37,14 @@ No Python is required for the core app.
 Install the macOS app from a source checkout:
 
 ```sh
-git clone https://github.com/naveedinno/diffStory.git
-cd diffStory
+git clone https://github.com/naveedinno/codeStory.git
+cd codeStory
 npm install
 ./scripts/install-macos-app.sh
 ```
 
-Then open **diffStory** from Spotlight, Finder, or Launchpad. There is no
-diffStory CLI and no terminal review workflow.
+Then open **codeStory** from Spotlight, Finder, or Launchpad. There is no
+codeStory CLI and no terminal review workflow.
 
 Optional: install Claude or Codex on your PATH if you want generated stories.
 
@@ -53,8 +53,8 @@ Optional: install Claude or Codex on your PATH if you want generated stories.
 Try a realistic throwaway review without touching your own repos:
 
 ```sh
-git clone https://github.com/naveedinno/diffStory.git
-cd diffStory
+git clone https://github.com/naveedinno/codeStory.git
+cd codeStory
 npm install
 npm run demo
 ```
@@ -62,12 +62,12 @@ npm run demo
 The demo creates a temporary git repo with a saved story, changed files, and a
 couple of comments so you can see the full review loop.
 
-![diffStory saved stories screen](assets/demo/diffstory-story-picker.png)
+![codeStory saved stories screen](assets/demo/codestory-story-picker.png)
 
 ## First Review
 
 1. Make changes in any local git repo.
-2. Open the **diffStory** app.
+2. Open the **codeStory** app.
 3. Pick a repo from **Choose your workspace**.
 4. Choose what you want to review: uncommitted changes, the current branch, one
    commit, or any two refs.
@@ -80,7 +80,7 @@ couple of comments so you can see the full review loop.
 8. Open **Review → Comments** to edit or remove queued comments, jump back to
    their code, or use **Copy all** for one portable handoff.
 
-You can use diffStory as a clean diff viewer without an agent. AI is only needed
+You can use codeStory as a clean diff viewer without an agent. AI is only needed
 when you want a generated or repaired story.
 
 ## What You See
@@ -91,7 +91,7 @@ The first screen is your project list.
 - **Add repository** lets you pick another local git repo.
 - Missing or non-git folders are marked so you can remove them from recents.
 
-Inside a repo, diffStory gives you two useful ways to read:
+Inside a repo, codeStory gives you two useful ways to read:
 
 - **All files** shows the real git diff file by file.
 - **Story** rebuilds the minimum app context around the task, then walks the
@@ -122,19 +122,19 @@ spotlights, read-aloud, and concept pages, walking code that did not change.
 - A code story is pinned to one commit, so its line numbers never drift. When the
   files it visits change in your working tree, the Overview says so and offers
   **Rewrite at current code**.
-- Code stories live under `.diffstory/stories/code-*.json`, next to your diff
+- Code stories live under `.codestory/stories/code-*.json`, next to your diff
   stories in Review history, and never replace the live change story.
 - Agents can write one directly: with the storyteller skill installed, ask Claude
-  Code or Codex to explain the codebase, or one flow in it, as a diffStory.
+  Code or Codex to explain the codebase, or one flow in it, as a codeStory.
 
 ## Review Workflow
 
-diffStory keeps long reviews oriented and makes comments portable:
+codeStory keeps long reviews oriented and makes comments portable:
 
 - **Inline comments** open directly beneath selected code—never in a modal. The
   exact selection is the anchor and travels with the comment.
 - **Copy** is primary and one-shot: it copies the type, file, line range, diff
-  side, selected code, and comment without writing to `.diffstory/`.
+  side, selected code, and comment without writing to `.codestory/`.
 - **Add to queue** is the only persistence action.
 - **Review → Comments** groups queued comments by file. Edit or remove them,
   jump back to the code, or use **Copy all** when the review is ready.
@@ -169,34 +169,34 @@ diffStory keeps long reviews oriented and makes comments portable:
 
 ## Agent Setup
 
-The installer copies the bundled diffStory skills into the common agent skills
+The installer copies the bundled codeStory skills into the common agent skills
 location. If the app says skills are missing or stale, use the **Update skills**
 button in the browser.
 
 Claude Code users can also install the plugin:
 
 ```text
-/plugin marketplace add naveedinno/diffStory
-/plugin install diffstory@diffstory
+/plugin marketplace add naveedinno/codeStory
+/plugin install codestory@codestory
 ```
 
 For Zed Agent, Codex, Cursor, and other agents that read local skills, you can
 also install the skills from a clone:
 
 ```sh
-git clone git@github.com:naveedinno/diffStory.git
-cd diffStory
+git clone git@github.com:naveedinno/codeStory.git
+cd codeStory
 ./scripts/install-skills.sh
 ```
 
-If no agent is installed, diffStory still opens and still works as a local diff
+If no agent is installed, codeStory still opens and still works as a local diff
 viewer with the complete comment queue. Only story generation and repair are
 unavailable until Claude or Codex is on your PATH.
 
 ## Zed Integration
 
-The bundled Zed extension adds a local diffStory MCP server to the Zed Agent
-panel. Its `diffstory` prompt and `start_diffstory` tool support `brief`,
+The bundled Zed extension adds a local codeStory MCP server to the Zed Agent
+panel. Its `codestory` prompt and `start_codestory` tool support `brief`,
 `guided`, and `detailed` story modes. Install the storyteller skill, select Zed
 for source jumps, and print the final extension-install step with:
 
@@ -205,20 +205,20 @@ for source jumps, and print the final extension-install step with:
 ```
 
 Then open Zed's Extensions page, choose **Install Dev Extension**, select the
-checkout's `zed-extension` directory, and enable the **diffStory** server in the
-active Agent profile. Ask Zed Agent to “create a guided diffStory using
-diffStory”, or select the `diffstory` MCP prompt when the active Agent UI exposes
+checkout's `zed-extension` directory, and enable the **codeStory** server in the
+active Agent profile. Ask Zed Agent to “create a guided codeStory using
+codeStory”, or select the `codestory` MCP prompt when the active Agent UI exposes
 prompts.
 
 Zed removed extension-provided slash commands and does not expose custom editor
 panels or webviews to extensions, so this integration uses Zed's supported MCP
-surface. The native diffStory desktop app remains the story player and review
+surface. The native codeStory desktop app remains the story player and review
 canvas; source jumps connect it back to the exact Zed workspace and location.
 
 ## Jump To Source In Zed Or VS Code
 
 Command-click on macOS or Ctrl-click elsewhere on an identifier in the
-current-code side of a diff. diffStory opens the reviewed repository as the
+current-code side of a diff. codeStory opens the reviewed repository as the
 active editor workspace, places the caret at the clicked location, and brings
 that line into view.
 
@@ -232,16 +232,16 @@ Zed initially. You can also switch from a terminal with
 
 ## Review Files
 
-diffStory stores review state inside the repo you open:
+codeStory stores review state inside the repo you open:
 
 ```text
-.diffstory/story.json      generated reading order
-.diffstory/comments.json   local queued review comments
-.diffstory/review-state.json review rounds, snapshots, and timeline events
-.diffstory/stories/        optional saved named stories
+.codestory/story.json      generated reading order
+.codestory/comments.json   local queued review comments
+.codestory/review-state.json review rounds, snapshots, and timeline events
+.codestory/stories/        optional saved named stories
 ```
 
-By default, keep `.diffstory/` local and add it to `.gitignore`.
+By default, keep `.codestory/` local and add it to `.gitignore`.
 
 If your team intentionally wants replayable walkthroughs, share a story file as
 part of your review process and make that convention explicit. Comments are
@@ -249,7 +249,7 @@ normally local reviewer state.
 
 ## Team Use
 
-If diffStory is in a private repository, each teammate needs normal GitHub access
+If codeStory is in a private repository, each teammate needs normal GitHub access
 first, the same as cloning the repo. Each teammate installs and opens the macOS
 app; there is no CLI installation path.
 
@@ -257,23 +257,23 @@ A teammate can replay a walkthrough when they have:
 
 1. the same branch or commit range checked out
 2. access to the story file your team chose to share
-3. the diffStory app installed locally
+3. the codeStory app installed locally
 
 They open the app, pick the repo, and open the saved story. No agent is needed
 just to read an existing walkthrough.
 
 To share, use **Export bundle** under the story on the Review history page and
-send the `.diffstory.json` file; the teammate uses **Import bundle** on the
-same page. Imported stories land under `.diffstory/stories/` and never replace
+send the `.codestory.json` file; the teammate uses **Import bundle** on the
+same page. Imported stories land under `.codestory/stories/` and never replace
 the live story. Queued comments stay local and are never exported.
 
 ## From Source
 
-Use this when you are developing diffStory itself:
+Use this when you are developing codeStory itself:
 
 ```sh
-git clone https://github.com/naveedinno/diffStory.git
-cd diffStory
+git clone https://github.com/naveedinno/codeStory.git
+cd codeStory
 npm install
 npm run dev
 ```
@@ -297,22 +297,22 @@ Useful development commands:
 
 ## Narration With Aloud
 
-diffStory delegates narration to Aloud instead of loading voice models or
+codeStory delegates narration to Aloud instead of loading voice models or
 managing audio itself. Install Aloud's Services, choose your voice, model,
 speed, and playback mode in Aloud, then use **Play story** or a step's play
-button in diffStory. Playback stays in Aloud's shared reader and menu-bar
+button in codeStory. Playback stays in Aloud's shared reader and menu-bar
 session.
 
-When Aloud is unavailable, diffStory leaves the review usable and shows how to
+When Aloud is unavailable, codeStory leaves the review usable and shows how to
 enable narration. No Aloud model, cache, or voice preference is stored by
-diffStory.
+codeStory.
 
 ## Troubleshooting
 
 **The app does not open**
 
 Re-run `./scripts/install-macos-app.sh` from the source checkout, then open
-**diffStory** from Spotlight, Finder, or Launchpad.
+**codeStory** from Spotlight, Finder, or Launchpad.
 
 **A repo is not accepted**
 
@@ -327,7 +327,7 @@ Click **Update skills** in the app, or rerun:
 ./scripts/install-skills.sh
 ```
 
-from a diffStory clone.
+from a codeStory clone.
 
 **No Claude or Codex is found**
 
@@ -336,15 +336,15 @@ still read diffs without an agent.
 
 ## How It Works
 
-The diffStory desktop app starts its private local Node server and renders the UI. The server
+The codeStory desktop app starts its private local Node server and renders the UI. The server
 reads your local git repository, renders the diff, stores review state in
-`.diffstory/`, and can ask Claude or Codex to generate or repair a story.
+`.codestory/`, and can ask Claude or Codex to generate or repair a story.
 
 The app uses Node built-ins for its runtime server. It does not need a hosted
 service, database, browser extension, or cloud account.
 
 For the story schema and agent contract, see
-[`skills/diffstory-storyteller/SKILL.md`](skills/diffstory-storyteller/SKILL.md).
+[`skills/codestory-storyteller/SKILL.md`](skills/codestory-storyteller/SKILL.md).
 
 ## Contributing
 
@@ -359,12 +359,12 @@ Release maintainers should also read [docs/RELEASE.md](docs/RELEASE.md).
 
 ## License
 
-diffStory is source-available under the
+codeStory is source-available under the
 [PolyForm Noncommercial License 1.0.0](LICENSE).
 
 Personal, hobby, research, testing, and other noncommercial use is allowed.
 Commercial use requires a separate commercial license from naveedinno
-<naveedinno@proton.me>. That includes embedding diffStory or a modified
+<naveedinno@proton.me>. That includes embedding codeStory or a modified
 version in a paid product, proprietary app, hosted service, client project,
 internal company tool, or commercial workflow.
 

@@ -328,7 +328,7 @@ test('atomic JSON writes skip byte-identical content', () => {
 
 test('story output normalization expands history before stamping the fingerprint', () => {
   const f = fixture();
-  const storyPath = join(f.repo, '.diffstory', 'story.json');
+  const storyPath = join(f.repo, '.codestory', 'story.json');
   try {
     const manifest = commitEvolutionManifest(f.repo, f.base, f.head);
     const story = modernStory({

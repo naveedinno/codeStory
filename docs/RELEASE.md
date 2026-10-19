@@ -28,12 +28,12 @@ material for the desktop app and must not expose a command-line executable.
 After publishing, verify:
 
 ```sh
-npm view @naveedinno/diffstory version
+npm view @naveedinno/codestory version
 npm pack --dry-run
 ./scripts/install-macos-app.sh
 ```
 
-Open the installed diffStory app and confirm the workspace picker loads.
+Open the installed codeStory app and confirm the workspace picker loads.
 
 ## Tag
 

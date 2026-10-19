@@ -2,10 +2,25 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 /** Lowercase identifier used for package metadata and log prefixes. */
-export const APP_NAME = 'diffstory';
+export const APP_NAME = 'codestory';
 /** Display brand used in the UI wordmark and page title. */
-export const APP_BRAND = 'diffStory';
-export const DATA_DIR = '.diffstory';
+export const APP_BRAND = 'codeStory';
+export const DATA_DIR = '.codestory';
+/**
+ * The data folder's name before the app was renamed from diffStory to
+ * codeStory, in each repo and in the home directory. legacy-migration.ts moves
+ * a repo's copy into DATA_DIR when the repo is opened; until then, and for any
+ * conflicting file it leaves behind, the folder is still app data.
+ */
+export const LEGACY_DATA_DIR = '.diffstory';
+/** Every folder that holds app data, current name first. */
+export const APP_DATA_DIRS = [DATA_DIR, LEGACY_DATA_DIR];
+/** True for a repo-relative path inside an app data folder, never product code. */
+export function isAppDataPath(path) {
+    return APP_DATA_DIRS.some((dir) => path === dir || path.startsWith(`${dir}/`));
+}
+/** Git pathspecs that keep every app data folder out of a diff or status. */
+export const APP_DATA_PATHSPECS = APP_DATA_DIRS.map((dir) => `:(exclude)${dir}/**`);
 export const STORY_FILENAME = 'story.json';
 export const LEGACY_STORY_FILENAME = 'review-tour.json';
 export const COMMENTS_FILENAME = 'comments.json';

@@ -12,7 +12,7 @@ import { loadComments } from '../dist/comments.js';
 import { recallStorySelection } from '../dist/story-selection.js';
 
 function writeStory(repo, rel, title, file, includedFiles) {
-  const path = join(repo, '.diffstory', rel);
+  const path = join(repo, '.codestory', rel);
   mkdirSync(join(path, '..'), { recursive: true });
   writeFileSync(
     path,
@@ -93,7 +93,7 @@ test('each story in one review scope keeps its own saved reading position', asyn
     const res = await fetch(`${base}${route(repo)}/review?story=${encodeURIComponent(id)}`);
     assert.equal(res.status, 200);
     const html = await res.text();
-    const payload = JSON.parse(html.match(/id="__DIFFSTORY_DATA__">([\s\S]*?)<\/script>/)[1]);
+    const payload = JSON.parse(html.match(/id="__CODESTORY_DATA__">([\s\S]*?)<\/script>/)[1]);
     return {
       // Both halves of the reading-position key, straight out of the payload.
       scope: payload.reviewScope,
@@ -163,7 +163,7 @@ test('comments written before stories were separable stay visible in every story
   const home = mkdtempSync(join(tmpdir(), 'ds-scope-home-'));
   // Exactly what a pre-multi-story repo has on disk.
   writeFileSync(
-    join(repo, '.diffstory', 'comments.json'),
+    join(repo, '.codestory', 'comments.json'),
     JSON.stringify([
       { id: 'c_legacy', file: 'a.txt', line: 2, type: 'change', body: 'legacy feedback', status: 'open', createdAt: 'x' },
     ]),
@@ -181,7 +181,7 @@ test('comments written before stories were separable stay visible in every story
     );
 
     // And it is never rewritten on disk to achieve that.
-    const onDisk = JSON.parse(readFileSync(join(repo, '.diffstory', 'comments.json'), 'utf8'));
+    const onDisk = JSON.parse(readFileSync(join(repo, '.codestory', 'comments.json'), 'utf8'));
     assert.ok(!('story' in onDisk[0]), 'the existing comment file is left exactly as it was');
   } finally {
     server.close();

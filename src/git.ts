@@ -11,7 +11,7 @@ import {
   readSync,
 } from "node:fs";
 import { relative, resolve, sep } from "node:path";
-import { DIFF_CONTEXT_LINES } from "./config.js";
+import { APP_DATA_DIRS, APP_DATA_PATHSPECS, DIFF_CONTEXT_LINES, isAppDataPath } from "./config.js";
 import {
   isGeneratedPath,
   REVIEW_NOISE_MAX_BYTES,
@@ -21,13 +21,13 @@ import {
 } from "./noise.js";
 import type { FileStatus, ReviewFileIndexEntry } from "./types.js";
 
-const APP_DATA_PATHSPEC = ":(exclude).diffstory/**";
 // History snapshots are written on read paths (review open, picker), so the
 // dirtiness checks behind scope selection must not see them — otherwise the
 // first visit to a clean tree vetoes the committed-story fallback forever.
 // Mirrors HISTORY_DIRNAME in story-history.ts; story files and comments stay
-// visible because only snapshot writes are implicit.
-const HISTORY_PATHSPEC = ":(exclude).diffstory/history/**";
+// visible because only snapshot writes are implicit. Covers the pre-rename
+// folder too, for snapshots a migration had to leave behind.
+const HISTORY_PATHSPECS = APP_DATA_DIRS.map((dir) => `:(exclude)${dir}/history/**`);
 
 export function assertSafeRef(ref: string): void {
   if (
@@ -74,10 +74,6 @@ function safeObjectPath(ref: string, path: string): string {
   assertSafeRef(ref);
   assertSafeRepoPath(path);
   return `${ref}:${path}`;
-}
-
-function isAppDataPath(path: string): boolean {
-  return path === ".diffstory" || path.startsWith(".diffstory/");
 }
 
 function git(repo: string, args: string[]): string {
@@ -208,7 +204,7 @@ export function getDiff(repo: string, base: string, head?: string): string {
     base,
   ];
   if (head) args.push(head);
-  args.push("--", APP_DATA_PATHSPEC, ...excludePathspecs([...noise]));
+  args.push("--", ...APP_DATA_PATHSPECS, ...excludePathspecs([...noise]));
   const tracked = git(repo, args);
   if (head) return tracked;
 
@@ -447,7 +443,7 @@ function reviewIndexNumstat(
   if (head) assertSafeRef(head);
   const args = ["diff", "--numstat", "--no-color", "--end-of-options", base];
   if (head) args.push(head);
-  args.push("--", APP_DATA_PATHSPEC);
+  args.push("--", ...APP_DATA_PATHSPECS);
   const tracked = parseNumstat(tryGit(repo, args));
   if (head) return tracked;
   const staged = stagedOnly.length
@@ -533,7 +529,7 @@ function nameStatus(
     "--",
     ...(onlyPaths.length
       ? onlyPaths.map(literalPathspec)
-      : [APP_DATA_PATHSPEC]),
+      : [...APP_DATA_PATHSPECS]),
   );
   const out = tryGit(repo, args);
   if (!out) return [];
@@ -564,6 +560,8 @@ function reviewFileIndexHash(
   workingIdentity: string | undefined,
 ): string {
   const hash = createHash("sha256");
+  // The tag predates the codeStory rename and stays: reviewers' viewed-file
+  // marks are keyed by this hash, and a new tag would clear every one.
   hash.update("diffstory-file-index-v1\0");
   hash.update(file.oldPath);
   hash.update("\0");
@@ -696,7 +694,7 @@ export function excludedReviewFiles(
 
 /** Fingerprint the same complete review identity used by page leases. The
  * underlying index includes excluded paths plus index/worktree blob identities,
- * while `.diffstory/**` remains app state rather than product code. */
+ * while `.codestory/**` remains app state rather than product code. */
 export function reviewChangeFingerprint(
   repo: string,
   base: string,
@@ -737,7 +735,7 @@ export function reviewSourceMetadataFingerprint(
         "--untracked-files=all",
         "--",
         ".",
-        APP_DATA_PATHSPEC,
+        ...APP_DATA_PATHSPECS,
       ]) ?? "",
     );
   }
@@ -831,7 +829,7 @@ function changedPaths(repo: string, boundary: string[]): string[] {
   if (cached) args.push("--cached");
   refs.forEach(assertSafeRef);
   if (refs.length) args.push("--end-of-options", ...refs);
-  args.push("--", APP_DATA_PATHSPEC);
+  args.push("--", ...APP_DATA_PATHSPECS);
   const out = tryGit(repo, args);
   if (!out) return [];
   return out
@@ -1275,7 +1273,7 @@ export function isDirtyExceptHistory(repo: string): boolean {
     "--porcelain",
     "--",
     ".",
-    HISTORY_PATHSPEC,
+    ...HISTORY_PATHSPECS,
   ]);
   return out != null && out.trim().length > 0;
 }
@@ -1303,7 +1301,7 @@ export function numstat(
   if (head) assertSafeRef(head);
   const args = ["diff", "--numstat", "--no-color", "--end-of-options", base];
   if (head) args.push(head);
-  args.push("--", APP_DATA_PATHSPEC);
+  args.push("--", ...APP_DATA_PATHSPECS);
   const tracked = parseNumstat(tryGit(repo, args));
   if (head) return tracked;
 

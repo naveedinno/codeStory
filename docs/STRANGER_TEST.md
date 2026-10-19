@@ -7,8 +7,8 @@ Use this checklist before a public launch or after changing setup docs.
 On a machine or temp folder that has Node.js 20+ and git:
 
 ```sh
-git clone https://github.com/naveedinno/diffStory.git
-cd diffStory
+git clone https://github.com/naveedinno/codeStory.git
+cd codeStory
 npm install
 npm run dev
 ```
@@ -20,7 +20,7 @@ Expected:
 - no Python, Kokoro, Claude, Codex, Homebrew, or API key is required
 
 This is an internal development server check. End users install and open the
-macOS app; there is no DiffStory CLI.
+macOS app; there is no codeStory CLI.
 
 ## Demo Review
 

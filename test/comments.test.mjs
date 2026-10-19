@@ -115,7 +115,7 @@ test('loadComments accepts legacy fields without turning them into active conver
     const raw = loadComments(repo);
     raw[0].reply = 'because X';
     delete raw[0].turns;
-    writeFileSync(join(repo, '.diffstory', 'comments.json'), JSON.stringify(raw) + '\n');
+    writeFileSync(join(repo, '.codestory', 'comments.json'), JSON.stringify(raw) + '\n');
     const [loaded] = loadComments(repo);
     assert.equal(loaded.reply, 'because X');
     assert.equal(loaded.turns, undefined);
@@ -150,8 +150,8 @@ test('updateComment rejects invalid edits and returns null for unknown ids', () 
 test('comment loading reports malformed stores instead of treating them as empty feedback', () => {
   const repo = tmpRepo();
   try {
-    mkdirSync(join(repo, '.diffstory'));
-    const path = join(repo, '.diffstory', 'comments.json');
+    mkdirSync(join(repo, '.codestory'));
+    const path = join(repo, '.codestory', 'comments.json');
     const cases = [
       ['{broken', 'invalid-json'],
       [JSON.stringify({ comments: [] }), 'not-array'],
@@ -172,8 +172,8 @@ test('comment loading reports malformed stores instead of treating them as empty
 test('every comment mutation preserves a malformed comments file byte for byte', () => {
   const repo = tmpRepo();
   try {
-    mkdirSync(join(repo, '.diffstory'));
-    const path = join(repo, '.diffstory', 'comments.json');
+    mkdirSync(join(repo, '.codestory'));
+    const path = join(repo, '.codestory', 'comments.json');
     const malformed = '[null, {"partial": true}]';
     writeFileSync(path, malformed);
     const mutations = [
@@ -235,9 +235,9 @@ test('a repo whose comments predate stories keeps every comment visible', () => 
   const repo = tmpRepo();
   try {
     // Exactly the shape a pre-multi-story repo has on disk: no `story` field anywhere.
-    mkdirSync(join(repo, '.diffstory'), { recursive: true });
+    mkdirSync(join(repo, '.codestory'), { recursive: true });
     writeFileSync(
-      join(repo, '.diffstory', 'comments.json'),
+      join(repo, '.codestory', 'comments.json'),
       JSON.stringify([
         { id: 'c1', step: 's1', file: 'a.ts', line: 4, type: 'change', body: 'old one', status: 'open', createdAt: 'x' },
         { id: 'c2', file: 'b.ts', line: 9, type: 'nit', body: 'old two', status: 'resolved', createdAt: 'x' },
@@ -254,9 +254,9 @@ test('a repo whose comments predate stories keeps every comment visible', () => 
 test('a non-string story field invalidates the store instead of being ignored', () => {
   const repo = tmpRepo();
   try {
-    mkdirSync(join(repo, '.diffstory'), { recursive: true });
+    mkdirSync(join(repo, '.codestory'), { recursive: true });
     writeFileSync(
-      join(repo, '.diffstory', 'comments.json'),
+      join(repo, '.codestory', 'comments.json'),
       JSON.stringify([{ id: 'c1', story: 7, file: 'a.ts', line: 1, type: 'change', body: 'x', status: 'open', createdAt: 'x' }]),
     );
     const loaded = loadCommentsWithHealth(repo);

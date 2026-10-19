@@ -30,7 +30,7 @@ const CLIENT = fileURLToPath(new URL('../client/', import.meta.url));
 
 /**
  * Every file in the vendored tree: the components adopted from beUI, their
- * transitive in-repo imports, and the three diffStory-local files that stand in
+ * transitive in-repo imports, and the three codeStory-local files that stand in
  * for dependencies we refuse (`lib/use-theme.ts` for next-themes,
  * `lib/use-smooth-scroll.ts` for lenis). Keep sorted.
  */
@@ -360,7 +360,7 @@ test('every vendored file records where it came from', () => {
   const unattributed = ALLOWED.filter((file) => {
     const first = readFileSync(join(VENDOR, file), 'utf8').split('\n', 1)[0];
     return !/^\/\/ (Vendored|Adapted) from starc007\/ui-components/.test(first)
-      && !/^\/\/ diffStory-local/.test(first);
+      && !/^\/\/ codeStory-local/.test(first);
   });
   assert.deepEqual(unattributed, [], 'a vendored file is missing its provenance header');
 });

@@ -75,16 +75,16 @@ test('review history gives the shared skip link a focusable main target', () => 
 // properties are asserted at the source rather than assumed.
 const vendored = (relative) => stripComments(readRaw(`vendor/beui/${relative}`));
 
-const PAYLOAD_BLOCK = /<script type="application\/json" id="__DIFFSTORY_DATA__">([\s\S]*?)<\/script>/;
+const PAYLOAD_BLOCK = /<script type="application\/json" id="__CODESTORY_DATA__">([\s\S]*?)<\/script>/;
 
 function payloadOf(html) {
   const match = PAYLOAD_BLOCK.exec(html);
-  assert.ok(match, 'the shell must embed exactly one __DIFFSTORY_DATA__ block');
+  assert.ok(match, 'the shell must embed exactly one __CODESTORY_DATA__ block');
   return JSON.parse(match[1]);
 }
 
 function repoWithChange() {
-  const dir = mkdtempSync(join(tmpdir(), 'diffstory-history-'));
+  const dir = mkdtempSync(join(tmpdir(), 'codestory-history-'));
   execFileSync('git', ['init', '-q'], { cwd: dir });
   execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: dir });
   execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir });
@@ -97,7 +97,7 @@ function repoWithChange() {
 
 /** Write a story file the app will load. `extra` overrides any top-level field. */
 function writeStory(repo, id = 'story.json', extra = {}) {
-  const dir = join(repo, '.diffstory');
+  const dir = join(repo, '.codestory');
   mkdirSync(join(dir, 'stories'), { recursive: true });
   writeFileSync(
     join(dir, id),
@@ -134,7 +134,7 @@ function writeStory(repo, id = 'story.json', extra = {}) {
 
 /** Boot a real server on a scratch HOME, opened on `repo`. */
 async function withHistory(repo, run) {
-  const home = mkdtempSync(join(tmpdir(), 'diffstory-history-home-'));
+  const home = mkdtempSync(join(tmpdir(), 'codestory-history-home-'));
   const server = serve({ repo, port: 0, open: false, homeOverride: home });
   await once(server, 'listening');
   try {
@@ -165,7 +165,7 @@ test('review history serves a React shell, not a hand-built page', async () => {
       assert.equal(response.status, 200);
       assert.match(response.headers.get('content-type') ?? '', /^text\/html/);
 
-      assert.match(html, /<title>diffStory — [^<]* Review history<\/title>/);
+      assert.match(html, /<title>codeStory — [^<]* Review history<\/title>/);
       assert.match(html, /<body class="ds-map-bg" data-surface="stories">/, 'the dot field paints before React mounts');
       assert.match(html, /<link rel="stylesheet" href="\/assets\/client\/app\.css">/);
       assert.match(html, /<script type="module" blocking="render" data-ds-entry src="\/assets\/client\/stories\.js"><\/script>/);
@@ -317,8 +317,8 @@ test('the default projection stays metadata-only and ?evidence=refresh is what p
 
 test('an unreadable story becomes a repairable row rather than an error page', async () => {
   const repo = repoWithChange();
-  mkdirSync(join(repo, '.diffstory'), { recursive: true });
-  writeFileSync(join(repo, '.diffstory', 'story.json'), '{ not json');
+  mkdirSync(join(repo, '.codestory'), { recursive: true });
+  writeFileSync(join(repo, '.codestory', 'story.json'), '{ not json');
   try {
     await withHistory(repo, async ({ page }) => {
       const { response, html } = await page();
@@ -737,6 +737,6 @@ test('the built bundle actually ships the review-history behaviour', (t) => {
   const chunks = [...js.matchAll(/from\s*"\.\/(chunk-[A-Z0-9]+\.js)"/g)].map((m) => m[1]);
   assert.ok(chunks.length, 'the entry should share React and friends through a chunk');
   const graph = js + chunks.map((name) => readFileSync(new URL(name, dir), 'utf8')).join('\n');
-  assert.ok(graph.includes('__DIFFSTORY_DATA__'), 'bundle reads the shell payload');
+  assert.ok(graph.includes('__CODESTORY_DATA__'), 'bundle reads the shell payload');
   assert.ok(graph.includes('ds-theme'), 'bundle carries the theme contract');
 });

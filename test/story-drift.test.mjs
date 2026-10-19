@@ -24,7 +24,7 @@ import {
 } from '../dist/story-drift.js';
 
 function fixture() {
-  const repo = mkdtempSync(join(tmpdir(), 'diffstory-drift-'));
+  const repo = mkdtempSync(join(tmpdir(), 'codestory-drift-'));
   const git = (args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8' }).trim();
   git(['init', '-q']);
   git(['config', 'user.email', 'drift@example.test']);
@@ -70,7 +70,7 @@ test('capture is deterministic and a zero-drift working-tree snapshot is current
     assert.deepEqual(report.changes, []);
     assert.match(report.observationId, /^[0-9a-f]{64}$/);
 
-    const snapshotDir = join(f.repo, '.diffstory', 'snapshots');
+    const snapshotDir = join(f.repo, '.codestory', 'snapshots');
     assert.ok(existsSync(join(snapshotDir, `${first.id}.json`)));
     assert.ok(readdirSync(join(snapshotDir, 'blobs')).some((name) => name.endsWith('.gz')));
 
@@ -186,7 +186,7 @@ test('frozen capture keeps display refs while reading immutable endpoint trees',
       storyScope: { includedFiles: ['contracts/A.sol'] },
     });
     const manifest = JSON.parse(readFileSync(
-      join(f.repo, '.diffstory', 'snapshots', `${snapshot.id}.json`),
+      join(f.repo, '.codestory', 'snapshots', `${snapshot.id}.json`),
       'utf8',
     ));
     assert.equal(manifest.base.requested, 'story-base');
@@ -413,7 +413,7 @@ test('missing, corrupt, and unsafe snapshot references are safely unverified', (
     assert.equal(missing.storyFreshness, 'unverified');
 
     const snapshot = capture(f.repo);
-    writeFileSync(join(f.repo, '.diffstory', 'snapshots', `${snapshot.id}.json`), '{broken');
+    writeFileSync(join(f.repo, '.codestory', 'snapshots', `${snapshot.id}.json`), '{broken');
     const corrupt = inspectStoryDrift({ repo: f.repo, snapshot });
     assert.equal(corrupt.status, 'unverified');
     assert.equal(corrupt.complete, false);
@@ -463,7 +463,7 @@ test('binary, generated, and oversized side drift is counted with honest evidenc
 
 test('an ancestor symlink cannot make drift inspection read outside the repository', () => {
   const f = fixture();
-  const outside = mkdtempSync(join(tmpdir(), 'diffstory-outside-'));
+  const outside = mkdtempSync(join(tmpdir(), 'codestory-outside-'));
   try {
     const snapshot = capture(f.repo);
     writeFileSync(join(outside, 'A.sol'), 'outside bytes must never become repository evidence\n');
@@ -573,4 +573,16 @@ test('a fixed-head snapshot follows the named head while keeping its base tree p
   } finally {
     f.cleanup();
   }
+});
+
+test('persisted digest tags keep the names they had before the codeStory rename', () => {
+  // Saved snapshot manifests are verified against these tags and viewed-file
+  // marks are keyed by the file-index hash, so renaming a tag with the product
+  // would silently invalidate every snapshot and review mark already on disk.
+  const drift = readFileSync(new URL('../src/story-drift.ts', import.meta.url), 'utf8');
+  const git = readFileSync(new URL('../src/git.ts', import.meta.url), 'utf8');
+  for (const tag of ['diffstory-snapshot-v1', 'diffstory-state-v1', 'diffstory-observation-v1']) {
+    assert.ok(drift.includes(`\`${tag}\\0`), `story-drift.ts still digests with ${tag}`);
+  }
+  assert.ok(git.includes('hash.update("diffstory-file-index-v1\\0");'), 'git.ts still digests with diffstory-file-index-v1');
 });

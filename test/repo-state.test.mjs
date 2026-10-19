@@ -38,8 +38,8 @@ test('inspectRepo detects a git repo and a present tour', () => {
     assert.equal(s.hasTour, false);
     assert.equal(typeof s.changedFiles, 'number');
 
-    mkdirSync(join(d, '.diffstory'), { recursive: true });
-    writeFileSync(join(d, '.diffstory', 'story.json'), '{}');
+    mkdirSync(join(d, '.codestory'), { recursive: true });
+    writeFileSync(join(d, '.codestory', 'story.json'), '{}');
     s = inspectRepo(d);
     assert.equal(s.hasTour, true);
   } finally {
@@ -53,8 +53,8 @@ test('inspectRepo treats named stories as present stories', () => {
     let s = inspectRepo(d);
     assert.equal(s.hasTour, false);
 
-    mkdirSync(join(d, '.diffstory', 'stories'), { recursive: true });
-    writeFileSync(join(d, '.diffstory', 'stories', 'agent-review.json'), '{}');
+    mkdirSync(join(d, '.codestory', 'stories'), { recursive: true });
+    writeFileSync(join(d, '.codestory', 'stories', 'agent-review.json'), '{}');
 
     s = inspectRepo(d);
     assert.equal(s.hasTour, true);

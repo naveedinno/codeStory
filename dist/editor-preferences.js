@@ -1,5 +1,5 @@
 // The source-jump editor is a personal machine preference. Keep it in the
-// global diffStory store so reviewing a repository never dirties that repo.
+// global codeStory store so reviewing a repository never dirties that repo.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { DATA_DIR } from "./config.js";

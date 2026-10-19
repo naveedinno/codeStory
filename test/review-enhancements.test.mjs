@@ -82,10 +82,10 @@ test('local receipts capture exit/output/revision separately from authored resul
 test('the bundled demo passes current story contracts, lints, and complete coverage', () => {
   const f = fixture();
   try {
-    execFileSync(process.execPath, ['examples/demo.mjs'], { env: { ...process.env, DIFFSTORY_DEMO_NO_SERVE: '1', DIFFSTORY_DEMO_DIR: f.repo }, stdio: 'pipe' });
-    const report = runStoryCheck(f.repo, join(f.repo, '.diffstory/story.json'));
+    execFileSync(process.execPath, ['examples/demo.mjs'], { env: { ...process.env, CODESTORY_DEMO_NO_SERVE: '1', CODESTORY_DEMO_DIR: f.repo }, stdio: 'pipe' });
+    const report = runStoryCheck(f.repo, join(f.repo, '.codestory/story.json'));
     assert.deepEqual(report.errors, []); assert.deepEqual(report.findings, []);
     assert.equal(report.coverage.claimed, report.coverage.total);
-    assert.ok(JSON.parse(readFileSync(join(f.repo, '.diffstory/story.json'), 'utf8')).storySnapshot);
+    assert.ok(JSON.parse(readFileSync(join(f.repo, '.codestory/story.json'), 'utf8')).storySnapshot);
   } finally { f.close(); }
 });

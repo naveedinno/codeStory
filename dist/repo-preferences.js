@@ -1,4 +1,4 @@
-// Standing reviewer preferences for one repository (`.diffstory/preferences.json`).
+// Standing reviewer preferences for one repository (`.codestory/preferences.json`).
 //
 // These are local conventions the reviewer sets once — which files stories
 // cover, how deep they go, and who they are written for — so generation reads

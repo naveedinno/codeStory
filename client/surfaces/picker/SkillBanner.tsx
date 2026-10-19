@@ -3,8 +3,9 @@
 // Three branches, in this order — the order matters, and the strings are the
 // only guidance a user gets when generation is about to fail:
 //
-//   1. `legacyInstalled` — a retired `review-tour` copy is still on disk.
-//      Named first because it is the migration case, and it stays visible even
+//   1. `legacyInstalled` — a copy under a retired storyteller name is still
+//      on disk; `legacyNames` says which, so the sentence names the rename.
+//      Shown first because it is the migration case, and it stays visible even
 //      when a current copy is also installed.
 //   2. `current`         — everything matches; the banner disappears entirely.
 //   3. otherwise         — installed-but-stale, or not found at all.
@@ -47,6 +48,8 @@ export interface SkillState {
   installed?: boolean;
   current?: boolean;
   legacyInstalled?: boolean;
+  /** Retired storyteller names still installed, oldest first. */
+  legacyNames?: string[];
 }
 
 interface AgentsResponse {
@@ -57,18 +60,23 @@ interface SkillUpdateResponse {
   skills?: SkillState;
 }
 
-const LEGACY_TEXT =
-  "review-tour was renamed to diffstory-storyteller. Update skills to remove the retired copy and finish migration.";
 const STALE_TEXT =
   "Story-generation skill is installed but does not match this app. Update it before generating so the agent sees the current story rules.";
 const MISSING_TEXT =
   "Story-generation skill was not found in ~/.agents, ~/.claude, or ~/.codex. Install it before generating so the agent can create stories reliably.";
-const UPDATING_TEXT = "Installing bundled diffStory skills locally…";
+const UPDATING_TEXT = "Installing bundled codeStory skills locally…";
 const FAILED_TEXT =
-  "Could not update skills. Run scripts/install-skills.sh from this repo, or re-run the diffStory installer.";
+  "Could not update skills. Run scripts/install-skills.sh from this repo, or re-run the codeStory installer.";
+
+/** The migration sentence, naming each retired copy the server found. */
+function legacyText(names: readonly string[] = []): string {
+  const retired = names.length ? names.join(" and ") : "An older storyteller skill";
+  const many = names.length > 1;
+  return `${retired} ${many ? "were" : "was"} renamed to codestory-storyteller. Update skills to remove the retired ${many ? "copies" : "copy"} and finish migration.`;
+}
 
 function describe(skills: SkillState): string | null {
-  if (skills.legacyInstalled) return LEGACY_TEXT;
+  if (skills.legacyInstalled) return legacyText(skills.legacyNames);
   if (skills.current) return null;
   return skills.installed ? STALE_TEXT : MISSING_TEXT;
 }

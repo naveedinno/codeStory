@@ -64,8 +64,8 @@ test('the summary carries scope, fingerprint, and feedback health — nothing mo
 test('invalid feedback surfaces through the summary instead of reading as no comments', () => {
   const { dir } = repo();
   try {
-    mkdirSync(join(dir, '.diffstory'), { recursive: true });
-    writeFileSync(join(dir, '.diffstory', 'comments.json'), '[null, {"partial": true}]');
+    mkdirSync(join(dir, '.codestory'), { recursive: true });
+    writeFileSync(join(dir, '.codestory', 'comments.json'), '[null, {"partial": true}]');
     const { diff, files } = current(dir);
     const summary = reviewStateSummary(dir, 'HEAD', undefined, diff, files);
     assert.equal(summary.feedbackHealth.status, 'invalid');

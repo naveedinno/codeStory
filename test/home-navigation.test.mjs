@@ -25,8 +25,8 @@ function storyRepo() {
   git(['add', '.']);
   git(['commit', '-qm', 'initial']);
   writeFileSync(join(repo, 'a.txt'), 'one\ntwo\n');
-  mkdirSync(join(repo, '.diffstory'), { recursive: true });
-  writeFileSync(join(repo, '.diffstory', 'story.json'), JSON.stringify({
+  mkdirSync(join(repo, '.codestory'), { recursive: true });
+  writeFileSync(join(repo, '.codestory', 'story.json'), JSON.stringify({
     version: 1,
     title: 'Home navigation fixture',
     summary: 'Exercises the real story-to-home route.',

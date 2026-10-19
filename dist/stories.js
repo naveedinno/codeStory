@@ -51,7 +51,7 @@ export function storyPathForId(repo, id) {
 /**
  * The listStories() id for a story path — the inverse of storyPathForId, but a pure
  * path relation rather than a directory scan, so it is cheap enough to call per request.
- * Returns null for anything outside `.diffstory`, which keeps a stray path from being
+ * Returns null for anything outside `.codestory`, which keeps a stray path from being
  * written into comments as if it were a story id.
  */
 export function storyIdForPath(repo, path) {
@@ -60,7 +60,7 @@ export function storyIdForPath(repo, path) {
         return null;
     return rel.split(sep).join('/');
 }
-/** Delete a known story file by id. Unknown ids are ignored so callers cannot escape `.diffstory`. */
+/** Delete a known story file by id. Unknown ids are ignored so callers cannot escape `.codestory`. */
 export function deleteStory(repo, id) {
     const path = storyPathForId(repo, id);
     if (!path)
@@ -155,7 +155,7 @@ function storySummary(repo, id, liveEvidence) {
             subject: 'diff',
             scope: {
                 label: 'Unknown diff scope',
-                description: 'Fix the story JSON before diffStory can read what this story covers.',
+                description: 'Fix the story JSON before codeStory can read what this story covers.',
                 command: '',
             },
             updatedAt,

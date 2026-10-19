@@ -10,17 +10,17 @@ import {
   handleRequest,
   normalizeMode,
   storyRequest,
-} from "../zed-extension/server/diffstory-mcp.mjs";
+} from "../zed-extension/server/codestory-mcp.mjs";
 
-test("diffStory MCP request pins the skill, mode, output, and review boundary", () => {
+test("codeStory MCP request pins the skill, mode, output, and review boundary", () => {
   const request = storyRequest("detailed");
   for (const expected of [
-    "diffstory-storyteller",
+    "codestory-storyteller",
     "`detailed` mode",
-    ".diffstory/story.json",
+    ".codestory/story.json",
     "version 3",
     "cover every changed hunk",
-    "open or refresh the diffStory app",
+    "open or refresh the codeStory app",
   ]) {
     assert.ok(request.includes(expected), `missing ${expected}`);
   }
@@ -28,7 +28,7 @@ test("diffStory MCP request pins the skill, mode, output, and review boundary", 
   assert.throws(() => normalizeMode("fast"), /brief, guided, or detailed/);
 });
 
-test("diffStory MCP exposes a prompt and tool with the three story modes", () => {
+test("codeStory MCP exposes a prompt and tool with the three story modes", () => {
   const initialized = handleRequest({
     method: "initialize",
     params: { protocolVersion: "2025-06-18" },
@@ -40,7 +40,7 @@ test("diffStory MCP exposes a prompt and tool with the three story modes", () =>
   });
 
   const listedTools = handleRequest({ method: "tools/list" }).tools;
-  assert.equal(listedTools[0].name, "start_diffstory");
+  assert.equal(listedTools[0].name, "start_codestory");
   assert.deepEqual(listedTools[0].inputSchema.properties.mode.enum, [
     "brief",
     "guided",
@@ -49,16 +49,16 @@ test("diffStory MCP exposes a prompt and tool with the three story modes", () =>
 
   const prompt = handleRequest({
     method: "prompts/get",
-    params: { name: "diffstory", arguments: { mode: "brief" } },
+    params: { name: "codestory", arguments: { mode: "brief" } },
   });
   assert.match(prompt.messages[0].content.text, /`brief` mode/);
 });
 
-test("bundled diffStory MCP server speaks JSON-RPC over stdio", async (t) => {
-  const installed = mkdtempSync(join(tmpdir(), "diffstory-zed-mcp-"));
-  const entrypoint = join(installed, "diffstory-mcp.mjs");
+test("bundled codeStory MCP server speaks JSON-RPC over stdio", async (t) => {
+  const installed = mkdtempSync(join(tmpdir(), "codestory-zed-mcp-"));
+  const entrypoint = join(installed, "codestory-mcp.mjs");
   symlinkSync(
-    fileURLToPath(new URL("../zed-extension/server/diffstory-mcp.mjs", import.meta.url)),
+    fileURLToPath(new URL("../zed-extension/server/codestory-mcp.mjs", import.meta.url)),
     entrypoint,
   );
   t.after(() => rmSync(installed, { recursive: true, force: true }));
@@ -80,7 +80,7 @@ test("bundled diffStory MCP server speaks JSON-RPC over stdio", async (t) => {
     jsonrpc: "2.0",
     id: 2,
     method: "tools/call",
-    params: { name: "start_diffstory", arguments: { mode: "guided" } },
+    params: { name: "start_codestory", arguments: { mode: "guided" } },
   })}\n`);
 
   await new Promise((resolve, reject) => {
@@ -95,6 +95,6 @@ test("bundled diffStory MCP server speaks JSON-RPC over stdio", async (t) => {
       resolve();
     }, 10);
   });
-  assert.equal(responses[0].result.serverInfo.name, "diffstory");
+  assert.equal(responses[0].result.serverInfo.name, "codestory");
   assert.match(responses[1].result.content[0].text, /`guided` mode/);
 });

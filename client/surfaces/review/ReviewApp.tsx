@@ -639,7 +639,7 @@ export function ReviewApp({ payload }: { payload: ReviewPayload }) {
       />
       <noscript>
         <div className="ds-empty">
-          diffStory needs JavaScript to drive the review.
+          codeStory needs JavaScript to drive the review.
         </div>
       </noscript>
     </>

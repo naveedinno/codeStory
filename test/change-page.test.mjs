@@ -70,7 +70,7 @@ test('persistent navigation offers a first-focus skip link to the main landmark'
   assert.match(changeApp, /<main\s+id="main-content"\s+tabIndex=\{-1\}/);
 });
 
-const PAYLOAD_BLOCK = /<script type="application\/json" id="__DIFFSTORY_DATA__">([\s\S]*?)<\/script>/;
+const PAYLOAD_BLOCK = /<script type="application\/json" id="__CODESTORY_DATA__">([\s\S]*?)<\/script>/;
 
 /**
  * A repository with a real two-branch history, so the compare scope resolves to
@@ -80,7 +80,7 @@ const PAYLOAD_BLOCK = /<script type="application\/json" id="__DIFFSTORY_DATA__">
  * working tree is left clean, so `?scope=uncommitted` is the honest empty state.
  */
 function fixtureRepo() {
-  const dir = mkdtempSync(join(tmpdir(), 'diffstory-change-'));
+  const dir = mkdtempSync(join(tmpdir(), 'codestory-change-'));
   const git = (...args) => execFileSync('git', args, { cwd: dir, stdio: 'pipe' });
   git('init', '-q', '-b', 'main');
   git('config', 'user.email', 'test@example.com');
@@ -101,7 +101,7 @@ function fixtureRepo() {
 
 async function withRepo(run) {
   const repo = fixtureRepo();
-  const home = mkdtempSync(join(tmpdir(), 'diffstory-change-home-'));
+  const home = mkdtempSync(join(tmpdir(), 'codestory-change-home-'));
   const server = serve({ repo, port: 0, open: false, homeOverride: home });
   await once(server, 'listening');
   try {
@@ -117,7 +117,7 @@ async function withRepo(run) {
       },
       payloadOf(html) {
         const match = PAYLOAD_BLOCK.exec(html);
-        assert.ok(match, 'the shell must embed exactly one __DIFFSTORY_DATA__ block');
+        assert.ok(match, 'the shell must embed exactly one __CODESTORY_DATA__ block');
         return JSON.parse(match[1]);
       },
     });
@@ -136,7 +136,7 @@ test('the change route serves a React shell, not a hand-built page', async () =>
     assert.equal(response.status, 200);
     assert.match(response.headers.get('content-type') ?? '', /^text\/html/);
 
-    assert.match(html, /<title>diffStory — Choose review scope<\/title>/);
+    assert.match(html, /<title>codeStory — Choose review scope<\/title>/);
     assert.match(html, /<body class="ds-map-bg" data-surface="change">/, 'the dot field paints before React mounts');
     assert.match(html, /<link rel="stylesheet" href="\/assets\/client\/app\.css">/);
     assert.match(html, /<script type="module" blocking="render" data-ds-entry src="\/assets\/client\/change\.js"><\/script>/);
@@ -252,8 +252,8 @@ test('a story that will not load lands here with an explanation, not on the erro
   // `changeScreen(…, notice)` and the notice is the ONLY thing that tells the
   // reviewer why they are looking at a scope picker instead of their review.
   await withRepo(async ({ repo, page, payloadOf, route }) => {
-    mkdirSync(join(repo, '.diffstory'), { recursive: true });
-    writeFileSync(join(repo, '.diffstory', 'story.json'), '{"bogus":true}');
+    mkdirSync(join(repo, '.codestory'), { recursive: true });
+    writeFileSync(join(repo, '.codestory', 'story.json'), '{"bogus":true}');
 
     const { response, html } = await page(`${route}/review?story=story.json`);
     assert.equal(response.status, 200);
@@ -901,7 +901,7 @@ test('the built bundle actually ships the change behaviour', (t) => {
   ]) {
     assert.ok(js.includes(text), `bundle should contain ${JSON.stringify(text)}`);
   }
-  assert.ok(js.includes('__DIFFSTORY_DATA__'), 'bundle reads the shell payload');
+  assert.ok(js.includes('__CODESTORY_DATA__'), 'bundle reads the shell payload');
   assert.ok(js.includes('ds-theme'), 'bundle carries the theme contract');
   assert.ok(!js.includes('pushState'), 'and introduces no client-side router');
 });

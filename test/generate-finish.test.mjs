@@ -15,7 +15,7 @@ const longPrimerBody = [
 ].join(' ');
 
 function writeStory(repo, stepKind, stepOverrides = {}) {
-  const path = join(repo, '.diffstory', 'story.json');
+  const path = join(repo, '.codestory', 'story.json');
   mkdirSync(join(path, '..'), { recursive: true });
   const range = stepOverrides.range ?? [1, 1];
   const highlights = stepOverrides.highlights ?? [range];
@@ -181,7 +181,7 @@ test('generation verifies moved anchors against old and new repository blobs', (
     }],
   };
   assert.deepEqual(verifyLogicMoves(repo, story), { errors: [], warnings: [] });
-  const storyPath = join(repo, '.diffstory', 'story.json');
+  const storyPath = join(repo, '.codestory', 'story.json');
   mkdirSync(join(storyPath, '..'), { recursive: true });
   writeFileSync(storyPath, JSON.stringify(story));
   const accepted = finishStoryGeneration({ ok: true, output: '' }, storyPath, { repo, chooseStory: true });
@@ -313,7 +313,7 @@ test('generation finish does not treat an unchanged prior story as fresh output'
 
 test('generation finish explains an incompatible Codex model without raw duplicated JSON', () => {
   const repo = tmp();
-  const storyPath = join(repo, '.diffstory', 'story.json');
+  const storyPath = join(repo, '.codestory', 'story.json');
   const session = { repo, chooseStory: true };
   const message = "The 'gpt-5.6-sol' model requires a newer version of Codex. Please upgrade to the latest app or CLI and try again.";
   const line = `ERROR: ${JSON.stringify({
@@ -341,7 +341,7 @@ test('generation finish explains an incompatible Codex model without raw duplica
 
 test('targeted repair can preserve a schema-valid legacy story without forcing a rewrite', () => {
   const repo = tmp();
-  const storyPath = join(repo, '.diffstory', 'story.json');
+  const storyPath = join(repo, '.codestory', 'story.json');
   mkdirSync(join(storyPath, '..'), { recursive: true });
   const previous = JSON.stringify({
     version: 1,
@@ -371,7 +371,7 @@ test('targeted repair can preserve a schema-valid legacy story without forcing a
 
 test('targeted legacy repair applies primer rules without forcing modern code cameras', () => {
   const repo = tmp();
-  const storyPath = join(repo, '.diffstory', 'story.json');
+  const storyPath = join(repo, '.codestory', 'story.json');
   mkdirSync(join(storyPath, '..'), { recursive: true });
   const previous = JSON.stringify({
     version: 1,

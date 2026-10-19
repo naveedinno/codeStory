@@ -1,8 +1,8 @@
 # Security and Privacy
 
-diffStory is a local tool. It starts a Node.js server on your machine, reads the
+codeStory is a local tool. It starts a Node.js server on your machine, reads the
 git repository you choose, and writes review state into that repository's
-`.diffstory/` folder.
+`.codestory/` folder.
 
 ## Data Handling
 
@@ -10,11 +10,11 @@ git repository you choose, and writes review state into that repository's
   cloud account.
 - Plain diff viewing stays local.
 - Generated or repaired stories only run when you choose an installed agent
-  such as Claude or Codex. Review comments are never sent by diffStory.
+  such as Claude or Codex. Review comments are never sent by codeStory.
 - Optional Kokoro voice setup creates a local Python environment under
-  `~/.diffstory/kokoro-venv`.
+  `~/.codestory/kokoro-venv`.
 
-Review comments can contain code or private context. Keep `.diffstory/` ignored
+Review comments can contain code or private context. Keep `.codestory/` ignored
 unless your team intentionally decides to share a story file.
 
 ## Reporting Security Issues

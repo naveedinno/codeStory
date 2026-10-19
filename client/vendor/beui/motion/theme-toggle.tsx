@@ -1,7 +1,7 @@
 // Vendored from starc007/ui-components — components/motion/theme-toggle.tsx (MIT)
 import { Moon, Sun } from "lucide-react";
 // Upstream: `next-themes` (README modification 2). Same `{ theme,
-// resolvedTheme, systemTheme, setTheme }` surface, backed by diffStory's own
+// resolvedTheme, systemTheme, setTheme }` surface, backed by codeStory's own
 // `data-theme` plumbing.
 import { useTheme } from "../lib/use-theme";
 import { useReducedMotion } from "motion/react";

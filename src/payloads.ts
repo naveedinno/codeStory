@@ -1,4 +1,4 @@
-// The `__DIFFSTORY_DATA__` payload shapes — the contract between a route
+// The `__CODESTORY_DATA__` payload shapes — the contract between a route
 // handler and its React surface.
 //
 // This module carries plain JSON-serializable interfaces and nothing else. That

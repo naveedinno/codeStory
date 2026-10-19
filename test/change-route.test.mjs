@@ -75,7 +75,7 @@ function repoWithHistoricalHeadStoryAndMovedWorkingTree() {
 }
 
 function writeStory(repo, body = {}, rel = 'story.json') {
-  const path = join(repo, '.diffstory', rel);
+  const path = join(repo, '.codestory', rel);
   mkdirSync(join(path, '..'), { recursive: true });
   writeFileSync(
     path,
@@ -125,8 +125,8 @@ function repoRoute(repo) {
  * server-rendered (the review page) keeps its plain HTML assertions.
  */
 function shellPayload(html) {
-  const match = /<script type="application\/json" id="__DIFFSTORY_DATA__">([\s\S]*?)<\/script>/.exec(html);
-  assert.ok(match, 'the shell must embed exactly one __DIFFSTORY_DATA__ block');
+  const match = /<script type="application\/json" id="__CODESTORY_DATA__">([\s\S]*?)<\/script>/.exec(html);
+  assert.ok(match, 'the shell must embed exactly one __CODESTORY_DATA__ block');
   return JSON.parse(match[1]);
 }
 
@@ -227,7 +227,7 @@ test('starting with a repo lands on history and lists the primary story', async 
     assert.ok(picker.includes('data-surface="picker"'), 'switch repo returns to the app picker');
     assert.ok(picker.includes('/assets/client/picker.js'), 'the picker surface boots its own bundle');
     const payload = JSON.parse(
-      picker.match(/<script type="application\/json" id="__DIFFSTORY_DATA__">([\s\S]*?)<\/script>/)[1],
+      picker.match(/<script type="application\/json" id="__CODESTORY_DATA__">([\s\S]*?)<\/script>/)[1],
     );
     assert.ok(Array.isArray(payload.recents), 'the picker is handed its recents list');
     assert.ok(typeof payload.home === 'string' && payload.home, 'repo picker can open another folder');
@@ -399,8 +399,8 @@ test('a malformed selected story shows the scope picker with a notice, not the r
   const tmpHome = mkdtempSync(join(tmpdir(), 'ds-home-'));
   process.env.HOME = tmpHome;
   const repo = repoWithChange();
-  mkdirSync(join(repo, '.diffstory'), { recursive: true });
-  writeFileSync(join(repo, '.diffstory', 'story.json'), '{"bogus":true}'); // invalid tour
+  mkdirSync(join(repo, '.codestory'), { recursive: true });
+  writeFileSync(join(repo, '.codestory', 'story.json'), '{"bogus":true}'); // invalid tour
   const { server, base } = await boot();
   try {
     await fetch(`${base}/api/repo/open`, {

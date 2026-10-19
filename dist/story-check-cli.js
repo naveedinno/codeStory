@@ -1,15 +1,16 @@
 // Command-line entry for the bundled story checker. See story-check.ts.
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
+import { DATA_DIR, LEGACY_DATA_DIR } from "./config.js";
 import { formatLedger, formatReport, reportReady, runStoryCheck, storyLedger, unownedFiles, } from "./story-check.js";
 const HELP = `Usage: node check-story.mjs [story.json ...] [options]
 
-Checks a diffStory story against the app's own contract, the real git diff,
+Checks a codeStory story against the app's own contract, the real git diff,
 and the storyteller's prose lints. Run it from inside the repository.
 
-  (no story)        check .diffstory/story.json, or every .diffstory/stories/*.json
-  <story.json ...>  check these files; a code story (.diffstory/stories/code-*.json) is
+  (no story)        check .codestory/story.json, or every .codestory/stories/*.json
+  <story.json ...>  check these files; a code story (.codestory/stories/code-*.json) is
                     checked against its pinned commit instead of a diff
   --ledger          print the changed ranges a story must claim, with enclosing scopes
   --base <ref>      ledger only: diff base (default: the repository's review base)
@@ -21,7 +22,7 @@ and the storyteller's prose lints. Run it from inside the repository.
   -h, --help        show this help
 
 Ledger includes/excludes default to includeGlobs/excludeGlobs from
-.diffstory/preferences.json when that file exists.
+.codestory/preferences.json when that file exists.
 
 Exit status: 0 ready, 1 not ready, 2 usage or setup error.`;
 function parseArgs(argv) {
@@ -70,23 +71,35 @@ function gitRoot(cwd) {
         return null;
     }
 }
+/**
+ * The repo's data folder. A repo the app has not opened since the codeStory
+ * rename still keeps its stories under the pre-rename folder (the app moves
+ * them when it opens the repo), so the checker reads them where they are. It
+ * never writes to either folder.
+ */
+function dataFolder(repo) {
+    const current = join(repo, DATA_DIR);
+    const legacy = join(repo, LEGACY_DATA_DIR);
+    return !existsSync(current) && existsSync(legacy) ? legacy : current;
+}
 function readPreferences(repo) {
-    const path = join(repo, ".diffstory", "preferences.json");
+    const path = join(dataFolder(repo), "preferences.json");
     if (!existsSync(path))
         return {};
     try {
         return JSON.parse(readFileSync(path, "utf8"));
     }
     catch (error) {
-        console.error(`check-story: ignoring unreadable .diffstory/preferences.json (${error.message})`);
+        console.error(`check-story: ignoring unreadable ${relative(repo, path)} (${error.message})`);
         return {};
     }
 }
 function defaultStories(repo) {
-    const single = join(repo, ".diffstory", "story.json");
+    const folder = dataFolder(repo);
+    const single = join(folder, "story.json");
     if (existsSync(single))
         return [single];
-    const dir = join(repo, ".diffstory", "stories");
+    const dir = join(folder, "stories");
     if (!existsSync(dir))
         return [];
     return readdirSync(dir)
@@ -122,7 +135,7 @@ function main(argv) {
     }
     const stories = args.stories.length ? args.stories.map((p) => resolve(p)) : defaultStories(repo);
     if (!stories.length) {
-        console.error("check-story: no story found. Write .diffstory/story.json (or .diffstory/stories/<slug>.json) first.");
+        console.error("check-story: no story found. Write .codestory/story.json (or .codestory/stories/<slug>.json) first.");
         return 2;
     }
     const reports = stories.map((path) => runStoryCheck(repo, path));

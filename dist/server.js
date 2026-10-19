@@ -28,6 +28,7 @@ import { evolutionPreservationErrors, normalizeEvolutionObject, verifyEvolution,
 import { availableAgents, streamAgent, storyPrompt, codeStoryPrompt, agentPreflight, selectAvailableAgent, normalizeStoryMode, normalizeCodexRunOptions, summarizeAgentFailure, storyRepairPrompt, } from "./agent.js";
 import { runStarted, contextEvent, phaseEvent, heartbeatEvent, warningEvent, errorEvent, doneEvent, observedPhase, phaseRank, noteEventsFromText, createFileEnricher, } from "./progress.js";
 import { skillStatus, updateSkills } from "./repo-setup.js";
+import { migrateLegacyDataDir, migrateLegacyHome } from "./legacy-migration.js";
 import { createSession, openSession, closeSession, sessionEntryScreen, issueReviewPageLease, getReviewPageLease, } from "./session.js";
 import { inspectRepo } from "./repo-state.js";
 import { forgetRecent, recordRecent, loadRecents, restoreRecent, } from "./recents.js";
@@ -61,6 +62,11 @@ export function serve(opts) {
     // this keeps parallel test servers from following later HOME mutations into
     // another test's recents, skills, or voice cache.
     const home = opts.homeOverride ?? homedir();
+    // The app was renamed from diffStory: copy the old global store over once,
+    // and move the boot repo's data folder into place before the session reads it.
+    migrateLegacyHome(home);
+    if (opts.repo)
+        migrateRepoData(opts.repo);
     const session = createSession({
         repo: opts.repo,
         base: opts.baseOverride,
@@ -116,6 +122,20 @@ export function serve(opts) {
 }
 function noRepo(res) {
     sendJson(res, 409, { error: "No repo is open." });
+}
+/**
+ * Move a repo's pre-rename data folder into DATA_DIR. Every way the server
+ * opens a repository runs this first, so nothing reads a half-empty DATA_DIR.
+ */
+function migrateRepoData(repo) {
+    const { kept } = migrateLegacyDataDir(repo);
+    if (kept.length)
+        console.warn(`  kept ${kept.join(", ")} in ${repo}: ${DATA_DIR}/ already has its own copy`);
+}
+/** Open `repo` in the session after moving its pre-rename data into place. */
+function openRepo(session, repo) {
+    migrateRepoData(repo);
+    openSession(session, repo);
 }
 /** Undefined means an unscoped legacy caller; null means a supplied dead lease. */
 function optionalRequestLease(session, url) {
@@ -271,7 +291,7 @@ function handle(req, res, session, home, liveHub, aloud, openEditor) {
     }
     try {
         if (method === "GET" && url.pathname === "/api/health") {
-            return sendJson(res, 200, { app: "diffStory", ready: true });
+            return sendJson(res, 200, { app: "codeStory", ready: true });
         }
         if (method === "GET" && url.pathname === "/api/aloud/status") {
             return runAloudStatus(res, aloud);
@@ -325,7 +345,7 @@ function handle(req, res, session, home, liveHub, aloud, openEditor) {
             const restoredRepo = recentRepoForRoute(url.pathname, home);
             if (!restoredRepo)
                 return redirect(res, "/");
-            openSession(session, restoredRepo);
+            openRepo(session, restoredRepo);
             restoreStorySelection(session, home);
         }
         const repoScreen = method === "GET" ? parseRepoRoute(url.pathname, session.repo) : null;
@@ -592,7 +612,7 @@ function handle(req, res, session, home, liveHub, aloud, openEditor) {
                 const label = editorLabel(editor);
                 if (!openEditor(editorTarget, editor)) {
                     return sendJson(res, 503, {
-                        error: `${label} could not be opened. Install ${label} or change the diffStory source editor preference.`,
+                        error: `${label} could not be opened. Install ${label} or change the codeStory source editor preference.`,
                     });
                 }
                 return sendJson(res, 200, { ok: true, editor, label });
@@ -630,7 +650,7 @@ function handle(req, res, session, home, liveHub, aloud, openEditor) {
                 }
                 if (session.repo && session.repo !== path)
                     liveHub.closeRepo(session.repo);
-                openSession(session, path);
+                openRepo(session, path);
                 const previous = loadRecents(home).find((entry) => entry.path === path);
                 const repoState = {
                     path,
@@ -850,7 +870,7 @@ function handle(req, res, session, home, liveHub, aloud, openEditor) {
                 return sendJson(res, 404, { error: "This step has no concept page." });
             const theme = url.searchParams.get("theme") === "light" ? "light" : "dark";
             // The author's page runs in an opaque-origin sandbox, and offline unless
-            // it opts into network. diffStory is the only document allowed to frame it.
+            // it opts into network. codeStory is the only document allowed to frame it.
             res.removeHeader("X-Frame-Options");
             res.setHeader("Content-Security-Policy", conceptPageCsp(step.network));
             return sendLeasedHtml(res, session, page, conceptPageDocument(step.page, theme));
@@ -1360,7 +1380,7 @@ function explainScreen(session, params) {
             branch: currentBranch(repo),
             headCommit,
             headSubject: headCommit ? describeCommit(repo, headCommit) : "",
-            // Tracked edits only: saved stories are untracked app files under .diffstory/.
+            // Tracked edits only: saved stories are untracked app files under .codestory/.
             dirty: headCommit ? (changedSinceCommit(repo, headCommit) ?? []).length > 0 : false,
             defaults: {
                 mode: normalizeStoryMode(prefs.defaultMode),
@@ -2278,7 +2298,7 @@ export function finishStoryGeneration(r, storyPath, session, previousStoryConten
             };
         }
         catch (e) {
-            events.push(errorEvent("validation", "The story did not pass its final check", "The agent wrote a story, but diffStory cannot safely open it yet. Try again or change the story settings.", e.message));
+            events.push(errorEvent("validation", "The story did not pass its final check", "The agent wrote a story, but codeStory cannot safely open it yet. Try again or change the story settings.", e.message));
             status = "failed";
             return { status, result: { storyWritten, storyValid: false }, events };
         }
@@ -2288,7 +2308,7 @@ export function finishStoryGeneration(r, storyPath, session, previousStoryConten
         status = "failed";
     }
     else if (r.ok) {
-        events.push(errorEvent("output_missing", "The agent finished without a story", "No .diffstory/story.json was created. Try again, or open technical details to see what the agent returned."));
+        events.push(errorEvent("output_missing", "The agent finished without a story", "No .codestory/story.json was created. Try again, or open technical details to see what the agent returned."));
         status = "failed";
     }
     else {
@@ -2550,7 +2570,7 @@ function captureAndStampStoryBaseline(repo, storyPath, base, head, frozenManifes
         if (frozenManifest) {
             const diff = getDiff(repo, frozenManifest.baseSha, frozenManifest.headSha);
             if (readFileSync(storyPath, "utf8") !== storySource) {
-                throw new Error("The story changed while DiffStory captured its baseline.");
+                throw new Error("The story changed while codeStory captured its baseline.");
             }
             stampStoryMetadata(storyPath, diffFingerprint(diff), undefined, snapshot);
             return snapshot;
@@ -2565,12 +2585,12 @@ function captureAndStampStoryBaseline(repo, storyPath, base, head, frozenManifes
             confirmed.currentIdentity !== observed.currentIdentity)
             continue;
         if (readFileSync(storyPath, "utf8") !== storySource) {
-            throw new Error("The story changed while DiffStory captured its baseline.");
+            throw new Error("The story changed while codeStory captured its baseline.");
         }
         stampStoryMetadata(storyPath, diffFingerprint(diff), undefined, snapshot);
         return snapshot;
     }
-    throw new Error("The repository kept changing while diffStory captured the story baseline.");
+    throw new Error("The repository kept changing while codeStory captured the story baseline.");
 }
 function finishWithStoryBaseline(finished, repo, storyPath, base, head, frozenManifest) {
     if (finished.status !== "complete")
