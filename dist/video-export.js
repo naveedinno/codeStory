@@ -333,8 +333,8 @@ export class VideoExports {
         const row = { job, estimate: new VideoProgressEstimate(), owner, controller, directory: "", task: Promise.resolve(), created: Date.now(), settled: false };
         this.jobs.set(job.id, row);
         row.task = (async () => {
-            const timeout = setTimeout(() => controller.abort(new Error("Video export exceeded 30 minutes. Try a shorter story.")), 30 * 60 * 1000);
-            timeout.unref();
+            // Local synthesis and encoding can take longer than the finished video.
+            // Keep the job alive until it completes, fails, or is explicitly stopped.
             let failureMessage;
             try {
                 row.directory = await mkdtemp(join(tmpdir(), "codestory-video-"));
@@ -354,7 +354,6 @@ export class VideoExports {
                 failureMessage = error?.message || "Could not export this story.";
             }
             finally {
-                clearTimeout(timeout);
                 if (job.state !== "ready")
                     await rm(row.directory, { recursive: true, force: true }).catch(() => { });
                 else {

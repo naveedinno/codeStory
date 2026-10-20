@@ -100,6 +100,34 @@ test('video jobs enforce owner isolation, one active render, and artifact readin
   assert.throws(()=>exports.start('owner','Other','http://localhost',options,snapshot),/shutting down/);
 });
 
+test('long narration and encoding survive the old 30-minute export deadline', async t => {
+  let input, begin, release;
+  const started=new Promise(resolve=>{begin=resolve;});
+  const gate=new Promise(resolve=>{release=resolve;});
+  const exports=new VideoExports(async renderer=>{
+    input=renderer;begin();await gate;
+    input.signal.throwIfAborted();
+    await writeFile(join(input.directory,'video.mp4'),'video');
+  });
+  t.mock.timers.enable({apis:['setTimeout']});
+  try {
+    const job=exports.start('owner','Long story','http://localhost',options,snapshot);
+    await started;
+    input.progress(99,100,'Generating final narration passage');
+    t.mock.timers.tick(31*60*1000);
+    assert.equal(input.signal.aborted,false,input.signal.reason?.message);
+    assert.equal(exports.get(job.id,'owner').state,'rendering');
+    input.progress(100,100,'Encoding MP4',true);
+    t.mock.timers.tick(90*60*1000);
+    assert.equal(input.signal.aborted,false,input.signal.reason?.message);
+    assert.equal(exports.get(job.id,'owner').state,'encoding');
+    t.mock.timers.reset();
+    release();
+    assert.equal((await finished(exports,job.id)).state,'ready');
+    assert.ok(existsSync(exports.file(job.id,'owner')));
+  } finally {t.mock.timers.reset();release();await exports.dispose();}
+});
+
 test('video job polling exposes stage estimates and clears them on completion', async () => {
   let input, begin, finish;
   const began=new Promise(resolve=>{begin=resolve;});
