@@ -34,7 +34,7 @@ import { cn } from "../../shared/cn";
 import { ActivityText } from "./ActivityText";
 import type { ProgressState } from "./state";
 
-const MARK = "flex-none w-3.5 text-start text-[11px] leading-[inherit]";
+const MARK = "flex-none w-3.5 text-start text-[0.6875rem] leading-[inherit]";
 
 export function PlanList({ state }: { state: ProgressState }) {
   if (!state.hasPlan) return null;
@@ -51,7 +51,7 @@ export function PlanList({ state }: { state: ProgressState }) {
           <li
             key={`${index}-${item?.text ?? ""}`}
             data-status={status}
-            className="flex items-baseline gap-2.5 py-1 font-mono text-[11px] leading-[1.55]"
+            className="flex items-baseline gap-2.5 py-1 font-mono text-[0.6875rem] leading-[1.55]"
           >
             {status === "done" ? (
               <span aria-hidden="true" className={cn(MARK, "text-[var(--pp-ok)]")}>
@@ -72,7 +72,7 @@ export function PlanList({ state }: { state: ProgressState }) {
             )}
             <span
               className={cn(
-                "min-w-0 text-[11px]",
+                "min-w-0 text-[0.6875rem]",
                 status === "done" && "text-[var(--pp-faint)]",
                 active && "text-[var(--pp-text)]",
                 status === "pending" && "text-[var(--pp-muted)]",

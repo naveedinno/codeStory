@@ -108,8 +108,8 @@ function commitOptions(data: RefData): RefOption[] {
 export function optionsFor(kind: FieldKind, data: RefData | null, failed = false): RefOption[] {
   if (!data && failed) {
     return [
-      option(REFS_ERROR, "Couldn't load refs", "the ref list didn't arrive", "error"),
-      option(REFS_RETRY, "Retry", "load the ref list again", "retry"),
+      option(REFS_ERROR, "Could not load refs", "the ref list didn't arrive", "error"),
+      option(REFS_RETRY, "Try again", "load the ref list again", "retry"),
     ];
   }
   if (!data) return [option("", "Loading refs…", "reading local Git refs", "")];

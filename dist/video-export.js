@@ -4,17 +4,47 @@ import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { chromium } from "playwright-core";
+import { findLinoApp, linoAppCandidates } from "./lino-engine.js";
 export function parseVideoOptions(value) {
     const input = value;
+    const validChoice = (value) => typeof value === "string" && value.trim().length > 0 && value.length <= 100;
     if (!input || !["720p", "1080p"].includes(input.resolution ?? "") ||
         typeof input.narration !== "boolean" || ![0.75, 1, 1.25, 1.5].includes(input.speed ?? 0) ||
+        (input.narrationEngine !== undefined && !["system", "lino"].includes(input.narrationEngine)) ||
+        (input.lino !== undefined && (!input.narration || input.narrationEngine !== "lino" ||
+            !validChoice(input.lino?.engine) || !validChoice(input.lino?.voice))) ||
         !["light", "dark"].includes(input.theme ?? "")) {
         throw new Error("Choose a resolution, narration, reading speed, and theme.");
     }
-    return { resolution: input.resolution, narration: input.narration, speed: input.speed, theme: input.theme };
+    return { resolution: input.resolution, narration: input.narration, speed: input.speed, theme: input.theme,
+        ...(input.narrationEngine !== undefined ? { narrationEngine: input.narrationEngine } : {}),
+        ...(input.lino ? { lino: { engine: input.lino.engine, voice: input.lino.voice } } : {}) };
+}
+/** Export choices never configure or stop the interactive narrator. */
+export async function videoNarrationSettings(aloud, selected) {
+    if (!aloud?.generateAudio)
+        throw new Error("Lino audio generation is unavailable. Update Lino and try again.");
+    if (selected) {
+        if (!aloud.models)
+            throw new Error("Update Lino to choose a model and voice for video export.");
+        const model = (await aloud.models()).find(model => model.id === selected.engine);
+        if (!model?.ready)
+            throw new Error("Choose a downloaded voice model. Manage downloads in Lino → Settings → Read Aloud.");
+        if (!model.languages.includes("en"))
+            throw new Error("Choose a model that supports English story narration.");
+        if (!model.voices.some(voice => voice.id === selected.voice))
+            throw new Error("Choose a voice from the selected model.");
+        return { ...selected };
+    }
+    // Compatibility for exports started by clients predating the export picker.
+    const status = await aloud.status();
+    const voice = status.voice === "random" ? status.resolvedVoice : status.voice;
+    if (!status.engine || typeof voice !== "string" || !voice)
+        throw new Error("Choose a Lino model and voice before exporting.");
+    return { engine: status.engine, voice };
 }
 export function videoFilename(title) {
     return `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 80) || "codestory"}.mp4`;
@@ -80,11 +110,11 @@ export function videoCapabilities() {
     const narration = process.platform === "darwin" && existsSync("/usr/bin/say");
     return { browser, ffmpeg, ffprobe, narration };
 }
-export function videoRequirements() {
+export function videoRequirements(home = homedir()) {
     const { browser, ffmpeg, ffprobe, narration } = videoCapabilities();
     const missing = [!browser && "Install Google Chrome, or install Chromium with npx playwright-core install chromium.",
         (!ffmpeg || !ffprobe) && "Install FFmpeg (includes ffprobe). On macOS: brew install ffmpeg."].filter(Boolean);
-    return { available: !missing.length, narration, missing };
+    return { available: !missing.length, narration, lino: !!findLinoApp(linoAppCandidates(home)), missing };
 }
 /** No shell, bounded diagnostics, and cancellation that waits for process exit. */
 async function command(bin, args, signal, cwd) {
@@ -118,8 +148,15 @@ async function renderVideo(input) {
     const requirements = videoRequirements();
     if (!requirements.available)
         throw new Error(requirements.missing.join(" "));
-    if (options.narration && !capabilities.narration)
-        throw new Error("System narration is available on macOS. Export with captions only on this device.");
+    const useLino = options.narration && options.narrationEngine === "lino";
+    if (options.narration && !useLino && !capabilities.narration)
+        throw new Error("System narration is available on macOS. Choose Lino or export with subtitles only on this device.");
+    let linoSettings;
+    if (useLino) {
+        progress(0, 0, "Preparing the selected Lino voice…");
+        // Freeze this choice for the whole video, even if live narration changes.
+        linoSettings = await videoNarrationSettings(input.aloud, options.lino);
+    }
     const snapshot = input.snapshot();
     const scenes = videoScenes(snapshot.payload);
     if (!scenes.length || scenes.length > 5000)
@@ -213,14 +250,24 @@ async function renderVideo(input) {
             await page.screenshot({ path: join(directory, image), animations: "disabled" });
             let seconds = Math.max(2.4, scene.text.split(/\s+/).length / (175 * options.speed) * 60 + 0.8);
             if (options.narration) {
-                await writeFile(join(directory, "speech.txt"), scene.text);
-                await command("/usr/bin/say", ["-r", String(Math.round(175 * options.speed)), "-f", "speech.txt", "-o", "speech.aiff"], signal, directory);
-                const measured = Number(await command(capabilities.ffprobe, ["-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", "speech.aiff"], signal, directory));
+                const speech = linoSettings ? "speech.wav" : "speech.aiff";
+                if (linoSettings) {
+                    progress(index, scenes.length, `Generating Lino narration for passage ${index + 1} of ${scenes.length}…`);
+                    await rm(join(directory, speech), { force: true });
+                    await input.aloud.generateAudio({ ...linoSettings, text: scene.text }, join(directory, speech), signal);
+                }
+                else {
+                    await writeFile(join(directory, "speech.txt"), scene.text);
+                    await command("/usr/bin/say", ["-r", String(Math.round(175 * options.speed)), "-f", "speech.txt", "-o", speech], signal, directory);
+                }
+                const measured = Number(await command(capabilities.ffprobe, ["-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", speech], signal, directory));
                 if (!Number.isFinite(measured) || measured <= 0)
                     throw new Error("Could not measure the generated narration.");
-                seconds = measured + 0.6;
+                seconds = measured / (linoSettings ? options.speed : 1) + 0.6;
                 seconds = Math.ceil(seconds * 25) / 25;
-                await command(capabilities.ffmpeg, ["-nostdin", "-y", "-v", "error", "-i", "speech.aiff", "-af", "apad", "-t", String(seconds), "-ar", "24000", "-ac", "1", `audio-${index}.wav`], signal, directory);
+                // Apply speed after synthesis for every Lino model, including models
+                // whose audio API only supports native speed. atempo preserves pitch.
+                await command(capabilities.ffmpeg, ["-nostdin", "-y", "-v", "error", "-i", speech, "-af", linoSettings ? `atempo=${options.speed},apad` : "apad", "-t", String(seconds), "-ar", "24000", "-ac", "1", `audio-${index}.wav`], signal, directory);
                 audioList.push(`file audio-${index}.wav`);
             }
             seconds = Math.ceil(seconds * 25) / 25;
@@ -253,10 +300,12 @@ async function renderVideo(input) {
 /** Per-server jobs. Completed files expire, and partial files never download. */
 export class VideoExports {
     renderer;
+    aloud;
     jobs = new Map();
     disposed = false;
-    constructor(renderer = renderVideo) {
+    constructor(renderer = renderVideo, aloud) {
         this.renderer = renderer;
+        this.aloud = aloud;
     }
     start(owner, title, origin, options, snapshot) {
         if (this.disposed)
@@ -277,10 +326,11 @@ export class VideoExports {
         row.task = (async () => {
             const timeout = setTimeout(() => controller.abort(new Error("Video export exceeded 30 minutes. Try a shorter story.")), 30 * 60 * 1000);
             timeout.unref();
+            let failureMessage;
             try {
                 row.directory = await mkdtemp(join(tmpdir(), "codestory-video-"));
                 controller.signal.throwIfAborted();
-                await this.renderer({ snapshot, origin, options, directory: row.directory, signal: controller.signal,
+                await this.renderer({ snapshot, origin, options, aloud: this.aloud, directory: row.directory, signal: controller.signal,
                     progress: (completed, total, message, encoding) => {
                         if (!controller.signal.aborted)
                             Object.assign(job, { completed, total, message, state: encoding ? "encoding" : "rendering" });
@@ -290,10 +340,7 @@ export class VideoExports {
                 job.message = "Your video is ready.";
             }
             catch (error) {
-                if (job.state !== "cancelled") {
-                    job.state = "error";
-                    job.message = error?.message || "Could not export this story.";
-                }
+                failureMessage = error?.message || "Could not export this story.";
             }
             finally {
                 clearTimeout(timeout);
@@ -305,6 +352,11 @@ export class VideoExports {
                     for (const file of await readdir(row.directory).catch(() => []))
                         if (file !== "video.mp4")
                             await rm(join(row.directory, file), { force: true }).catch(() => { });
+                }
+                // Publish a terminal failure only after temporary source data is gone.
+                if (failureMessage && job.state !== "cancelled") {
+                    job.state = "error";
+                    job.message = failureMessage;
                 }
                 row.settled = true;
                 row.expiry = setTimeout(() => {

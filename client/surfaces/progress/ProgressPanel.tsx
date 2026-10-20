@@ -92,7 +92,7 @@ const PALETTE = [
 const VARIANT: Record<ProgressVariant, string> = {
   // The parked home: a console in the corner of the review page.
   floating:
-    "fixed end-[calc(18px+env(safe-area-inset-right))] bottom-[calc(18px+env(safe-area-inset-bottom))] z-50 w-[min(460px,calc(100vw-36px))] max-h-[min(72vh,580px)] shadow-[0_18px_50px_rgba(0,0,0,0.5)]",
+    "fixed end-[calc(18px+env(safe-area-inset-right))] bottom-[calc(18px+env(safe-area-inset-bottom))] z-50 w-[min(460px,calc(100vw-36px))] max-h-[min(72vh,580px)] shadow-[var(--shadow)]",
   inline: "mt-5 max-h-[min(66vh,580px)]",
   // In the story stage the panel IS the content, so it gets room to breathe and
   // no scroll cap of its own.
@@ -103,7 +103,7 @@ const ACTION = cn(
   "h-auto rounded-full border border-transparent px-[13px] py-1.5 text-xs font-semibold",
   "bg-[var(--fill-1,rgba(190,205,225,0.07))] text-[var(--pp-text)]",
   "hover:bg-[var(--fill-2,rgba(190,205,225,0.12))]",
-  "focus-visible:outline-none focus-visible:shadow-[0_0_0_3px_color-mix(in_srgb,var(--pp-blue)_12%,transparent)]",
+  "focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]",
 );
 
 export interface ProgressPanelProps {
@@ -173,7 +173,7 @@ export function ProgressPanel({ run, variant = "floating", foot, className }: Pr
       data-state={state.phase}
       className={cn(
         PALETTE,
-        "flex flex-col overflow-hidden rounded-[var(--radius-island,26px)]",
+        "@container flex flex-col overflow-hidden rounded-[var(--radius-island,26px)]",
         "border border-[var(--pp-line)] bg-[var(--pp-bg)] text-[var(--pp-text)]",
         "font-sans tracking-[-0.01em]",
         VARIANT[variant],
@@ -198,8 +198,8 @@ export function ProgressPanel({ run, variant = "floating", foot, className }: Pr
       <header
         className={cn(
           "flex items-center gap-[9px] border-b border-[var(--pp-line)] px-3.5 py-3",
-          "max-[520px]:grid max-[520px]:grid-cols-[auto_minmax(0,1fr)_auto] max-[520px]:items-start",
-          "max-[520px]:gap-x-[9px] max-[520px]:gap-y-1.5",
+          "@max-[520px]:grid @max-[520px]:grid-cols-[auto_minmax(0,1fr)_auto] @max-[520px]:items-start",
+          "@max-[520px]:gap-x-[9px] @max-[520px]:gap-y-1.5",
         )}
       >
         {state.spinning ? (
@@ -208,7 +208,7 @@ export function ProgressPanel({ run, variant = "floating", foot, className }: Pr
           // `role="status"` from ever speaking. The second is useQuietSubtree.
           <span
             aria-hidden="true"
-            className="flex flex-none max-[520px]:col-start-1 max-[520px]:row-start-1"
+            className="flex flex-none @max-[520px]:col-start-1 @max-[520px]:row-start-1"
           >
             <Loader
               variant="spinner"
@@ -222,9 +222,9 @@ export function ProgressPanel({ run, variant = "floating", foot, className }: Pr
         <span
           data-pp-title=""
           className={cn(
-            "min-w-0 font-mono text-xs font-medium tracking-[0.14em] text-[var(--pp-blue)] uppercase",
+            "min-w-0 font-mono text-xs font-medium tracking-[var(--tracking-kicker)] text-[var(--pp-blue)] uppercase",
             stage && "text-sm",
-            "max-[520px]:col-start-2 max-[520px]:row-start-1 max-[520px]:self-center",
+            "@max-[520px]:col-start-2 @max-[520px]:row-start-1 @max-[520px]:self-center",
           )}
         >
           <ActionSwapText value={state.title} animation="blur" className="max-w-full">
@@ -237,13 +237,13 @@ export function ProgressPanel({ run, variant = "floating", foot, className }: Pr
             className={cn(
               "max-w-[220px] overflow-hidden rounded-md border border-[var(--pp-line)] bg-[var(--pp-elev)]",
               "px-[7px] py-0.5 text-sm text-ellipsis whitespace-nowrap text-[var(--pp-muted)]",
-              "max-[520px]:col-start-2 max-[520px]:row-start-2 max-[520px]:max-w-full max-[520px]:justify-self-start",
+              "@max-[520px]:col-start-2 @max-[520px]:row-start-2 @max-[520px]:max-w-full @max-[520px]:justify-self-start",
             )}
           >
             {state.agent}
           </span>
         ) : null}
-        <span aria-hidden="true" className="flex-1 max-[520px]:hidden" />
+        <span aria-hidden="true" className="flex-1 @max-[520px]:hidden" />
         {/* `pressScale` is not optional here even though beUI supplies a default.
             Its default is 0.93, which is outside the 0.95–0.98 band plan 011
             settled on and well past the 0.97 every other surface passes
@@ -255,7 +255,7 @@ export function ProgressPanel({ run, variant = "floating", foot, className }: Pr
             data-pp-stop=""
             pressScale={0.97}
             onClick={run.requestStop}
-            className={cn(ACTION, "max-[520px]:col-start-3 max-[520px]:row-start-1 max-[520px]:row-span-2")}
+            className={cn(ACTION, "@max-[520px]:col-start-3 @max-[520px]:row-start-1 @max-[520px]:row-span-2")}
           >
             Stop
           </Button>
@@ -265,7 +265,7 @@ export function ProgressPanel({ run, variant = "floating", foot, className }: Pr
             data-pp-close=""
             pressScale={0.97}
             onClick={run.requestClose}
-            className={cn(ACTION, "max-[520px]:col-start-3 max-[520px]:row-start-1 max-[520px]:row-span-2")}
+            className={cn(ACTION, "@max-[520px]:col-start-3 @max-[520px]:row-start-1 @max-[520px]:row-span-2")}
           >
             Close
           </Button>
@@ -289,7 +289,7 @@ export function ProgressPanel({ run, variant = "floating", foot, className }: Pr
         <div
           data-pp-note=""
           className={cn(
-            "px-3.5 pt-2.5 pb-0.5 text-[13px] leading-[1.45] text-[var(--pp-text)]",
+            "px-3.5 pt-2.5 pb-0.5 text-[0.8125rem] leading-[1.45] text-[var(--pp-text)]",
             stage && "px-4 pt-3 pb-1 text-sm",
           )}
         >
@@ -304,7 +304,7 @@ export function ProgressPanel({ run, variant = "floating", foot, className }: Pr
           <ActivityText
             live={!state.finished}
             tone="muted"
-            className="font-mono text-[12.5px] break-words"
+            className="font-mono text-[0.78125rem] break-words"
           >
             {state.current}
           </ActivityText>
@@ -374,7 +374,7 @@ export function ProgressPanel({ run, variant = "floating", foot, className }: Pr
             !
           </span>
           <div>
-            <div className="text-[13px] leading-[1.35] font-semibold break-words text-[var(--pp-text)]">
+            <div className="text-[0.8125rem] leading-[1.35] font-semibold break-words text-[var(--pp-text)]">
               {state.error.label || "The run failed"}
             </div>
             {state.error.detail ? (
@@ -400,12 +400,12 @@ export function ProgressPanel({ run, variant = "floating", foot, className }: Pr
       */}
       {state.showDetails ? (
         <details className="border-t border-[var(--pp-line)] px-3.5 pt-2 pb-2.5">
-          <summary className="cursor-pointer text-xs tracking-[0.04em] text-[var(--pp-muted)] uppercase">
+          <summary className="cursor-pointer text-xs tracking-[var(--tracking-kicker)] text-[var(--pp-muted)] uppercase">
             Technical details
           </summary>
           <pre
             data-pp-raw=""
-            className="m-0 mt-1.5 max-h-40 overflow-auto font-mono text-[11px] leading-[1.5] break-words whitespace-pre-wrap text-[var(--pp-faint)]"
+            className="m-0 mt-1.5 max-h-40 overflow-auto font-mono text-[0.6875rem] leading-[1.5] break-words whitespace-pre-wrap text-[var(--pp-faint)]"
           >
             {state.raw}
           </pre>
@@ -429,13 +429,13 @@ export function ProgressPanel({ run, variant = "floating", foot, className }: Pr
 /** The accent action a recovery footer leads with ("Try again", "Change model"). */
 export const progressPrimaryActionClass = cn(
   "h-auto rounded-full border-none px-[13px] py-[7px] text-xs font-semibold",
-  "bg-[var(--pp-blue)] text-[#06121c] hover:bg-[var(--pp-blue)]",
-  "focus-visible:outline-none focus-visible:shadow-[0_0_0_3px_color-mix(in_srgb,var(--pp-blue)_12%,transparent)]",
+  "bg-[var(--pp-blue)] text-[var(--on-accent)] hover:bg-[var(--pp-blue)]",
+  "focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]",
 );
 
 /** The quiet companion action ("Review settings", "Retry after updating"). */
 export const progressSecondaryActionClass = cn(
   "h-auto rounded-full border border-transparent bg-transparent px-[13px] py-[7px] text-xs font-semibold",
   "text-[var(--pp-text)] hover:bg-[var(--fill-1,rgba(190,205,225,0.07))]",
-  "focus-visible:outline-none focus-visible:shadow-[0_0_0_3px_color-mix(in_srgb,var(--pp-blue)_12%,transparent)]",
+  "focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]",
 );

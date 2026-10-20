@@ -281,7 +281,7 @@ test('the modal keeps its open/close choreography', () => {
 
   // (b) the 210ms hold (0ms under reduced motion) before re-applying `hidden`,
   //     and the guard that a reopen cancels the hide.
-  assert.match(useModal, /export const MODAL_CLOSE_MS = 210;/);
+  assert.match(useModal, /export const MODAL_CLOSE_MS = 340;/);
   assert.match(useModal, /prefersReducedMotion\(\) \? 0 : MODAL_CLOSE_MS/);
   assert.match(useModal, /setPhase\(\(current\) => \(current === "closing" \? "closed" : current\)\)/);
   assert.match(useModal, /\(prefers-reduced-motion: reduce\)/);
@@ -296,7 +296,7 @@ test('the modal keeps its open/close choreography', () => {
   assert.match(useModal, /behind\.removeAttribute\("inert"\);\s*behind\.removeAttribute\("aria-hidden"\);/);
 
   // Focus restores to whatever opened the sheet.
-  assert.match(useModal, /const restore = trigger\.current;\s*trigger\.current = null;\s*restore\?\.focus\?\.\(\);/);
+  assert.match(useModal, /const restore = trigger\.current;\s*trigger\.current = null;\s*if \(restore && document\.contains\(restore\)\) \{\s*restore\.focus\(\);/);
 });
 
 test('the modal focus trap keeps listbox options out of the tab ring', () => {
@@ -421,8 +421,8 @@ test('the picker keeps its status wording, ordering, and recoverable visible fee
   // The three skill branches, in order, verbatim.
   assert.match(skillBanner, /if \(skills\.legacyInstalled\) return legacyText\(skills\.legacyNames\);\s*if \(skills\.current\) return null;/);
   assert.match(skillBanner, / renamed to codestory-storyteller\. Update skills to remove the retired /);
-  assert.match(skillBanner, /Story-generation skill is installed but does not match this app/);
-  assert.match(skillBanner, /Story-generation skill was not found in ~\/\.agents, ~\/\.claude, or ~\/\.codex/);
+  assert.match(skillBanner, /The storyteller skill is installed but does not match this app/);
+  assert.match(skillBanner, /The storyteller skill was not found in ~\/\.agents, ~\/\.claude, or ~\/\.codex/);
   assert.match(skillBanner, /Could not update skills\. Run scripts\/install-skills\.sh/);
   assert.match(skillBanner, /role="status" aria-live="polite" aria-atomic="true"/);
   // The install branch shimmers its own sentence, because it is the only state
@@ -522,7 +522,7 @@ test('picker motion connects the page and folder sheet without overriding reduce
   assert.match(sharedCss, /animation: ds-thread-pulse 11s linear 2s infinite backwards;/);
   assert.match(sharedCss, /animation: ds-reveal-up var\(--motion-duration-spatial\) var\(--motion-ease-out\) backwards;/);
   assert.match(sharedCss, /\.ds-scrim\.is-shown \.ds-sheet \{\s*transform: none;\s*opacity: 1;\s*\}/);
-  assert.match(sharedCss, /transition:\s*opacity var\(--motion-duration-ui\) ease,\s*visibility 0s linear var\(--motion-duration-ui\);/);
+  assert.match(sharedCss, /transition:\s*opacity var\(--motion-duration-ui\) ease,\s*visibility 0s linear var\(--motion-duration-spatial\);/);
   assert.match(sharedCss, /transform: translateY\(12px\) scale\(0\.975\);/);
   // The reduced-motion branch removes the transitions and lands the sheet.
   assert.match(sharedCss, /\.ds-scrim,\s*\.ds-sheet \{\s*transition: none;\s*\}/);

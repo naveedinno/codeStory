@@ -1,0 +1,93 @@
+{
+  "captures": [
+    {
+      "file": "stress-S1S4-change-longbranch-1440x900-dark.png",
+      "screen": "change",
+      "state": "S1-long-branch+S4-files",
+      "notes": "long branch head, long path file, longline.ts in file list title=codeStory — Choose review scope overflowX=0 text=\"Skip to content\\ncodeStory\\ncodestory-demo-cap\\n/\\nScope\\nVS Code\\nReload\\nExplain code\\nHistory\\n\\nREVIEW SESSION\\n\\nChoose what to review\\n\\nSet the exact Git scope, confir\""
+    },
+    {
+      "file": "stress-S4-diff-longline-1440x900-dark.png",
+      "screen": "diff",
+      "state": "S4-long-diff-line",
+      "notes": "500+ char unbroken line in diff title=codeStory — Reviewing the diff overflowX=0 text=\"Skip to content\\nDiff review\\nStory\\nAll files\\nReview▲2\\nReload\\nClose story\\nFILES\\n0 of 8 reviewed\\n⌕\\nFilter:\\nAll\\n⌄\\nNext unreviewed\\n→\\nsrc\\n+34\\n−22\\napi.ts\\n✓\\n+5\\n−8\\nlimit\""
+    },
+    {
+      "file": "stress-S1-change-longbranch-375x812-dark.png",
+      "screen": "change",
+      "state": "S1-long-branch-mobile",
+      "notes": "long branch at 375px title=codeStory — Choose review scope overflowX=9 text=\"Skip to content\\ncodestory-demo-cap\\n/\\nScope\\nExplain code\\nHistory\\n\\nREVIEW SESSION\\n\\nChoose what to review\\n\\nSet the exact Git scope, confirm the changed files, then\""
+    },
+    {
+      "file": "stress-S3-stories-list-1440x900-dark.png",
+      "screen": "stories",
+      "state": "S3-story-list",
+      "notes": "list incl. one/many fixtures if enumerated title=codeStory — codestory-demo-cap Review history overflowX=0 text=\"Skip to content\\ncodeStory\\ncodestory-demo-cap\\n/\\nReview history\\nVS Code\\nRefresh evidence\\n\\nCODESTORY-DEMO-CAP\\n\\nReview history\\nStart review\\nExplain code\\nImport bund\""
+    },
+    {
+      "file": "stress-S3-review-1step-1440x900-dark.png",
+      "screen": "review",
+      "state": "S3-one-step",
+      "notes": "review with 1-step story title=codeStory — Choose review scope overflowX=0 text=\"Skip to content\\ncodeStory\\ncodestory-demo-cap\\n/\\nScope\\nVS Code\\nReload\\nExplain code\\nHistory\\n\\nREVIEW SESSION\\n\\nChoose what to review\\n\\nSet the exact Git scope, confir\""
+    },
+    {
+      "file": "stress-S3-review-42step-1440x900-dark.png",
+      "screen": "review",
+      "state": "S3-42-steps",
+      "notes": "review with 42-step story title=codeStory — Choose review scope overflowX=0 text=\"Skip to content\\ncodeStory\\ncodestory-demo-cap\\n/\\nScope\\nVS Code\\nReload\\nExplain code\\nHistory\\n\\nREVIEW SESSION\\n\\nChoose what to review\\n\\nSet the exact Git scope, confir\""
+    },
+    {
+      "file": "stress-S2-picker-longrepo-1440x900-dark.png",
+      "screen": "picker",
+      "state": "S2-long-repo-name",
+      "notes": "recents after opening 78-char repo name title=codeStory — Pick a repository overflowX=0 text=\"codeStory\\nTHE STORY OF THIS CHANGE\\nVS Code\\nRepositories\\nAdd repository\\n01\\nvery-long-repository-name-very-long-repository-name-very-long-repository-name-\\n/tmp/ve\""
+    },
+    {
+      "file": "stress-S2-picker-longrepo-375x812-dark.png",
+      "screen": "picker",
+      "state": "S2-long-repo-mobile",
+      "notes": "long repo name at 375px title=codeStory — Pick a repository overflowX=320 text=\"codeStory\\nRepositories\\nvery-long-repository-name-very-long-repository-name-very-long-repository-name-\\n/tmp/very-long-r…-very-long-repository-name-\\nfeat/xxxxxxxx\""
+    },
+    {
+      "file": "stress-S5-review-counts-1440x900-dark.png",
+      "screen": "review",
+      "state": "S5-counts",
+      "notes": "counts/steps/comments as rendered in demo (8 steps) title=codeStory — Diff annotations in one spending-limit review overflowX=0 text=\"Skip to content\\nthe API client\\ncreateOrder()\\napi.ts·POST /orders\\ncheckSpendingLimit()\\nStory\\nAll files\\nReview▲2\\nClose story\\nPOST /orders keeps ownership and gain\""
+    },
+    {
+      "file": "motion-theme-rapid-toggle-1440x900-dark.png",
+      "screen": "picker",
+      "state": "motion-rapid-toggle",
+      "notes": "after rapid theme-menu toggles title=codeStory — Pick a repository overflowX=0 text=\"codeStory\\nTHE STORY OF THIS CHANGE\\nVS Code\\nRepositories\\nAdd repository\\n01\\ncodestory-demo-cap\\n/tmp/codestory-demo-cap\\nfeat/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\""
+    },
+    {
+      "file": "motion-change-panel-reverse-1440x900-dark.png",
+      "screen": "change",
+      "state": "motion-reverse-mid-transition",
+      "notes": "compare->commit switch 60ms after open (mid-transition capture) title=codeStory — Choose review scope overflowX=0 text=\"Skip to content\\ncodeStory\\ncodestory-demo-cap\\n/\\nScope\\nVS Code\\nReload\\nExplain code\\nHistory\\n\\nREVIEW SESSION\\n\\nChoose what to review\\n\\nSet the exact Git scope, confir\""
+    },
+    {
+      "file": "motion-change-panel-settled-1440x900-dark.png",
+      "screen": "change",
+      "state": "motion-settled",
+      "notes": "same panels after settle title=codeStory — Choose review scope overflowX=0 text=\"Skip to content\\ncodeStory\\ncodestory-demo-cap\\n/\\nScope\\nVS Code\\nReload\\nExplain code\\nHistory\\n\\nREVIEW SESSION\\n\\nChoose what to review\\n\\nSet the exact Git scope, confir\""
+    }
+  ],
+  "failed": [],
+  "notes": {
+    "storiesListText": "Skip to content\ncodeStory\ncodestory-demo-cap\n/\nReview history\nVS Code\nRefresh evidence\n\nCODESTORY-DEMO-CAP\n\nReview history\nStart review\nExplain code\nImport bundle\n\nResume a saved review when you need its scope or its notes.\n\n1 saved review\n01\nDiff annotations in one spending-limit review\nSAVED\nStart with a local path callout, read each cross-file relationship as a left-to-right pane pair, then inspect a consequence, a reordered two-hunk crossing, and a deliberately unlabeled move that leaves the diff plain.\n6 files\n7 code stops + 1 primer\nmain..feat/spending-limit\n·\nOpen to inspect current review evidence\n·\n3 min ago\nResume review\n· 6 files · 7 stops\nEarlier versions\nExport bundle",
+    "manyStepText": "Skip to content\ncodeStory\ncodestory-demo-cap\n/\nScope\nVS Code\nReload\nExplain code\nHistory\n\nREVIEW SESSION\n\nChoose what to review\n\nSet the exact Git scope, confirm the changed files, then start with the real diff. A guided story stays optional.\n\n0\nfiles\n+0\nadded\n−0\nremoved\n01\nSCOPE\n02\nREAD\n03\nRESOLVE\n04\nDECIDE\nUncommitted\nWorking tree vs HEAD\nSingle commit\nParent → selected commit\nWhole branch\nFork point → branch tip\nCompare any refs\nSource → target, any branch or commit\nCOMMIT\n\nShows that commit against its first parent; root commits are shown against the empty tree.\n\nFORKED FROM parent\nBRANCH ",
+    "longRepoOpen": {
+      "status": 200,
+      "body": "{\"path\":\"/tmp/very-long-repository-name-very-long-repository-name-very-long-repository-name-\",\"name\":\"very-long-repository-name-very-long-repository-name-very-long-repository-name-\",\"isGit\":true,\"hasTour\":true,\"currentBranch\":\"feat/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    "nonGitOpen": {
+      "status": 400,
+      "body": "{\"error\":\"Not a Git repository.\"}"
+    },
+    "s5reviewText": "Skip to content\nDiff annotations in one spending-limit review\nStory\nAll files\nReview▲2\nClose story\nTHE STORY OF THIS CHANGE\nDiff annotations in one spending-limit review\n\nGive the monthly-cap decision one reusable owner while demonstrating semantic annotations on realistic code.\n\n✓\nStory current\n\nMixed change\n·\nrequest boundary → shared policy → downstream state → proof\nMixed change. Reading path: request boundary, then shared policy, then downstream state, then proof\n\nStart the walkthrough\n→\nHow this evolved\n· 3 commits\n⌄\nStory health\n· No issues found\n⌄\n6 files in storymain (5191edc) → feat/spending-limit\nReview notes\n⌄\nAll files →\nPlay\n\nOverview",
+    "motion": [
+      "theme menu toggled 4x at 60ms intervals, settled without error"
+    ]
+  }
+}

@@ -165,7 +165,7 @@ test('review history serves a React shell, not a hand-built page', async () => {
       assert.equal(response.status, 200);
       assert.match(response.headers.get('content-type') ?? '', /^text\/html/);
 
-      assert.match(html, /<title>codeStory — [^<]* Review history<\/title>/);
+      assert.match(html, /<title>codeStory — Review history<\/title>/);
       assert.match(html, /<body class="ds-map-bg" data-surface="stories">/, 'the dot field paints before React mounts');
       assert.match(html, /<link rel="stylesheet" href="\/assets\/client\/app\.css">/);
       assert.match(html, /<script type="module" blocking="render" data-ds-entry src="\/assets\/client\/stories\.js"><\/script>/);
@@ -456,7 +456,7 @@ test('review history keeps its numbering, its facts, and its one Start review', 
   );
   assert.ok(!/Start review/.test(emptyHistory), 'the empty state does not grow a second entry point');
   // The status counts reviews, not notes.
-  assert.match(storiesApp, /openNotes === 1 \? "review has" : "reviews have"/);
+  assert.match(storiesApp, /reviewsWithComments === 1 \? "review has" : "reviews have"/);
   assert.match(storiesApp, /aria-label="Review history status"/);
   // The heading is recomputed from the live list, so a delete renumbers it.
   assert.match(storiesApp, /\{stories\.length\} saved \{stories\.length === 1 \? "review" : "reviews"\}/);
@@ -572,22 +572,10 @@ test('the nav bar keeps the way home and the way back to the change', () => {
 test('review history keeps its accessibility contracts', () => {
   assert.match(storiesApp, /aria-labelledby="saved-reviews-title"/);
   assert.match(storiesApp, /id="saved-reviews-title"/);
-  // Both `title` attributes became beUI tooltips, which the card's
-  // `overflow: hidden` makes worth the trade — the vendored one portals to
-  // document.body instead of being clipped on three sides.
-  assert.match(storyRow, /content=\{scope\.command\}/, 'the chip exposes the raw git command');
-  assert.match(
-    storyRow,
-    /if \(!scope\.command\) return chip;/,
-    'and a scope with no command opens no bubble at all, exactly as the attribute did',
-  );
-  assert.match(storyRow, /content="Remove review"/);
-  assert.ok(!/\stitle=["{]/.test(storyRow), 'no native tooltip fires a second time on top of the styled one');
-  // A tooltip only supplies `aria-describedby` while it is open, and the chip
-  // is not focusable, so it only ever opens on hover. Measured in Chrome, the
-  // `title` this replaced put the command on the chip's accessibility node
-  // permanently — `aria-description` is what keeps that true, and unlike a
-  // visually hidden span it stays out of the row link's name-from-contents.
+  // The existing row link opens its title/scope tooltip for keyboard and hover.
+  assert.match(storyRow, /content=\{story\.scope\.command \? `\$\{title\}\\n\$\{story\.scope\.command\}` : title\}/);
+  assert.match(storyRow, /content="Remove story"/);
+  assert.ok(!/\stitle=["{]/.test(storyRow), 'styled tooltips avoid duplicate native bubbles');
   assert.match(storyRow, /aria-description=\{scope\.command \|\| undefined\}/);
   // The delete control keeps a real name of its own, so losing `title` there
   // costs a reader nothing.
@@ -700,7 +688,7 @@ test('the built bundle actually ships the review-history behaviour', (t) => {
   assert.ok(js.includes('evidence=refresh'), 'bundle keeps the live-evidence refresh link');
   for (const text of [
     'Review history',
-    'Resume a saved review when you need its scope or its notes.',
+    'Resume a saved review when you need its scope or its comments.',
     'Start review',
     'Resume review',
     'No saved reviews',

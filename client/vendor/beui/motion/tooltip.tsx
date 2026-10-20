@@ -124,6 +124,7 @@ export function Tooltip({
   const id = useId();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const anchorRef = useRef<HTMLSpanElement>(null);
+  const bubbleRef = useRef<HTMLSpanElement>(null);
   const reduce = useReducedMotion();
   const canHover = useHoverCapable();
 
@@ -142,11 +143,27 @@ export function Tooltip({
       left: { top: cy, left: r.left - GAP },
       right: { top: cy, left: r.right + GAP },
     };
-    setCoords(point[side]);
+    const next = point[side];
+    const width = bubbleRef.current?.offsetWidth ?? 0;
+    const height = bubbleRef.current?.offsetHeight ?? 0;
+    if (width && height) {
+      if (side === "top" || side === "bottom") {
+        next.left = Math.min(innerWidth - width / 2 - GAP, Math.max(width / 2 + GAP, next.left));
+        next.top = side === "top"
+          ? Math.max(height + GAP, next.top)
+          : Math.min(innerHeight - height - GAP, next.top);
+      } else {
+        next.top = Math.min(innerHeight - height / 2 - GAP, Math.max(height / 2 + GAP, next.top));
+        next.left = side === "left"
+          ? Math.max(width + GAP, next.left)
+          : Math.min(innerWidth - width - GAP, next.left);
+      }
+    }
+    setCoords(next);
   }, [side]);
 
-  const show = useCallback(() => {
-    if (!canHover) return;
+  const show = useCallback((keyboard = false) => {
+    if (!keyboard && !canHover) return;
     if (timer.current) clearTimeout(timer.current);
     const warm = Date.now() - lastHiddenAt < WARM_WINDOW_MS;
     timer.current = setTimeout(
@@ -154,7 +171,7 @@ export function Tooltip({
         place();
         setOpen(true);
       },
-      warm ? 0 : delay,
+      keyboard || warm ? 0 : delay,
     );
   }, [canHover, delay, place]);
 
@@ -167,18 +184,35 @@ export function Tooltip({
     setOpen(false);
   }, [open]);
 
+  const leave = useCallback(() => {
+    if (timer.current) clearTimeout(timer.current);
+    if (anchorRef.current?.contains(document.activeElement)) return;
+    // Let the pointer cross the gap to the bubble without dismissing it.
+    timer.current = setTimeout(hide, 100);
+  }, [hide]);
+
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current);
+  }, []);
+
   // Keep the tooltip pinned to the trigger while it's open and the page scrolls
   // or resizes (fixed coords are viewport-relative).
   useEffect(() => {
     if (!open) return;
+    place();
     const onMove = () => place();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") hide();
+    };
     window.addEventListener("scroll", onMove, true);
     window.addEventListener("resize", onMove);
+    document.addEventListener("keydown", onKeyDown);
     return () => {
       window.removeEventListener("scroll", onMove, true);
       window.removeEventListener("resize", onMove);
+      document.removeEventListener("keydown", onKeyDown);
     };
-  }, [open, place]);
+  }, [open, place, hide]);
 
   const variants = useMemo(
     () => (reduce ? REDUCED_VARIANTS : buildVariants(side)),
@@ -187,22 +221,22 @@ export function Tooltip({
 
   if (!isValidElement(children)) return children;
 
-  const trigger = cloneElement(
-    children as ReactElement<Record<string, unknown>>,
-    {
-      onMouseEnter: show,
-      onMouseLeave: hide,
-      onFocus: show,
-      onBlur: hide,
-      "aria-describedby": id,
-    },
-  );
+  const child = children as ReactElement<Record<string, unknown>>;
+  const trigger = cloneElement(child, {
+    "aria-describedby": [child.props["aria-describedby"], open ? id : null].filter(Boolean).join(" ") || undefined,
+  });
 
   return (
     <>
       <span
         ref={anchorRef}
         className={cn("relative inline-flex align-middle", wrapperClassName)}
+        onMouseEnter={() => show()}
+        onMouseLeave={leave}
+        onFocusCapture={() => show(true)}
+        onBlurCapture={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) hide();
+        }}
       >
         {trigger}
       </span>
@@ -211,8 +245,10 @@ export function Tooltip({
             <AnimatePresence>
               {open && coords ? (
                 <span
-                  aria-hidden
-                  className="pointer-events-none fixed z-[9999]"
+                  ref={bubbleRef}
+                  className="fixed z-[9999]"
+                  onMouseEnter={() => show()}
+                  onMouseLeave={leave}
                   style={{
                     top: coords.top,
                     left: coords.left,
@@ -228,7 +264,7 @@ export function Tooltip({
                     exit="exit"
                     style={{ transformOrigin: transformOrigin[side] }}
                     className={cn(
-                      "block whitespace-nowrap rounded-lg border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground shadow-lg",
+                      "block max-w-[calc(100vw-16px)] whitespace-normal rounded-lg border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground shadow-lg [overflow-wrap:anywhere]",
                       className,
                     )}
                   >

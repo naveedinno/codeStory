@@ -180,7 +180,7 @@ test('narration tells the page to use the browser voice only when Lino itself is
   }
 });
 
-test('fresh desktop server restores a recent repository route and falls back when it is stale', async () => {
+test('fresh desktop server restores a recent repository route and shows recovery when it is stale', async () => {
   const realHome = process.env.HOME;
   const tmpHome = mkdtempSync(join(tmpdir(), 'ds-home-'));
   process.env.HOME = tmpHome;
@@ -212,9 +212,18 @@ test('fresh desktop server restores a recent repository route and falls back whe
     restarted = null;
     staleRestart = await boot(null, tmpHome);
     const stale = await fetch(`${staleRestart.base}/repo/no-longer-present/review?story=story.json`);
-    assert.equal(stale.status, 200);
-    assert.equal(stale.url, `${staleRestart.base}/`);
-    assert.match(await stale.text(), /pick a repo/i);
+    assert.equal(stale.status, 404);
+    assert.equal(stale.url, `${staleRestart.base}/repo/no-longer-present/review?story=story.json`);
+    const staleHtml = await stale.text();
+    assert.match(staleHtml, /<h1[^>]*>Page not found<\/h1>/);
+    assert.match(staleHtml, /That repository or page could not be found\./);
+    assert.match(staleHtml, /<a[^>]*href="\/repos"[^>]*>Go to your repositories<\/a>/);
+    assert.match(staleHtml, /\/assets\/client\/app\.css/);
+    for (const missing of ['/api/no-longer-present', '/assets/client/no-longer-present.js', '/repo/no-longer-present/app.js']) {
+      const assetOrApi = await fetch(`${staleRestart.base}${missing}`);
+      assert.equal(assetOrApi.status, 404);
+      assert.equal(await assetOrApi.text(), 'Not found', `${missing} keeps a plain resource 404`);
+    }
   } finally {
     first?.server.close();
     restarted?.server.close();
@@ -856,6 +865,17 @@ test('app server drives picker → open → refs → recent → close', async ()
     assert.equal(legacyStories.url, `${base}/repo/${encodeURIComponent(basename(repo))}/stories`);
 
     const refs = await (await fetch(`${base}/api/refs`)).json();
+    execFileSync('git', ['tag', 'ui-ref-tag'], { cwd: repo });
+    const fullSha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim();
+    for (const ref of ['HEAD', 'HEAD~1', 'ui-ref-tag', fullSha]) {
+      const resolved = await fetch(`${base}/api/refs/resolve?ref=${encodeURIComponent(ref)}`);
+      assert.equal(resolved.status, 200);
+      assert.equal((await resolved.json()).valid, true, `${ref} resolves beyond the suggestion list`);
+    }
+    for (const ref of ['unknown-ui-ref', '--all', '']) {
+      const resolved = await fetch(`${base}/api/refs/resolve?ref=${encodeURIComponent(ref)}`);
+      assert.equal((await resolved.json()).valid, false, `${ref} is not a valid commit ref`);
+    }
     assert.ok(Array.isArray(refs.branches));
     assert.ok(Array.isArray(refs.commits));
     assert.ok(refs.commits.length > 80, 'ref picker exposes every commit, not only a capped recent list');
@@ -1082,7 +1102,7 @@ test('/api/diff/context serves clamped context rows', async () => {
     assert.match(pastHtml, /forty/);
     // A file that's in the diff but unreadable from the working tree gets the note.
     const unreadable = await fetch(context('file=gone.txt&from=1&to=5&layout=unified'));
-    assert.match(await unreadable.text(), /Couldn't read gone\.txt from the working tree\./);
+    assert.match(await unreadable.text(), /Could not read gone\.txt from the working tree\./);
     const bad = await fetch(context('file=nope.md&from=1&to=2&layout=unified'));
     assert.match(await bad.text(), /isn't part of this change/);
   } finally {

@@ -11,6 +11,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright-core';
 import { serve } from '../dist/server.js';
 import { videoCapabilities, videoRequirements, videoScenes } from '../dist/video-export.js';
+import { findLinoApp, linoAppCandidates } from '../dist/lino-engine.js';
 import { loadTour } from '../dist/tour.js';
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
@@ -18,6 +19,12 @@ const scratch=mkdtempSync(join(tmpdir(),'codestory-video-smoke-'));
 const repo=join(scratch,'repo'),home=join(scratch,'home');
 const output=process.env.CODESTORY_VIDEO_SMOKE_OUT||join(scratch,'artifacts');mkdirSync(output,{recursive:true});
 const requirements=videoRequirements();assert.equal(requirements.available,true,requirements.missing.join(' '));
+const withLino=process.env.CODESTORY_VIDEO_SMOKE_LINO==='1';
+if(withLino){
+  assert.equal(requirements.lino,true,'Install Lino before running its video smoke check.');
+  // Keep codeStory preferences in the temporary home while using the real app.
+  process.env.CODESTORY_LINO_APP=findLinoApp(linoAppCandidates()).path;
+}
 const tools=videoCapabilities();
 execFileSync(process.execPath,[join(root,'examples/demo.mjs')],{cwd:root,env:{...process.env,CODESTORY_DEMO_NO_SERVE:'1',CODESTORY_DEMO_DIR:repo},stdio:'pipe'});
 const storyPath=join(repo,'.codestory/story.json');
@@ -41,7 +48,8 @@ try {
   const context=await browser.newContext({viewport:{width:1280,height:800},colorScheme:'light'});
   const page=await context.newPage();page.setDefaultTimeout(180000);
   await page.goto(`${origin}/repo/${basename(repo)}/review?story=story.json`);
-  await page.getByRole('button',{name:'Export video',exact:true}).waitFor();
+  await page.getByRole('button',{name:'File menu',exact:true}).waitFor();
+  assert.equal(await page.getByRole('button',{name:'Export video',exact:true}).count(),0,'export lives only in the File menu');
   const token=await page.locator('body').getAttribute('data-review-page-token');
   const expectedScenes=videoScenes(await page.locator('#__CODESTORY_DATA__').evaluate(node=>JSON.parse(node.textContent)));
   const url=path=>`${origin}/api/video-export${path}?page=${token}`;
@@ -54,18 +62,40 @@ try {
   const foreign=await fetch(`${origin}/api/video-export/${cancelled.id}?page=foreign`);assert.equal(foreign.status,404);
   const premature=await fetch(url(`/${cancelled.id}/file`));assert.equal(premature.status,409);
   const stopped=await fetch(url(`/${cancelled.id}`),{method:'DELETE'});assert.equal((await stopped.json()).state,'cancelled');
-  for(const [resolution,narration,theme] of [['720p',false,'light'],['1080p',requirements.narration,'dark']]) {
+  for(const [resolution,narration,theme,narrationEngine] of [['720p',false,'light'],['1080p',requirements.narration,'dark'],...(withLino?[['720p',true,'light','lino']]:[])]) {
+    const variant=narrationEngine==='lino'?`${resolution}-lino`:resolution;
     let job;
     if(resolution==='720p') {
-      await page.getByRole('button',{name:'Export video',exact:true}).click();
+      await page.getByRole('button',{name:'File menu',exact:true}).click();
+      await page.getByRole('menuitem',{name:'Export video…',exact:true}).click();
+      const fresh=page.getByRole('button',{name:'New export',exact:true});if(await fresh.count())await fresh.click();
       await page.getByRole('combobox',{name:'Resolution',exact:true}).selectOption('720p');
       await page.getByRole('combobox',{name:'Reading speed',exact:true}).selectOption('1.5');
+      await page.getByRole('combobox',{name:'Narration',exact:true}).selectOption(narrationEngine??'none');
+      if(narrationEngine==='lino'){
+        await page.getByRole('combobox',{name:'Voice model',exact:true}).waitFor();
+        const catalog=await(await fetch(`${origin}/api/aloud/settings`)).json();
+        const model=catalog.models.find(model=>model.ready&&model.languages.includes('en')&&model.id!==catalog.status.engine)
+          ?? catalog.models.find(model=>model.ready&&model.languages.includes('en'));
+        const voice=model.voices.at(-1).id;
+        await page.getByRole('combobox',{name:'Voice model',exact:true}).selectOption(model.id);
+        await page.getByRole('combobox',{name:'Voice',exact:true}).selectOption(voice);
+        await page.screenshot({path:join(output,'export-lino.png')});
+        const after=await(await fetch(`${origin}/api/aloud/status`)).json();
+        assert.equal(after.engine,catalog.status.engine);assert.equal(after.voice,catalog.status.voice);
+      }
       const created=page.waitForResponse(response=>response.url().includes('/api/video-export?')&&response.request().method()==='POST');
       await page.getByRole('button',{name:'Create video',exact:true}).click();
       const response=await created;job=await response.json();assert.equal(response.status(),202,JSON.stringify(job));
+      if(narrationEngine==='lino'){
+        const selection=response.request().postDataJSON().lino;
+        assert.equal(selection.engine,await page.getByRole('combobox',{name:'Voice model',exact:true}).inputValue());
+        assert.equal(selection.voice,await page.getByRole('combobox',{name:'Voice',exact:true}).inputValue());
+      }
       await page.getByRole('button',{name:'Close video export',exact:true}).click();
-      await page.getByRole('button',{name:'Video export progress',exact:true}).click();
-    } else job=await create({resolution,narration,speed:1.5,theme});
+      await page.getByRole('button',{name:'File menu',exact:true}).click();
+      await page.getByRole('menuitem',{name:'Video export progress…',exact:true}).click();
+    } else job=await create({resolution,narration,narrationEngine,speed:1.5,theme});
     const deadline=Date.now()+180000;let state;
     do {
       state=await(await fetch(url(`/${job.id}`))).json();
@@ -74,10 +104,10 @@ try {
     } while(Date.now()<deadline);
     assert.equal(state.state,'ready',JSON.stringify(state));
     const response=await fetch(url(`/${job.id}/file`));assert.equal(response.status,200);assert.equal(response.headers.get('content-type'),'video/mp4');
-    const file=join(output,`${resolution}-${narration?'narrated':'subtitles'}.mp4`);
+    const file=join(output,`${variant}-${narration?'narrated':'subtitles'}.mp4`);
     if(resolution==='720p') {
       const link=page.getByRole('link',{name:'Download MP4',exact:true});await link.waitFor();
-      await page.screenshot({path:join(output,'export-ready.png')});
+      await page.screenshot({path:join(output,`${variant}-export-ready.png`)});
       const downloaded=page.waitForEvent('download');await link.click();const download=await downloaded;
       assert.equal(download.suggestedFilename(),'spending-limits.mp4');await download.saveAs(file);
       await page.getByRole('button',{name:'Close video export',exact:true}).click();
@@ -106,8 +136,8 @@ try {
     // Decode representative frames; a valid MP4 header alone is insufficient.
     execFileSync(tools.ffmpeg,['-v','error','-i',file,'-f','null','-'],{stdio:'pipe'});
     for(const [name,fraction] of [['overview',0.02],['diagram',0.25],['concept',0.5],['code',0.88]])
-      execFileSync(tools.ffmpeg,['-y','-v','error','-ss',String(Number(info.format.duration)*fraction),'-i',file,'-frames:v','1',join(output,`${resolution}-${name}.png`)],{stdio:'pipe'});
-    console.log(`PASS ${resolution}: ${Number(info.format.duration).toFixed(2)}s H.264 MP4, ${narration?'AAC narration':'no narration'}, selectable timed subtitles, fully decoded`);
+      execFileSync(tools.ffmpeg,['-y','-v','error','-ss',String(Number(info.format.duration)*fraction),'-i',file,'-frames:v','1',join(output,`${variant}-${name}.png`)],{stdio:'pipe'});
+    console.log(`PASS ${variant}: ${Number(info.format.duration).toFixed(2)}s H.264 MP4, ${narration?'AAC narration':'no narration'}, selectable timed subtitles, fully decoded`);
   }
   assert.equal(readFileSync(join(repo,'.codestory/comments.json'),'utf8'),comments);
   assert.equal(readFileSync(storyPath,'utf8'),JSON.stringify(story,null,2));

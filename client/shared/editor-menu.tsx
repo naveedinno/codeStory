@@ -21,7 +21,7 @@ const EDITORS: Array<{ value: SourceEditor; label: string; detail: string }> = [
 function EditorGlyph() {
   return (
     <span className="grid h-[18px] w-[18px] place-items-center" aria-hidden="true">
-      <Code2 className="h-[18px] w-[18px]" strokeWidth={1.8} />
+      <Code2 className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden="true" />
     </span>
   );
 }
@@ -167,6 +167,8 @@ export function EditorMenu({ className, compact = false }: { className?: string;
         role="menu"
         aria-label="Source editor"
         hidden={!open}
+        inert={!open}
+        aria-hidden={!open}
         onKeyDown={onMenuKeyDown}
       >
         <div className="ds-editor-menu-heading">

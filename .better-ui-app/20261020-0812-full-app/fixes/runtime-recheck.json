@@ -1,0 +1,389 @@
+{
+  "captures": [
+    {
+      "name": "picker-1440-dark",
+      "url": "http://127.0.0.1:63906/repos",
+      "width": 1440,
+      "overflow": 0,
+      "title": "codeStory — Pick a repository"
+    },
+    {
+      "name": "stories-1440-dark",
+      "url": "http://127.0.0.1:63906/repo/review-demo/stories",
+      "width": 1440,
+      "overflow": 0,
+      "title": "codeStory — Review history"
+    },
+    {
+      "name": "change-1440-dark",
+      "url": "http://127.0.0.1:63906/repo/review-demo/change?base=main&head=feat%2Fspending-limit",
+      "width": 1440,
+      "overflow": 0,
+      "title": "codeStory — Choose review scope"
+    },
+    {
+      "name": "review-1440-dark",
+      "url": "http://127.0.0.1:63906/repo/review-demo/review?story=story.json&view=tour",
+      "width": 1440,
+      "overflow": 0,
+      "title": "codeStory — Diff annotations in one spending-limit review"
+    },
+    {
+      "name": "explain-1440-dark",
+      "url": "http://127.0.0.1:63906/repo/review-demo/explain",
+      "width": 1440,
+      "overflow": 0,
+      "title": "codeStory — Explain code"
+    },
+    {
+      "name": "404-1440-dark",
+      "url": "http://127.0.0.1:63906/repo/missing-review/page",
+      "width": 1440,
+      "overflow": 0,
+      "title": "codeStory — Page not found"
+    },
+    {
+      "name": "picker-1440-light",
+      "url": "http://127.0.0.1:63906/repos",
+      "width": 1440,
+      "overflow": 0,
+      "title": "codeStory — Pick a repository"
+    },
+    {
+      "name": "stories-1440-light",
+      "url": "http://127.0.0.1:63906/repo/review-demo/stories",
+      "width": 1440,
+      "overflow": 0,
+      "title": "codeStory — Review history"
+    },
+    {
+      "name": "change-1440-light",
+      "url": "http://127.0.0.1:63906/repo/review-demo/change?base=main&head=feat%2Fspending-limit",
+      "width": 1440,
+      "overflow": 0,
+      "title": "codeStory — Choose review scope"
+    },
+    {
+      "name": "review-1440-light",
+      "url": "http://127.0.0.1:63906/repo/review-demo/review?story=story.json&view=tour",
+      "width": 1440,
+      "overflow": 0,
+      "title": "codeStory — Diff annotations in one spending-limit review"
+    },
+    {
+      "name": "explain-1440-light",
+      "url": "http://127.0.0.1:63906/repo/review-demo/explain",
+      "width": 1440,
+      "overflow": 0,
+      "title": "codeStory — Explain code"
+    },
+    {
+      "name": "404-1440-light",
+      "url": "http://127.0.0.1:63906/repo/missing-review/page",
+      "width": 1440,
+      "overflow": 0,
+      "title": "codeStory — Page not found"
+    },
+    {
+      "name": "picker-375-dark",
+      "url": "http://127.0.0.1:63906/repos",
+      "width": 375,
+      "overflow": 0,
+      "title": "codeStory — Pick a repository"
+    },
+    {
+      "name": "stories-375-dark",
+      "url": "http://127.0.0.1:63906/repo/review-demo/stories",
+      "width": 375,
+      "overflow": 0,
+      "title": "codeStory — Review history"
+    },
+    {
+      "name": "change-375-dark",
+      "url": "http://127.0.0.1:63906/repo/review-demo/change?base=main&head=feat%2Fspending-limit",
+      "width": 375,
+      "overflow": 0,
+      "title": "codeStory — Choose review scope"
+    },
+    {
+      "name": "review-375-dark",
+      "url": "http://127.0.0.1:63906/repo/review-demo/review?story=story.json&view=tour",
+      "width": 375,
+      "overflow": 0,
+      "title": "codeStory — Diff annotations in one spending-limit review"
+    },
+    {
+      "name": "explain-375-dark",
+      "url": "http://127.0.0.1:63906/repo/review-demo/explain",
+      "width": 375,
+      "overflow": 0,
+      "title": "codeStory — Explain code"
+    },
+    {
+      "name": "404-375-dark",
+      "url": "http://127.0.0.1:63906/repo/missing-review/page",
+      "width": 375,
+      "overflow": 0,
+      "title": "codeStory — Page not found"
+    },
+    {
+      "name": "picker-375-light",
+      "url": "http://127.0.0.1:63906/repos",
+      "width": 375,
+      "overflow": 0,
+      "title": "codeStory — Pick a repository"
+    },
+    {
+      "name": "stories-375-light",
+      "url": "http://127.0.0.1:63906/repo/review-demo/stories",
+      "width": 375,
+      "overflow": 0,
+      "title": "codeStory — Review history"
+    },
+    {
+      "name": "change-375-light",
+      "url": "http://127.0.0.1:63906/repo/review-demo/change?base=main&head=feat%2Fspending-limit",
+      "width": 375,
+      "overflow": 0,
+      "title": "codeStory — Choose review scope"
+    },
+    {
+      "name": "review-375-light",
+      "url": "http://127.0.0.1:63906/repo/review-demo/review?story=story.json&view=tour",
+      "width": 375,
+      "overflow": 0,
+      "title": "codeStory — Diff annotations in one spending-limit review"
+    },
+    {
+      "name": "explain-375-light",
+      "url": "http://127.0.0.1:63906/repo/review-demo/explain",
+      "width": 375,
+      "overflow": 0,
+      "title": "codeStory — Explain code"
+    },
+    {
+      "name": "404-375-light",
+      "url": "http://127.0.0.1:63906/repo/missing-review/page",
+      "width": 375,
+      "overflow": 0,
+      "title": "codeStory — Page not found"
+    },
+    {
+      "name": "picker-320-dark",
+      "url": "http://127.0.0.1:63906/repos",
+      "width": 320,
+      "overflow": 0,
+      "title": "codeStory — Pick a repository"
+    },
+    {
+      "name": "stories-320-dark",
+      "url": "http://127.0.0.1:63906/repo/review-demo/stories",
+      "width": 320,
+      "overflow": 0,
+      "title": "codeStory — Review history"
+    },
+    {
+      "name": "change-320-dark",
+      "url": "http://127.0.0.1:63906/repo/review-demo/change?base=main&head=feat%2Fspending-limit",
+      "width": 320,
+      "overflow": 0,
+      "title": "codeStory — Choose review scope"
+    },
+    {
+      "name": "review-320-dark",
+      "url": "http://127.0.0.1:63906/repo/review-demo/review?story=story.json&view=tour",
+      "width": 320,
+      "overflow": 0,
+      "title": "codeStory — Diff annotations in one spending-limit review"
+    },
+    {
+      "name": "explain-320-dark",
+      "url": "http://127.0.0.1:63906/repo/review-demo/explain",
+      "width": 320,
+      "overflow": 0,
+      "title": "codeStory — Explain code"
+    },
+    {
+      "name": "404-320-dark",
+      "url": "http://127.0.0.1:63906/repo/missing-review/page",
+      "width": 320,
+      "overflow": 0,
+      "title": "codeStory — Page not found"
+    },
+    {
+      "name": "picker-320-light",
+      "url": "http://127.0.0.1:63906/repos",
+      "width": 320,
+      "overflow": 0,
+      "title": "codeStory — Pick a repository"
+    },
+    {
+      "name": "stories-320-light",
+      "url": "http://127.0.0.1:63906/repo/review-demo/stories",
+      "width": 320,
+      "overflow": 0,
+      "title": "codeStory — Review history"
+    },
+    {
+      "name": "change-320-light",
+      "url": "http://127.0.0.1:63906/repo/review-demo/change?base=main&head=feat%2Fspending-limit",
+      "width": 320,
+      "overflow": 0,
+      "title": "codeStory — Choose review scope"
+    },
+    {
+      "name": "review-320-light",
+      "url": "http://127.0.0.1:63906/repo/review-demo/review?story=story.json&view=tour",
+      "width": 320,
+      "overflow": 0,
+      "title": "codeStory — Diff annotations in one spending-limit review"
+    },
+    {
+      "name": "explain-320-light",
+      "url": "http://127.0.0.1:63906/repo/review-demo/explain",
+      "width": 320,
+      "overflow": 0,
+      "title": "codeStory — Explain code"
+    },
+    {
+      "name": "404-320-light",
+      "url": "http://127.0.0.1:63906/repo/missing-review/page",
+      "width": 320,
+      "overflow": 0,
+      "title": "codeStory — Page not found"
+    },
+    {
+      "name": "stress-long-repo-branch-375",
+      "url": "http://127.0.0.1:63906/repos",
+      "width": 375,
+      "overflow": 0,
+      "title": "codeStory — Pick a repository"
+    },
+    {
+      "name": "stress-long-basename-375",
+      "url": "http://127.0.0.1:63906/repo/repository-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/change?scope=uncommitted",
+      "width": 375,
+      "overflow": 0,
+      "title": "codeStory — Choose review scope"
+    },
+    {
+      "name": "stress-long-history-375",
+      "url": "http://127.0.0.1:63906/repo/repository-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/stories",
+      "width": 375,
+      "overflow": 0,
+      "title": "codeStory — Review history"
+    },
+    {
+      "name": "review-forced-colors-reduced-more-375",
+      "url": "http://127.0.0.1:63906/repo/review-demo/review?story=story.json&view=tour",
+      "width": 375,
+      "overflow": 0,
+      "title": "codeStory — Diff annotations in one spending-limit review"
+    },
+    {
+      "name": "review-root-font-200pct",
+      "url": "http://127.0.0.1:63906/repo/review-demo/review?story=story.json&view=tour",
+      "width": 1440,
+      "overflow": 0,
+      "title": "codeStory — Diff annotations in one spending-limit review"
+    },
+    {
+      "name": "change-invalid-ref-375",
+      "url": "http://127.0.0.1:63906/repo/review-demo/change?scope=commit&commit=HEAD",
+      "width": 375,
+      "overflow": 0,
+      "title": "codeStory — Choose review scope"
+    },
+    {
+      "name": "change-container-650",
+      "url": "http://127.0.0.1:63906/repo/review-demo/change?base=main&head=feat%2Fspending-limit",
+      "width": 650,
+      "overflow": 0,
+      "title": "codeStory — Choose review scope"
+    },
+    {
+      "name": "change-rtl-650",
+      "url": "http://127.0.0.1:63906/repo/review-demo/change?base=main&head=feat%2Fspending-limit",
+      "width": 650,
+      "overflow": 0,
+      "title": "codeStory — Choose review scope"
+    },
+    {
+      "name": "explain-restored-draft",
+      "url": "http://127.0.0.1:63906/repo/review-demo/explain",
+      "width": 1440,
+      "overflow": 0,
+      "title": "codeStory — Explain code"
+    },
+    {
+      "name": "stress-42-steps-375",
+      "url": "http://127.0.0.1:63906/repo/review-demo/review?story=story.json&view=tour&step=1",
+      "width": 375,
+      "overflow": 0,
+      "title": "codeStory — Diff annotations in one spending-limit review"
+    },
+    {
+      "name": "stress-one-step-375",
+      "url": "http://127.0.0.1:63906/repo/review-demo/review?story=story.json&view=tour&step=1",
+      "width": 375,
+      "overflow": 0,
+      "title": "codeStory — One boundary"
+    }
+  ],
+  "checks": [
+    {
+      "scenario": "review close reachable 320 dark",
+      "bounds": {
+        "x": 275,
+        "y": 6,
+        "width": 44,
+        "height": 44
+      },
+      "inside": true
+    },
+    {
+      "scenario": "review close reachable 320 light",
+      "bounds": {
+        "x": 275,
+        "y": 6,
+        "width": 44,
+        "height": 44
+      },
+      "inside": true
+    },
+    {
+      "scenario": "forced-colors/reduced-motion",
+      "result": {
+        "reduced": true,
+        "forced": true,
+        "contrast": true,
+        "carets": [
+          "0s",
+          "0s"
+        ]
+      }
+    },
+    {
+      "scenario": "unknown ref",
+      "value": "unknown-ui-ref-for-recheck",
+      "invalid": "true"
+    },
+    {
+      "scenario": "valid Git expression",
+      "url": "http://127.0.0.1:63906/repo/review-demo/change?scope=commit&commit=HEAD~1"
+    },
+    {
+      "scenario": "Explain draft round trip",
+      "restored": "How is the monthly cap checked?"
+    },
+    {
+      "scenario": "42 steps",
+      "nodes": 43
+    },
+    {
+      "scenario": "one step",
+      "nodes": 2
+    }
+  ],
+  "errors": []
+}

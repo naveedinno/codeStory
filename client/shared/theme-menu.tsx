@@ -91,6 +91,10 @@ export function ThemeMenu({ className }: { className?: string }) {
   }, [open, close]);
 
   const onMenuKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Tab") {
+      close(false);
+      return;
+    }
     if (event.key === "Escape") {
       event.preventDefault();
       close(true);
@@ -157,6 +161,8 @@ export function ThemeMenu({ className }: { className?: string }) {
         role="menu"
         aria-label="Color theme"
         hidden={!open}
+        inert={!open}
+        aria-hidden={!open}
         onKeyDown={onMenuKeyDown}
       >
         {MODES.map((mode) => (

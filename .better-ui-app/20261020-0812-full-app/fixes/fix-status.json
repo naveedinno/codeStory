@@ -1,0 +1,511 @@
+{
+  "fixed": 84,
+  "partlyFixed": 0,
+  "notFixed": 0,
+  "rows": [
+    {
+      "id": "A11Y-1",
+      "status": "Fixed",
+      "change": "Review panels show the canonical focus ring. `client/surfaces/review/review.css:464`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "A11Y-2",
+      "status": "Fixed",
+      "change": "Every finding names its severity in visible text. `client/surfaces/review/StoryHealth.tsx:86`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "A11Y-3",
+      "status": "Fixed",
+      "change": "Long branch labels yield and reveal their full value. `client/surfaces/picker/RecentRepos.tsx:112`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "A11Y-4",
+      "status": "Fixed",
+      "change": "Skip navigation lands after the repeated Hero controls. `client/surfaces/picker/PickerApp.tsx:228`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "A11Y-5",
+      "status": "Fixed",
+      "change": "Tab closes the theme menu and continues normal focus order. `client/shared/theme-menu.tsx:94`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "A11Y-6",
+      "status": "Fixed",
+      "change": "Deleted triggers restore to a stable page target; busy removal stays in its dialog. `client/shared/use-modal.ts:170`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "A11Y-7",
+      "status": "Fixed",
+      "change": "File names retain reviewed, unexplained and regenerated states after engine updates. `client/surfaces/review/engine/review-engine.js:2933`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "A11Y-9",
+      "status": "Fixed",
+      "change": "Hover and focus pause the remaining reload countdown; cancellation cannot restart it. `client/surfaces/review/engine/review-engine.js:141`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "A11Y-10",
+      "status": "Fixed",
+      "change": "Filmstrip focus has a perimeter as well as optional magnification. `client/surfaces/review/review.css:1274`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "A11Y-11",
+      "status": "Fixed",
+      "change": "Breadcrumb controls have expanded targets. `client/surfaces/picker/FolderBrowser.tsx:347`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "A11Y-12",
+      "status": "Fixed",
+      "change": "Decorative icons are hidden from assistive technology across the repaired surfaces. `client/surfaces/picker/Hero.tsx:18`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "A11Y-13",
+      "status": "Fixed",
+      "change": "The programmatically focusable import control is no longer aria-hidden. `client/surfaces/stories/StoriesApp.tsx:224`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "A11Y-14",
+      "status": "Fixed",
+      "change": "The modal scrim contains overscroll. `client/shared/shared.css:158`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "A11Y-15",
+      "status": "Fixed",
+      "change": "The disabled submit action has a persistent explanation. `client/surfaces/explain/ExplainApp.tsx:544`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "A11Y-16",
+      "status": "Fixed",
+      "change": "Repositories is the actual page heading; the brand is decorative identity. `client/surfaces/picker/PickerApp.tsx:228`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "A11Y-17",
+      "status": "Fixed",
+      "change": "Current milestone and step states are exposed as text and semantics. `client/surfaces/progress/Milestones.tsx:47`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "COL-1",
+      "status": "Fixed",
+      "change": "Active small labels use semantic accent ink. `client/surfaces/review/review.css:49`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "COL-2",
+      "status": "Fixed",
+      "change": "Syntax emphasis passes AA in both themes; focus blue stays in the gutter. `src/theme.ts:165`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "COL-3",
+      "status": "Fixed",
+      "change": "Step numerals use text-2 and accent-text rather than dim rail mixtures. `client/surfaces/review/review.css:1276`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "COL-4",
+      "status": "Fixed",
+      "change": "Badge, count, annotation and status text use dedicated semantic inks. `client/surfaces/review/review.css:273`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "COL-5",
+      "status": "Fixed",
+      "change": "Shared menu focus uses the canonical focus token. `client/shared/shared.css:233`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "COL-6",
+      "status": "Fixed",
+      "change": "Increased contrast is canonical for every surface, without a later global override. `src/theme.ts:206`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "COL-7",
+      "status": "Fixed",
+      "change": "System colors preserve diff, badge, focus and current-control distinctions. `client/styles.css:82`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "COL-8",
+      "status": "Fixed",
+      "change": "Dead M3 aliases and superseded intro color rules were removed. `client/surfaces/review/review.css:64`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "COL-9",
+      "status": "Fixed",
+      "change": "The bridge documents vendor-only aliases and first-party semantic tokens. `scripts/build-theme-css.mjs:119`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "COL-10",
+      "status": "Fixed",
+      "change": "Progress primaries use their paired on-accent ink. `client/surfaces/progress/ProgressPanel.tsx:432`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "COPY-2",
+      "status": "Fixed",
+      "change": "Queued items are consistently called comments. `client/surfaces/stories/story-state.ts:12`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "COPY-3",
+      "status": "Fixed",
+      "change": "Story depth choices use Quick tour, Guided tour and Deep dive throughout. `client/surfaces/review/StoryView.tsx:434`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "COPY-4",
+      "status": "Fixed",
+      "change": "Excluded-file and coverage prose describe visible behavior in plain words. `client/surfaces/review/engine/review-engine.js:3111`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "COPY-5",
+      "status": "Fixed",
+      "change": "The removal action and confirmation name the same object. `client/surfaces/stories/StoryRow.tsx:273`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "COPY-6",
+      "status": "Fixed",
+      "change": "The composer names what Copy copies. `client/surfaces/review/engine/review-engine.js:3446`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "COPY-7",
+      "status": "Fixed",
+      "change": "Default failures explain the next recovery step; server details still win. `client/surfaces/progress/state.ts:444`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "COPY-8",
+      "status": "Fixed",
+      "change": "Singular and plural divergent-version verbs agree. `client/surfaces/review/ReviewApp.tsx:132`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "COPY-9",
+      "status": "Fixed",
+      "change": "Both coverage counts identify changed lines. `client/surfaces/review/ReviewView.tsx:228`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "COPY-10",
+      "status": "Fixed",
+      "change": "Visible recovery labels consistently say Try again. `client/surfaces/review/engine/review-engine.js:2405`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "COPY-11",
+      "status": "Fixed",
+      "change": "Empty searches explain how to clear or revise the query. `client/surfaces/picker/FolderBrowser.tsx:452`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "COPY-12",
+      "status": "Fixed",
+      "change": "Navigation names the destination and consistently uses Review history. `client/shared/nav.tsx:8`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "COPY-13",
+      "status": "Fixed",
+      "change": "Document titles use one surface-name pattern. `src/server.ts:1630`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "COPY-14",
+      "status": "Fixed",
+      "change": "Palette commands and explanatory flags use sentence case. `client/surfaces/review/ReviewApp.tsx:257`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "COPY-15",
+      "status": "Fixed",
+      "change": "Skill names and manual installation instructions agree across the app. `client/surfaces/picker/SkillBanner.tsx:64`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "COPY-16",
+      "status": "Fixed",
+      "change": "History links name the version they open. `client/surfaces/stories/StoryHistory.tsx:199`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "COPY-17",
+      "status": "Fixed",
+      "change": "Loading labels identify the work in progress. `client/surfaces/picker/FolderBrowser.tsx:264`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "COPY-18",
+      "status": "Fixed",
+      "change": "Error voice consistently uses clear, non-contracted recovery prose. `client/surfaces/review/engine/review-engine.js:3990`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "EXP-1",
+      "status": "Fixed",
+      "change": "Missing page-like routes have themed404 recovery; APIs/assets retain plain404. `src/server.ts:4675`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "EXP-2",
+      "status": "Fixed",
+      "change": "Per-repository drafts restore after navigation and clear after successful completion. `client/surfaces/explain/ExplainApp.tsx:107`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "EXP-3",
+      "status": "Fixed",
+      "change": "Committed refs resolve with Git, including tags, full hashes and revision expressions; invalid text remains with an associated error. `src/server.ts:1142`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "EXP-4",
+      "status": "Fixed",
+      "change": "Missing repositories cannot invoke an already-known failing Open action. `client/surfaces/picker/RecentRepos.tsx:164`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "EXP-5",
+      "status": "Fixed",
+      "change": "History failures can retry the correct load or restore request. `client/surfaces/stories/StoryHistory.tsx:159`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "EXP-6",
+      "status": "Fixed",
+      "change": "Scope navigation exposes busy feedback before leaving the page. `client/surfaces/change/ScopeCard.tsx:320`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "EXP-7",
+      "status": "Fixed",
+      "change": "The most recent repository removal retains a visible Restore path after toast dismissal. `client/surfaces/picker/PickerApp.tsx:121`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "EXP-8",
+      "status": "Fixed",
+      "change": "Story removal confirms visibly, without placing background controls above a later dialog. `client/surfaces/stories/StoriesApp.tsx:322`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "LAY-1",
+      "status": "Fixed",
+      "change": "Shared navigation wraps before intermediate-width overflow; narrow review chrome scrolls only its tabs. `client/shared/nav.tsx:88`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "LAY-3",
+      "status": "Fixed",
+      "change": "Direction-dependent menu, gutter, row and marker alignment uses logical properties. `client/surfaces/review/review.css:1053`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "LAY-4",
+      "status": "Fixed",
+      "change": "Ref editors and summaries use matching container breakpoints; progress responds to its own panel. `client/surfaces/change/ScopeCard.tsx:557`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "LAY-5",
+      "status": "Fixed",
+      "change": "Long basenames yield without pushing counts away and can reveal their full path. `client/surfaces/change/FileSummary.tsx:56`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "LAY-6",
+      "status": "Fixed",
+      "change": "Page groups use spacing without redundant floating separator lines. `client/surfaces/stories/StoriesApp.tsx:167`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "LAY-7",
+      "status": "Fixed",
+      "change": "Cited card, row, nav and metric spacing follows the project scale. `client/shared/nav.tsx:86`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "LAY-8",
+      "status": "Fixed",
+      "change": "Horizontal tabs and filmstrip retain visible scroll/peek cues. `client/surfaces/review/review.css:1036`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "MOT-1",
+      "status": "Fixed",
+      "change": "All disclosure carets have an instant reduced-motion path. `client/surfaces/review/review.css:1645`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "MOT-2",
+      "status": "Fixed",
+      "change": "Modal visibility and close timers share the340ms spatial budget. `client/shared/shared.css:161`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "MOT-3",
+      "status": "Fixed",
+      "change": "Repeated step moves use150ms opacity handoffs; interruption remains supported. `client/surfaces/review/review.css:1639`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "MOT-4",
+      "status": "Fixed",
+      "change": "Annotation traces and arrowheads finish within the250ms progress budget. `client/surfaces/review/review.css:902`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "MOT-5",
+      "status": "Fixed",
+      "change": "Narration width changes without a layout tween or one-off bounce. `client/surfaces/review/review.css:1528`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "MOT-6",
+      "status": "Fixed",
+      "change": "Shared and review menus use retargetable discrete transitions with brief exits. `client/shared/shared.css:555`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "MOT-7",
+      "status": "Fixed",
+      "change": "Interface durations and easing follow the motion tokens. `client/surfaces/review/review.css:756`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "TYP-1",
+      "status": "Fixed",
+      "change": "Review text uses the common token scale. `client/surfaces/review/review.css:150`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "TYP-2",
+      "status": "Fixed",
+      "change": "Comment and Explain inputs use16px on small/coarse-pointer contexts. `client/surfaces/review/review.css:1648`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "TYP-3",
+      "status": "Fixed",
+      "change": "Unsupported weights and synthesized italic styling were removed. `client/surfaces/review/review.css:342`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "TYP-4",
+      "status": "Fixed",
+      "change": "Truncated names have keyboard/touch full-value paths; tooltips stay in the viewport. `client/vendor/beui/motion/tooltip.tsx:236`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "TYP-5",
+      "status": "Fixed",
+      "change": "Content flags and counts use the10px token floor. `client/surfaces/review/review.css:125`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "TYP-6",
+      "status": "Fixed",
+      "change": "Page and section headings retain a meaningful hierarchy. `client/surfaces/review/review.css:440`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "TYP-7",
+      "status": "Fixed",
+      "change": "Type tokens, arbitrary text utilities and concept fitting respect root-font enlargement. `src/theme.ts:174`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "TYP-8",
+      "status": "Fixed",
+      "change": "Large counts group digits; hashes expose slashed-zero formatting without altering identifiers. `client/surfaces/review/format.ts:9`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "TYP-9",
+      "status": "Fixed",
+      "change": "Kicker tracking and review line heights use the common role conventions. `src/theme.ts:175`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "VIS-1",
+      "status": "Fixed",
+      "change": "Light story/repository/file/scope islands retain a subtle grouping edge. `client/surfaces/stories/StoryRow.tsx:108`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "VIS-2",
+      "status": "Fixed",
+      "change": "The masthead thread passes behind the lockup without enclosing empty space. `client/surfaces/picker/Hero.tsx:15`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "VIS-3",
+      "status": "Fixed",
+      "change": "Floating overlays share the shadow token and in-flow docks stay flat. `client/surfaces/review/review.css:1253`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "VIS-4",
+      "status": "Fixed",
+      "change": "Nested fields, tracks and segments derive concentric radii from actual insets. `client/surfaces/explain/ExplainApp.tsx:83`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "VIS-5",
+      "status": "Fixed",
+      "change": "Design documentation matches shipped geometry and records nested-radius exceptions. `DESIGN_MEMORY.md:10`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "VIS-6",
+      "status": "Fixed",
+      "change": "Review controls consolidate off-scale corner radii onto the common scale. `client/surfaces/review/review.css:173`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "VIS-7",
+      "status": "Fixed",
+      "change": "Icon stroke weights match adjacent text and documented exceptions. `client/surfaces/change/FileSummary.tsx:105`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "VIS-8",
+      "status": "Fixed",
+      "change": "Trailing-icon primaries use smaller padding on the icon side. `client/surfaces/review/review.css:1369`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "VIS-9",
+      "status": "Fixed",
+      "change": "Diagram frames use a flat surface and neutral outline; focus retains its stronger ring. `client/surfaces/review/review.css:1307`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    },
+    {
+      "id": "VIS-10",
+      "status": "Fixed",
+      "change": "Page-level primary actions consistently use the40px control height. `client/surfaces/picker/PickerApp.tsx:243`",
+      "verification": "Project checks pass; independent lens recheck. See runtime limits below."
+    }
+  ]
+}

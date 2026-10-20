@@ -69,7 +69,7 @@ test('reviewed-file tracking is hash-bound, accessible, and wired through storag
   assert.match(DIFF_JS, /setAttribute\('aria-pressed',on\?'true':'false'\)/);
   assert.match(DIFF_JS, /on\?' unreviewed':' reviewed'/);
   assert.match(DIFF_JS, /on\?'Reviewed':'Mark reviewed'/);
-  assert.match(DIFF_JS, /n\+' of '\+total\+' reviewed'/);
+  assert.match(DIFF_JS, /formatReviewCount\(n\)\+' of '\+formatReviewCount\(total\)\+' reviewed'/);
   assert.match(PAGE_JS, /activeFileFilter==='reviewed'/);
   assert.match(PAGE_JS, /activeFileFilter==='unreviewed'/);
   assert.match(PAGE_JS, /e\.key==='v'\|\|e\.key==='V'/);

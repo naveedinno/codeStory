@@ -23,7 +23,7 @@
 //     first refresh.
 
 import type { ReviewPayload } from "../../../src/payloads";
-import { html, plural } from "./format";
+import { formatCount, html, plural } from "./format";
 
 function FilePanelStub({ file, index }: { file: ReviewPayload["files"][number]; index: number }) {
   return (
@@ -66,8 +66,8 @@ function ExcludedSection({ files }: { files: ReviewPayload["excludedFiles"] }) {
   const singlePath = files.length === 1 ? files[0]?.path : undefined;
   const title =
     largeCount === 1 && files.length === 1
-      ? "Large file kept lazy"
-      : `${files.length} ${plural(files.length, "file")} kept lazy`;
+      ? "Large file not loaded in this view"
+      : `${formatCount(files.length)} ${plural(files.length, "file")} not loaded`;
   return (
     <div className="ds-excluded-only" role="note">
       <span className="ds-excluded-only-icon" aria-hidden="true">
@@ -83,11 +83,11 @@ function ExcludedSection({ files }: { files: ReviewPayload["excludedFiles"] }) {
           ) : (
             "Still"
           )}{" "}
-          part of this exact scope, but kept outside the diff DOM so the page stays fast.
+          part of this exact scope, but its full diff is not loaded here so the page stays fast.
         </p>
       </div>
       <button type="button" className="ds-btn ds-btn-ghost" data-goto-review="exclusions">
-        Inspect bounded preview
+        Inspect file preview
       </button>
     </div>
   );
@@ -140,7 +140,7 @@ function TrustPill({ payload }: { payload: ReviewPayload }) {
       data-goto-review={section}
       data-trust-excluded={excludedFiles.length}
       {...(chrome.focusedStory ? { "data-trust-focused": "1" } : {})}
-      title="Trust check — story freshness, coverage, staged state, and files outside the bounded renderer"
+      title="Trust check — story freshness, coverage, staged state, and files left out of this view"
     >
       {state === "clean" ? (
         <span className="ds-check">✓</span>
@@ -151,12 +151,12 @@ function TrustPill({ payload }: { payload: ReviewPayload }) {
       )}
       {state === "divergent" ? (
         <span>
-          <b>{divergent.length}</b> staged/working-tree {plural(divergent.length, "mismatch")} · reconcile before
+          <b>{formatCount(divergent.length)}</b> staged/working-tree {plural(divergent.length, "mismatch")} · reconcile before
           deciding
         </span>
       ) : state === "excluded" ? (
         <span>
-          <b>{excludedFiles.length}</b> excluded {plural(excludedFiles.length, "file")} · inspect before deciding
+          <b>{formatCount(excludedFiles.length)}</b> excluded {plural(excludedFiles.length, "file")} · inspect before deciding
         </span>
       ) : state === "stale" ? (
         <span>
@@ -166,7 +166,7 @@ function TrustPill({ payload }: { payload: ReviewPayload }) {
         <span data-trust-pill-text>Checking coverage…</span>
       ) : state === "uncovered" ? (
         <span>
-          <b>{uncovered}</b> {plural(uncovered, "change")} not explained by the story
+          <b>{formatCount(uncovered)}</b> {plural(uncovered, "change")} not explained by the story
         </span>
       ) : (
         <span>
@@ -174,7 +174,7 @@ function TrustPill({ payload }: { payload: ReviewPayload }) {
           {excludedFiles.length ? (
             <>
               {" · "}
-              <b>{excludedFiles.length}</b> excluded {plural(excludedFiles.length, "file")} to inspect
+              <b>{formatCount(excludedFiles.length)}</b> excluded {plural(excludedFiles.length, "file")} to inspect
             </>
           ) : null}
         </span>
@@ -218,36 +218,36 @@ function TrustEvidence({ payload }: { payload: ReviewPayload }) {
         </h2>
         <div className="ds-trust-sub">
           {storyless
-            ? "Exact change scope, staging state, and files outside the bounded renderer."
-            : "Coverage of the bounded review, plus every file kept outside it."}
+            ? "Exact change scope, staging state, and files left out of this view."
+            : "Coverage of the files loaded here, plus every file left out of this view."}
         </div>
         {storyless || trust.pending ? null : (
           <div className="ds-trust-stats">
             <div className="ds-trust-stat ok">
-              <div className="ds-trust-num">{trust.coveredLines}</div>
+              <div className="ds-trust-num">{formatCount(trust.coveredLines)}</div>
               <div className="ds-trust-lbl">changed {plural(trust.coveredLines, "line")} covered by a step</div>
             </div>
             <div className="ds-trust-stat warn">
-              <div className="ds-trust-num">{trust.uncoveredLines}</div>
-              <div className="ds-trust-lbl">{plural(trust.uncoveredLines, "change")} no step explains</div>
+              <div className="ds-trust-num">{formatCount(trust.uncoveredLines)}</div>
+              <div className="ds-trust-lbl">changed {plural(trust.uncoveredLines, "line")} no step explains</div>
             </div>
           </div>
         )}
         {trust.pending ? (
           <div className="ds-trust-clean">
-            Coverage is calculated from lazy file evidence as it is requested. This page does not call an unloaded
+            Coverage is checked as file evidence loads. This page does not call an unloaded
             change &ldquo;covered.&rdquo;
           </div>
         ) : storyless ? (
           <div className="ds-trust-clean">
-            The full bounded diff is available file by file. No story-coverage claim is applied in this view.
+            Read the diff file by file. This view does not apply a story-coverage claim.
           </div>
         ) : clean ? (
-          <div className="ds-trust-clean">✓ Every changed range in the bounded renderer is fully explained by a step.</div>
+          <div className="ds-trust-clean">✓ Every changed range loaded in this view is fully explained by a step.</div>
         ) : null}
         <div className="ds-trust-foot">
           {storyless
-            ? "The page shows the bounded diff directly. You still need to inspect excluded files and reconcile divergent staged state before deciding."
+            ? "This page shows the diff directly. Inspect files left out of this view and reconcile differences between staged and working-tree versions before deciding."
             : "Coverage means every rendered changed range is fully claimed by story steps. You still need to inspect excluded files before deciding."}
         </div>
       </section>
@@ -260,7 +260,7 @@ function TrustEvidence({ payload }: { payload: ReviewPayload }) {
           tabIndex={-1}
         >
           <h2 className="ds-reviewpage-h" id="ds-index-state-title">
-            Staged state differs <span className="ds-option-count">{divergent.length}</span>
+            Staged state differs <span className="ds-option-count">{formatCount(divergent.length)}</span>
           </h2>
           <p className="ds-exclusions-note">
             These paths contain one version in Git&rsquo;s index and another in the working tree. A single combined
@@ -285,10 +285,10 @@ function TrustEvidence({ payload }: { payload: ReviewPayload }) {
           tabIndex={-1}
         >
           <h2 className="ds-reviewpage-h" id="ds-exclusions-title">
-            Outside the bounded renderer <span className="ds-option-count">{excludedFiles.length}</span>
+            Files left out of this view <span className="ds-option-count">{formatCount(excludedFiles.length)}</span>
           </h2>
           <p className="ds-exclusions-note">
-            These files are part of the Git change but are not included in story coverage or the default diff DOM.
+            These files are part of the Git change. They are left out of this view and are not counted in story coverage.
             Inspect them deliberately before deciding.
           </p>
           {excludedFiles.map((file) => (
@@ -299,7 +299,7 @@ function TrustEvidence({ payload }: { payload: ReviewPayload }) {
                   {EXCLUSION_REASON[file.reason] ?? "Metadata-only change"} ·{" "}
                   {file.changedLines == null
                     ? "Binary or uncounted change"
-                    : `${file.changedLines} changed ${plural(file.changedLines, "line")}`}
+                    : `${formatCount(file.changedLines)} changed ${plural(file.changedLines, "line")}`}
                 </span>
               </div>
               <button type="button" className="ds-btn ds-btn-ghost" data-inspect-excluded={file.path}>
@@ -351,7 +351,7 @@ const REVIEW_TABS: [string, string][] = [
  * together would invent a number that means nothing.
  */
 function coverageFlag(uncovered: number, outside: number): { flag: string; label: string } {
-  if (uncovered) return { flag: `▲${uncovered}`, label: `${uncovered} ${plural(uncovered, "change")} not explained by the story` };
+  if (uncovered) return { flag: `▲${formatCount(uncovered)}`, label: `${formatCount(uncovered)} ${plural(uncovered, "change")} not explained by the story` };
   if (outside) return { flag: "▲", label: "files to inspect outside the story" };
   return { flag: "", label: "" };
 }
@@ -384,7 +384,7 @@ export function ReviewPage({ payload }: { payload: ReviewPayload }) {
           <span className="ds-review-summary-label">
             <span className="ds-dot ds-dot-amber" />
             <span data-review-summary-count>
-              <b>{openCount}</b> queued {plural(openCount, "comment")}
+              <b>{formatCount(openCount)}</b> queued {plural(openCount, "comment")}
             </span>
           </span>
           {!chrome.feedbackHealthy ? (
@@ -420,7 +420,7 @@ export function ReviewPage({ payload }: { payload: ReviewPayload }) {
                 ) : null}
                 {id === "notes" ? (
                   <span className="ds-reviewtab-count" data-review-open-notes hidden={!openCount}>
-                    {openCount}
+                    {formatCount(openCount)}
                   </span>
                 ) : null}
               </button>
@@ -461,7 +461,7 @@ export function ReviewPage({ payload }: { payload: ReviewPayload }) {
                 <h2 className="ds-reviewpage-h" id="ds-reviewpage-notes-h">
                   {codeStory ? "Questions and notes" : "Review comments"}{" "}
                   <span className="ds-reviewpage-sub" data-queue-summary hidden={!openCount}>
-                    {openCount} queued
+                    {formatCount(openCount)} queued
                   </span>
                 </h2>
                 <p>

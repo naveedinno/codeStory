@@ -260,7 +260,7 @@ test("reduced motion keeps status feedback but removes movement and pulses", () 
   assert.match(PAGE_JS, /function prefersReducedMotion\(\)/);
   assert.match(
     PAGE_CSS,
-    /\.ds-toast\{animation:none!important;transform:translateX\(-50%\);transition:opacity 200ms ease\}/,
+    /\.ds-toast\{animation:none!important;transform:translateX\(-50%\);transition:opacity var\(--motion-duration-ui\) var\(--motion-ease-out\)\}/,
   );
   assert.match(PAGE_CSS, /\.ds-readhead-fill\{transition:none!important\}/);
   assert.match(PAGE_CSS, /\.ds-readaloud\.is-loading \.ds-readaloud-ico,\.ds-readaloud-ico::before,\.ds-readaloud-wave>span,\.ds-composer,\.ds-annot \*\{animation:none!important\}/);

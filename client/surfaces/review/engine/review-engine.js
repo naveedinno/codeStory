@@ -80,7 +80,7 @@ export function startReviewEngine(options){
   var filePanels=[],fileItems=[],selectedFile=-1,fileSearchQuery='',fileSearchMatches=null,fileSearchRequest=0,fileSearchTimer=null,sidebarResizing=false,sidebarResizeFrame=0,sidebarResizeClientX=null,splitBody=null,splitHolder=null,splitResizeFrame=0,splitResizeClientX=null,splitGrabOffset=0,annotationFrame=0,annotationObserver=null,focusScrollTimer=0,focusScrollFrame=0,aloudIntent='off',aloudResumeDirty=false,aloudControlTimer=0,aloudActive=false,aloudPaused=false,aloudJobId='',aloudPollTimer=0,aloudPrepareTimer=0,aloudPrepareRequest=0,aloudPreparedText='',aloudRequestAbort=null,aloudRequestToken=0,aloudControlToken=0,aloudControlPending=false,aloudPhase='idle',aloudRate=1,aloudSequence=[],aloudSequenceIndex=-1,speechLoadingLabel='',aloudPollFails=0,aloudStateMessage='',aloudStartedAt=0,aloudSlowNotice=false,aloudEverStarted=false;
   var activeFileFilter='all',restoringReviewPosition=false,reviewSaveTimer=null,reviewPositionReady=false,driftRequestAbort=null,driftRequestToken=0,driftLayoutMode=compactScreen()?'unified':'split';
   var mermaidModulePromise=null,mermaidRenderId=0;
-  var liveEventSource=null,liveDisconnectTimer=null,liveOriginalStoryFreshness='',liveIssues={diff:false,story:false,disconnected:false},liveGenerations={diff:0,story:0,disconnected:0},liveDismissed={diff:0,story:0,disconnected:0},storyReloadTimer=null,storyReloadToastSequence=0;
+  var liveEventSource=null,liveDisconnectTimer=null,liveOriginalStoryFreshness='',liveIssues={diff:false,story:false,disconnected:false},liveGenerations={diff:0,story:0,disconnected:0},liveDismissed={diff:0,story:0,disconnected:0},storyReloadTimer=null,storyReloadToastSequence=0,storyReloadRemaining=10000,storyReloadStarted=0,storyReloadHovered=false;
   var workspaceTransition=null,workspaceFallbackTimer=0,workspaceTransitionToken=0;
   var sceneEntered={0:true},sceneAnimations=[],sceneEntranceToken=0,conceptFitFrame=0,conceptFitObserver=null;
   function $(s,r){return (r||document).querySelector(s);}
@@ -124,6 +124,7 @@ export function startReviewEngine(options){
   function hideStoryReloadToast(){
     var reloadToast=$('[data-story-reload-toast]'),sequence=++storyReloadToastSequence;
     if(storyReloadTimer){clearTimeout(storyReloadTimer);storyReloadTimer=null;}
+    storyReloadRemaining=0;storyReloadStarted=0;storyReloadHovered=false;
     document.body.classList.remove('ds-story-reload-pending');
     if(!reloadToast)return;
     reloadToast.classList.remove('is-show');
@@ -134,7 +135,19 @@ export function startReviewEngine(options){
     var sequence=++storyReloadToastSequence;
     reloadToast.hidden=false;document.body.classList.add('ds-story-reload-pending');
     requestAnimationFrame(function(){if(sequence===storyReloadToastSequence)reloadToast.classList.add('is-show');});
-    storyReloadTimer=setTimeout(function(){if(sequence!==storyReloadToastSequence)return;storyReloadTimer=null;location.reload();},10000);
+    storyReloadRemaining=10000;
+    resumeStoryReload();
+  }
+  function pauseStoryReload(){
+    if(!storyReloadTimer)return;
+    clearTimeout(storyReloadTimer);storyReloadTimer=null;
+    storyReloadRemaining=Math.max(0,storyReloadRemaining-(Date.now()-storyReloadStarted));
+  }
+  function resumeStoryReload(){
+    var reloadToast=$('[data-story-reload-toast]');
+    if(!reloadToast||reloadToast.hidden||storyReloadRemaining<=0||storyReloadTimer||storyReloadHovered||reloadToast.contains(document.activeElement))return;
+    var sequence=storyReloadToastSequence;storyReloadStarted=Date.now();
+    storyReloadTimer=setTimeout(function(){if(sequence!==storyReloadToastSequence)return;storyReloadTimer=null;location.reload();},storyReloadRemaining);
   }
   function cancelStoryReload(){hideStoryReloadToast();toast('Automatic reload cancelled.');}
   function setLiveIssue(kind,on){
@@ -194,7 +207,7 @@ export function startReviewEngine(options){
   }
   function reviewLazyAction(err,retryAttr,retryValue){
     if(err&&err.reloadRequired)return '<button type="button" class="ds-btn ds-btn-ghost" data-review-reload>Reload review</button>';
-    return '<button type="button" class="ds-btn ds-btn-ghost" '+retryAttr+'="'+retryValue+'">Retry</button>';
+    return '<button type="button" class="ds-btn ds-btn-ghost" '+retryAttr+'="'+retryValue+'">Try again</button>';
   }
   function isTextEntryTarget(t){
     if(!t)return false;
@@ -658,11 +671,11 @@ export function startReviewEngine(options){
   }
   function runWorkspaceFallback(kind,direction,update){
     if(workspaceFallbackTimer)clearTimeout(workspaceFallbackTimer);
-    $all('.is-workspace-entering').forEach(function(node){node.classList.remove('is-workspace-entering');node.removeAttribute('data-ds-enter-direction');});
+    $all('.is-workspace-entering').forEach(function(node){node.classList.remove('is-workspace-entering');node.removeAttribute('data-ds-enter-direction');node.removeAttribute('data-ds-enter-kind');});
     update();
     var surface=visibleWorkspaceSurface(kind);if(!surface)return null;
-    surface.setAttribute('data-ds-enter-direction',String(direction||0));surface.classList.add('is-workspace-entering');
-    workspaceFallbackTimer=setTimeout(function(){workspaceFallbackTimer=0;surface.classList.remove('is-workspace-entering');surface.removeAttribute('data-ds-enter-direction');},kind==='mode'?210:350);
+    surface.setAttribute('data-ds-enter-direction',String(direction||0));surface.setAttribute('data-ds-enter-kind',kind);surface.classList.add('is-workspace-entering');
+    workspaceFallbackTimer=setTimeout(function(){workspaceFallbackTimer=0;surface.classList.remove('is-workspace-entering');surface.removeAttribute('data-ds-enter-direction');surface.removeAttribute('data-ds-enter-kind');},cssMotionDuration(kind==='step'?'--motion-duration-fast':kind==='mode'?'--motion-duration-ui':'--motion-duration-spatial',kind==='step'?150:kind==='mode'?200:340)+10);
     return null;
   }
   function runWorkspaceTransition(kind,direction,update){
@@ -742,15 +755,15 @@ export function startReviewEngine(options){
     copy.removeAttribute('data-concept-type-scale');
   }
   function setConceptTypographyScale(copy,layout,scale){
-    var titleBase=34,bodyBase=layout==='concept-diagram'?14:15;
-    copy.style.setProperty('--ds-concept-title-size',(titleBase*scale).toFixed(2)+'px');
-    copy.style.setProperty('--ds-concept-body-size',(bodyBase*scale).toFixed(2)+'px');
-    copy.style.setProperty('--ds-concept-heading-size',((layout==='concept-diagram'?15:bodyBase)*scale).toFixed(2)+'px');
-    copy.style.setProperty('--ds-concept-table-size',((layout==='concept-diagram'?13.5:bodyBase*.9)*scale).toFixed(2)+'px');
-    copy.style.setProperty('--ds-concept-caption-size',((layout==='concept-diagram'?11.5:bodyBase*(11.5/15))*scale).toFixed(2)+'px');
-    copy.style.setProperty('--ds-concept-pre-size',((layout==='concept-diagram'?12:bodyBase*.8)*scale).toFixed(2)+'px');
+    var titleBase=34/16,bodyBase=layout==='concept-diagram'?14/16:15/16;
+    copy.style.setProperty('--ds-concept-title-size',(titleBase*scale).toFixed(2)+'rem');
+    copy.style.setProperty('--ds-concept-body-size',(bodyBase*scale).toFixed(2)+'rem');
+    copy.style.setProperty('--ds-concept-heading-size',((layout==='concept-diagram'?15/16:bodyBase)*scale).toFixed(2)+'rem');
+    copy.style.setProperty('--ds-concept-table-size',((layout==='concept-diagram'?13.5/16:bodyBase*.9)*scale).toFixed(2)+'rem');
+    copy.style.setProperty('--ds-concept-caption-size',((layout==='concept-diagram'?11.5/16:bodyBase*(11.5/15))*scale).toFixed(2)+'rem');
+    copy.style.setProperty('--ds-concept-pre-size',((layout==='concept-diagram'?12/16:bodyBase*.8)*scale).toFixed(2)+'rem');
     var canvas=copy.closest('.ds-concept-document');
-    if(canvas&&layout==='concept-diagram')canvas.style.setProperty('--ds-concept-diagram-caption-size',(11.5*scale).toFixed(2)+'px');
+    if(canvas&&layout==='concept-diagram')canvas.style.setProperty('--ds-concept-diagram-caption-size',(11.5/16*scale).toFixed(2)+'rem');
     copy.setAttribute('data-concept-type-scale',scale.toFixed(3));
   }
   function fitConceptTypography(panel){
@@ -2389,7 +2402,7 @@ export function startReviewEngine(options){
     var note=document.createElement('div');note.className='ds-diffnote ds-differror';note.setAttribute('role','alert');
     var title=document.createElement('span');title.className='ds-differror-title';title.textContent='Could not load the '+label+'.';
     var detail=document.createElement('span');detail.className='ds-differror-detail';detail.textContent=diffFailureDetail(err);
-    var retry=document.createElement('button');retry.type='button';retry.className='ds-diffretry';if(err&&err.reloadRequired){retry.setAttribute('data-review-reload','');retry.textContent='Reload review';retry.setAttribute('aria-label','Reload review with current evidence');}else{retry.setAttribute('data-mode',mode);retry.textContent='Retry';retry.setAttribute('aria-label','Retry loading the '+label);}
+    var retry=document.createElement('button');retry.type='button';retry.className='ds-diffretry';if(err&&err.reloadRequired){retry.setAttribute('data-review-reload','');retry.textContent='Reload review';retry.setAttribute('aria-label','Reload review with current evidence');}else{retry.setAttribute('data-mode',mode);retry.textContent='Try again';retry.setAttribute('aria-label','Retry loading the '+label);}
     note.appendChild(title);note.appendChild(detail);note.appendChild(retry);inner.appendChild(note);
   }
   function splitPercent(holder){
@@ -2907,6 +2920,7 @@ export function startReviewEngine(options){
     if(viewedFiles[file]===hash)delete viewedFiles[file];else viewedFiles[file]=hash;
     saveViewed();syncViewed();
   }
+  function formatReviewCount(value){return value>=10000?new Intl.NumberFormat('en-US').format(value):String(value);}
   function syncViewed(){
     var n=0,total=0;
     fileItems.forEach(function(it){
@@ -2916,8 +2930,8 @@ export function startReviewEngine(options){
       it.classList.toggle('is-viewed',on);
       it.classList.toggle('is-reviewed',on);
       it.setAttribute('data-reviewed',on?'true':'false');
-      var flagEl=it.querySelector('.ds-fileitem-flag'),flagTitle=flagEl?flagEl.getAttribute('title'):'';
-      it.setAttribute('aria-label',f+(on?', reviewed':'')+(flagTitle?', '+flagTitle:''));
+      var states=$all('.ds-fileitem-flag,.ds-fileitem-regen',it).map(function(flag){return flag.getAttribute('title')||'';}).filter(Boolean);
+      it.setAttribute('aria-label',[f,on?'reviewed':'not reviewed'].concat(states).join(', '));
     });
     $all('[data-viewed-toggle]').forEach(function(btn){
       var panel=closest(btn,'.ds-filepanel'),file=panel&&panel.getAttribute('data-file'),on=fileIsReviewed(file);
@@ -2929,7 +2943,7 @@ export function startReviewEngine(options){
       var label=$('[data-viewed-label]',btn);if(label)label.textContent=on?'Reviewed':'Mark reviewed';
     });
     var prog=$('[data-viewed-progress]');
-    if(prog)prog.textContent=n+' of '+total+' reviewed';
+    if(prog)prog.textContent=formatReviewCount(n)+' of '+formatReviewCount(total)+' reviewed';
   }
   function clearGapError(gap){
     var error=$('.ds-gaperror',gap);if(error&&error.parentNode)error.parentNode.removeChild(error);gap.classList.remove('is-error');
@@ -2939,7 +2953,7 @@ export function startReviewEngine(options){
     clearGapError(gap);gap.classList.add('is-error');gap.setAttribute('aria-busy','false');
     var status=document.createElement('span');status.className='ds-gaperror';status.setAttribute('role','alert');
     var message=document.createElement('span');message.textContent='Could not load hidden context. '+diffFailureDetail(err);
-    var retry=document.createElement('button');retry.type='button';retry.className='ds-gapbtn ds-gapretry';if(err&&err.reloadRequired){retry.setAttribute('data-review-reload','');retry.textContent='Reload review';retry.setAttribute('aria-label','Reload review with current evidence');}else{retry.setAttribute('data-expand',mode);retry.textContent='Retry';retry.setAttribute('aria-label','Retry loading hidden context');}
+    var retry=document.createElement('button');retry.type='button';retry.className='ds-gapbtn ds-gapretry';if(err&&err.reloadRequired){retry.setAttribute('data-review-reload','');retry.textContent='Reload review';retry.setAttribute('aria-label','Reload review with current evidence');}else{retry.setAttribute('data-expand',mode);retry.textContent='Try again';retry.setAttribute('aria-label','Retry loading hidden context');}
     status.appendChild(message);status.appendChild(retry);gap.appendChild(status);
     if(restoreFocus){try{retry.focus({preventScroll:true});}catch(e){retry.focus();}}
   }
@@ -3094,7 +3108,7 @@ export function startReviewEngine(options){
     // that is about to be swapped out lands the reviewer nowhere.
     if(trustLoadPromise)return trustLoadPromise;
     var pending=$('.ds-trust-clean',host);
-    if(pending){pending.textContent='Calculating story coverage from the bounded diff…';pending.setAttribute('aria-busy','true');}
+    if(pending){pending.textContent='Calculating story coverage for the loaded diff…';pending.setAttribute('aria-busy','true');}
     trustLoadPromise=fetch(reviewPageUrl('/api/review/trust')).then(reviewLazyText).then(function(html){
       var parsed=new DOMParser().parseFromString(html,'text/html'),next=parsed.querySelector('[data-trust-evidence]');
       if(!next)throw new Error('Trust evidence response was incomplete.');
@@ -3298,7 +3312,7 @@ export function startReviewEngine(options){
     if(visible.length&&(!selected||selected.hidden))selectFile(Number(visible[0].getAttribute('data-file-index')));
     var progress=$('[data-viewed-progress]');
     var excludedCount=progress?Number(progress.getAttribute('data-excluded-count')||0):0;
-    if(progress&&!fileItems.length&&excludedCount)progress.textContent=excludedCount+' '+(excludedCount===1?'file':'files');
+    if(progress&&!fileItems.length&&excludedCount)progress.textContent=formatReviewCount(excludedCount)+' '+(excludedCount===1?'file':'files');
     else if(progress&&!visible.length)progress.textContent='No matching files';
     else syncViewed();
   }
@@ -3308,7 +3322,7 @@ export function startReviewEngine(options){
     var tools=$('.ds-filetools');if(!tools)return;
     var n=el('p','','Content search is unavailable; showing name matches only.');
     n.setAttribute('data-file-search-note','');
-    n.setAttribute('style','font-size:11px;color:var(--muted);margin:6px 2px 0');
+    n.setAttribute('style','font-size:var(--text-sm);color:var(--muted);margin:6px 2px 0');
     tools.appendChild(n);
   }
   function searchFilesLazily(){
@@ -3429,7 +3443,7 @@ export function startReviewEngine(options){
     ctx=ctx||{};var file=ctx.file||row.getAttribute('data-file'),line=ctx.line||row.getAttribute('data-line'),step=ctx.step||row.getAttribute('data-step'),side=ctx.side||row.getAttribute('data-side')||'right',selectedText=ctx.selectedText||'',state={flavor:flavor||defaultCommentFlavor()};var box=el('section','ds-composer');box._dsDraftAnchor={file:file,line:line,side:side,step:step||''};box._dsDraftSelection=selectedText;box.setAttribute('data-comment-side',side);box.setAttribute('role','region');box.setAttribute('aria-label','New review comment on '+file+', line '+line);box.tabIndex=-1;
     var head=el('div','ds-composer-head');head.appendChild(el('strong','','New comment'));head.appendChild(el('span','ds-composer-anchor',file+':'+line));var close=el('button','ds-composer-close','×');close.type='button';close.setAttribute('aria-label','Cancel comment');close.onclick=function(){removeComposer(box,true);};head.appendChild(close);box.appendChild(head);
     var main=el('div','ds-composer-main'),tabs=el('div','ds-composer-tabs');tabs.setAttribute('role','radiogroup');tabs.setAttribute('aria-label','Comment type');tabs.setAttribute('aria-orientation','horizontal');['change','question','nit'].forEach(function(v){var f=FLAVOR[v],b=el('button','ds-composer-tab'+(v===state.flavor?' is-active':''));b.type='button';b.setAttribute('data-flavor',v);b.setAttribute('role','radio');b.setAttribute('aria-checked',v===state.flavor?'true':'false');b.tabIndex=v===state.flavor?0:-1;b.appendChild(composerFlavorIcon(v));b.appendChild(document.createTextNode(f.label));b.onclick=function(){state.flavor=v;syncComposerRadioGroup(tabs,b);};tabs.appendChild(b);});tabs.addEventListener('keydown',function(e){moveComposerRadio(tabs,'.ds-composer-tab',e);});var ta=el('textarea','ds-composer-ta');ta.placeholder='Write a question, requested fix, or note…';ta.rows=3;ta.setAttribute('aria-label','Review comment');ta.setAttribute('aria-keyshortcuts','Meta+Enter Control+Enter Meta+Shift+Enter Control+Shift+Enter');main.appendChild(tabs);main.appendChild(ta);box.appendChild(main);
-    var foot=el('div','ds-composer-foot'),bar=el('div','ds-composer-actions'),add=el('button','ds-ghost ds-composer-add','Add to queue'),copy=el('button','ds-btn ds-btn-solid ds-composer-copy','Copy');
+    var foot=el('div','ds-composer-foot'),bar=el('div','ds-composer-actions'),add=el('button','ds-ghost ds-composer-add','Add to queue'),copy=el('button','ds-btn ds-btn-solid ds-composer-copy','Copy comment');
     function draft(){var body=ta.value.trim();return body?{file:file,line:Number(line),side:side,step:step,type:state.flavor,body:body,selectedText:selectedText,selection:ctx.selection,status:'open'}:null;}
     function queue(){var payload=draft();if(!payload){ta.focus();return;}add.disabled=true;copy.disabled=true;fetch(reviewPageUrl(API),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(function(r){return r.json().catch(function(){return {};}).then(function(data){if(!r.ok)throw new Error(data&&data.error||'Could not save comment');return data;});}).then(function(c){replaceComment(c);noteBlockingFeedbackMutation(c);removeComposer(box,false);clearComposerDraftForBox(box);syncCommentPins();syncFeedbackCards();syncFileCommentFlags();refreshCount();toast('Added to the review queue.');}).catch(function(err){add.disabled=false;copy.disabled=false;toast(err&&err.message?err.message:'Could not save your comment.','error');ta.focus();});}
     function copyDraft(){var payload=draft();if(!payload){ta.focus();return;}writeClipboard(commentsToText([payload]),function(){removeComposer(box,false);clearComposerDraftForBox(box);toast('Comment copied.');});}
@@ -3450,7 +3464,7 @@ export function startReviewEngine(options){
     box.setAttribute('role','group');box.setAttribute('aria-label','Remove this comment?');
     box._dsRemoveBtn=btn||null;
     box.appendChild(el('strong','','Remove this comment?'));
-    box.appendChild(el('p','',String(c.file||'')+':'+(c.line||0)+' will lose this queued note. This cannot be undone.'));
+    box.appendChild(el('p','',String(c.file||'')+':'+(c.line||0)+' will lose this queued comment. This cannot be undone.'));
     var row=el('div','ds-queue-edit-actions'),cancel=el('button','ds-btn ds-btn-ghost','Cancel'),remove=el('button','ds-btn ds-btn-ghost ds-danger','Remove comment');
     cancel.type='button';remove.type='button';
     cancel.onclick=function(){cancelRemoveConfirm(box);};
@@ -3699,13 +3713,13 @@ export function startReviewEngine(options){
     }
     if(st.current){
       e.warn.hidden=false;e.updateBtn.hidden=true;
-      e.warnText.textContent=agent?'Story-generation skill is up to date for '+label+'.':'Story-generation skills are up to date.';
+      e.warnText.textContent=agent?'The storyteller skill is up to date for '+label+'.':'Storyteller skills are up to date.';
       storySkillHide=setTimeout(function(){e.warn.hidden=true;},1400);return;
     }
     e.warn.hidden=false;e.updateBtn.hidden=false;e.updateBtn.disabled=false;e.updateBtn.textContent='Update skills';
     e.warnText.textContent=st.installed
-      ? 'Story-generation skill in '+where+' does not match this app. Update it before generating so '+label+' sees the current story rules.'
-      : 'Story-generation skill was not found in '+where+'. Install it before generating so '+label+' can create the story reliably.';
+      ? 'The storyteller skill in '+where+' does not match this app. Update it before generating so '+label+' sees the current story rules.'
+      : 'The storyteller skill was not found in '+where+'. Install it before generating so '+label+' can create the story reliably.';
   }
   function wireStorySkillUpdate(){
     var e=storyGenEls();if(!e.updateBtn)return;
@@ -3715,7 +3729,7 @@ export function startReviewEngine(options){
         if(d&&d.skills)showStorySkillState(d.skills);else throw new Error('bad response');
       }).catch(function(){
         e.updateBtn.disabled=false;e.updateBtn.textContent='Try again';
-        if(e.warnText)e.warnText.textContent='Could not update skills. Run scripts/install-skills.sh from this repo, or re-run the codeStory installer.';
+        if(e.warnText)e.warnText.textContent='Could not update skills. Run scripts/install-skills.sh from a codeStory clone, or re-run the codeStory installer.';
       });
     };
   }
@@ -3782,7 +3796,7 @@ export function startReviewEngine(options){
         primary.onclick=function(){restoreForm();loadCodexStoryModels().then(function(){
           var choice=$('[data-story-choice="storyModelSel"][aria-checked="true"]');if(choice)choice.focus();
         });};
-        secondary=el('button',progressSecondaryActionClass,'Retry after updating');
+        secondary=el('button',progressSecondaryActionClass,'Try again after updating');
         secondary.onclick=function(){loadCodexStoryModels().then(function(){
           var current=storyGenEls();payload.model=current.modelSel&&current.modelSel.value?current.modelSel.value:undefined;startRun();
         });};
@@ -3820,13 +3834,13 @@ export function startReviewEngine(options){
     var storyFreshness=reviewBtn?reviewBtn.getAttribute('data-story-freshness')||'unverified':'current';
     var feedbackHealthy=document.body.getAttribute('data-feedback-health')!=='invalid';
     if(reviewBtn)reviewBtn.setAttribute('aria-label','Review, '+openN+' queued '+(openN===1?'comment':'comments')+(!feedbackHealthy?', feedback file needs repair':indexDivergent?', '+indexDivergent+' staged and working-tree '+(indexDivergent===1?'version differs':'versions differ'):storyFreshness!=='current'?', story requires regeneration':unexplained?', '+unexplained+' '+(unexplained===1?'change':'changes')+' not explained by the story':excluded?', '+excluded+' excluded '+(excluded===1?'file':'files')+' to inspect':''));
-    var summary=$('[data-review-summary-count]');if(summary)summary.textContent=openN+' queued '+(openN===1?'comment':'comments');
+    var summary=$('[data-review-summary-count]');if(summary)summary.textContent=formatReviewCount(openN)+' queued '+(openN===1?'comment':'comments');
     var notesTabCount=$('[data-review-open-notes]');if(notesTabCount){notesTabCount.textContent=openN;notesTabCount.hidden=openN===0;}
     var pill=$('.ds-trustpill'),fresh=document.body.getAttribute('data-story-freshness')||'unverified',focused=document.body.getAttribute('data-story-scope')==='focused',liveDiffCurrent=document.body.getAttribute('data-live-diff-stale')!=='1',coverageClean=(!pill||pill.classList.contains('is-clean'))&&fresh==='current',exclusionsClear=excluded===0||exclusionsAcknowledged(),clean=feedbackHealthy&&coverageClean&&exclusionsClear&&indexDivergent===0&&!focused&&liveDiffCurrent;
     // One flag on the Review tab, shown only while the page behind it still
     // wants a decision. Clean means the flag goes away, not that it turns green.
     var flag=$('[data-review-flag]');if(flag)flag.hidden=blockingN===0&&!!clean;
-    var qs=$('[data-queue-summary]');if(qs){qs.textContent=openN+' queued';qs.hidden=openN===0;}
+    var qs=$('[data-queue-summary]');if(qs){qs.textContent=formatReviewCount(openN)+' queued';qs.hidden=openN===0;}
     $all('[data-copy-comments]').forEach(function(button){button.disabled=openN===0;});
     if(fileItems&&fileItems.length)syncFileCommentFlags();
   }
@@ -3973,7 +3987,7 @@ export function startReviewEngine(options){
       placeBlame(anchor);
     }).catch(function(){
       if(req!==blameReq)return;
-      body.textContent='';body.appendChild(el('p','ds-blame-note','Couldn\u2019t read the history for this line.'));
+      body.textContent='';body.appendChild(el('p','ds-blame-note','Could not read the history for this line.'));
     });
   }
 
@@ -4086,7 +4100,7 @@ export function startReviewEngine(options){
       var excludedCard=closest(b,'[data-excluded-file]'),preview=excludedCard&&$('[data-excluded-preview]',excludedCard),excludedFile=b.getAttribute('data-inspect-excluded')||'';if(!preview)return;
       if(preview.getAttribute('data-loaded')==='1'){preview.hidden=!preview.hidden;b.textContent=preview.hidden?'Inspect current file':'Hide preview';return;}
       b.disabled=true;preview.hidden=false;replaceChildrenFromHtml(preview,'<div class="ds-diffnote">Loading excluded file preview…</div>');
-      fetch(reviewPageUrl('/api/review/excluded-file?file='+encodeURIComponent(excludedFile))).then(reviewLazyText).then(function(html){replaceChildrenFromHtml(preview,html);preview.setAttribute('data-loaded','1');b.disabled=false;b.textContent='Hide preview';}).catch(function(err){replaceChildrenFromHtml(preview,'<div class="ds-diffnote" role="alert">'+reviewLazyMessage(err,'Could not load this excluded file.')+(err&&err.reloadRequired?' <button type="button" class="ds-btn ds-btn-ghost" data-review-reload>Reload review</button>':'')+'</div>');b.disabled=false;b.textContent=err&&err.reloadRequired?'Reload required':'Retry preview';});return;
+      fetch(reviewPageUrl('/api/review/excluded-file?file='+encodeURIComponent(excludedFile))).then(reviewLazyText).then(function(html){replaceChildrenFromHtml(preview,html);preview.setAttribute('data-loaded','1');b.disabled=false;b.textContent='Hide preview';}).catch(function(err){replaceChildrenFromHtml(preview,'<div class="ds-diffnote" role="alert">'+reviewLazyMessage(err,'Could not load this excluded file.')+(err&&err.reloadRequired?' <button type="button" class="ds-btn ds-btn-ghost" data-review-reload>Reload review</button>':'')+'</div>');b.disabled=false;b.textContent=err&&err.reloadRequired?'Reload required':'Try preview again';});return;
     }
     b=closest(t,'[data-goto-step]');if(b){closeDriftDrawer();setView('tour');setActive(Number(b.getAttribute('data-goto-step')));collapseCompactSidebar();return;}
     b=closest(t,'[data-goto-file]');if(b){closeDriftDrawer();setView('files');selectFileByPath(b.getAttribute('data-goto-file'));collapseCompactSidebar();return;}
@@ -4349,6 +4363,12 @@ export function startReviewEngine(options){
     var liveReload=$('[data-live-reload]');if(liveReload)liveReload.addEventListener('click',function(){location.reload();});
     var liveDismiss=$('[data-live-dismiss]');if(liveDismiss)liveDismiss.addEventListener('click',function(){var kind=livePriority();if(kind){liveDismissed[kind]=liveGenerations[kind];renderLiveBanner();}});
     var storyReloadCancel=$('[data-story-reload-cancel]');if(storyReloadCancel)storyReloadCancel.addEventListener('click',cancelStoryReload);
+    var storyReloadToast=$('[data-story-reload-toast]');if(storyReloadToast){
+      storyReloadToast.addEventListener('mouseenter',function(){storyReloadHovered=true;pauseStoryReload();});
+      storyReloadToast.addEventListener('mouseleave',function(){storyReloadHovered=false;resumeStoryReload();});
+      storyReloadToast.addEventListener('focusin',pauseStoryReload);
+      storyReloadToast.addEventListener('focusout',function(){queueMicrotask(resumeStoryReload);});
+    }
     window.addEventListener('resize',function(){if(compactScreen()&&currentView()!=='files')setSidebarCollapsed(true,false);setSidebarWidth(currentSidebarWidth(),false);syncSidebarOverlay(document.body.classList.contains('ds-rail-collapsed'));applyResponsiveStoryMode(stepPanels&&stepPanels[active]);syncDriftLayout();$all('.ds-filepanel,.ds-diff').forEach(updateChangeNav);syncSplitPaneLayouts();updateStickyMetrics();syncFilmProgress();syncActiveAnnotations();scheduleConceptTypographyFit(stepPanels&&stepPanels[active]);if(filmTooltipTarget)showFilmTooltip(filmTooltipTarget);});
     try{var rw=parseFloat(localStorage.getItem('ds-sidebar-width')||'');if(rw)setSidebarWidth(rw,false);else updateSidebarHandle(currentSidebarWidth());}catch(e){updateSidebarHandle(currentSidebarWidth());}
     try{var sv=localStorage.getItem('ds-split');if(sv)$all('.ds-filepanel,.ds-diff').forEach(function(holder){holder.style.setProperty('--ds-split',sv);});}catch(e){}

@@ -34,7 +34,7 @@ if (!candidate) throw new Error('Install Chromium with npx playwright-core insta
 const browser = await chromium.launch({ executablePath: candidate, headless: true });
 let activePage;
 try {
-  for (const [name, viewport, reducedMotion] of [['desktop', {width:1440,height:960}, 'no-preference'], ['mobile-reduced-motion', {width:390,height:844}, 'reduce']]) {
+  for (const [name, viewport, reducedMotion] of [['desktop', {width:1440,height:960}, 'no-preference'], ['mobile-reduced-motion', {width:390,height:844}, 'reduce']].filter(([name])=>!process.env.CODESTORY_SMOKE_VIEWPORT||name===process.env.CODESTORY_SMOKE_VIEWPORT)) {
     const repo = join(scratch, name), home = join(scratch, `${name}-home`);
     execFileSync(process.execPath, [join(root, 'examples/demo.mjs')], { cwd:root, env:{...process.env,CODESTORY_DEMO_NO_SERVE:'1',CODESTORY_DEMO_DIR:repo}, stdio:'pipe' });
     const storyPath = join(repo, '.codestory/story.json');
@@ -62,16 +62,37 @@ try {
     try {
       await page.goto(`${origin}/repo/${encodeURIComponent(basename(repo))}/review?story=story.json`);
       await page.locator('.ds-intro-start').waitFor();
-      await page.getByRole('button',{name:'Export video',exact:true}).click();
+      assert.equal(await page.getByRole('button',{name:'Export video',exact:true}).count(),0);
+      // Picker tests use the fixture narrator; encoding is covered separately
+      // by video-smoke with real tools, models and generated audio.
+      await page.route('**/api/video-export/capabilities',route=>route.fulfill({json:{available:true,narration:true,lino:true,missing:[]}}));
+      const fileMenu=page.getByRole('button',{name:'File menu',exact:true});
+      await fileMenu.focus();await page.keyboard.press('ArrowDown');
+      await page.getByRole('menuitem',{name:'Export video…',exact:true}).click();
       const exportDialog=page.getByRole('dialog',{name:'Export video',exact:true});
       await exportDialog.waitFor();
       await page.getByRole('combobox',{name:'Resolution',exact:true}).selectOption('720p');
       await page.getByRole('combobox',{name:'Reading speed',exact:true}).selectOption('1.25');
+      await page.waitForFunction(()=>document.querySelector('.ds-video-export option[value="lino"]')?.disabled===false);
+      await page.getByRole('combobox',{name:'Narration',exact:true}).selectOption('lino');
+      const exportModel=page.getByRole('combobox',{name:'Voice model',exact:true});
+      const exportVoice=page.getByRole('combobox',{name:'Voice',exact:true});
+      await exportModel.waitFor();
+      assert.equal(await exportModel.locator('option[value="pocket-farsi"]').evaluate(option=>option.disabled),true);
+      await exportModel.selectOption('pocket');await exportVoice.selectOption('marius');
+      await exportModel.selectOption('kokoro');await exportModel.selectOption('pocket');
+      assert.equal(await exportVoice.inputValue(),'marius','export remembers the voice for each model');
+      assert.equal(narrator.engine,'kokoro');assert.equal(narrator.voice,'af_heart','export choices leave live narration unchanged');
+      assert.equal(await exportDialog.getByText('Install Lino and download an English voice to export with Lino narration.',{exact:true}).count(),0);
+      await page.waitForFunction(()=>Array.from(document.querySelectorAll('.ds-video-export-actions button')).some(button=>button.textContent==='Create video'&&!button.disabled),undefined,{timeout:5000}).catch(async error=>{
+        console.error('Export picker state:',await exportDialog.evaluate(dialog=>({text:dialog.textContent,buttons:[...dialog.querySelectorAll('button')].map(button=>({text:button.textContent,disabled:button.disabled})),selections:[...dialog.querySelectorAll('select')].map(select=>({value:select.value,disabled:select.disabled}))})));
+        throw error;
+      });
       const exportBounds=await exportDialog.boundingBox();
       assert.ok(exportBounds.x>=0&&exportBounds.y>=0&&exportBounds.x+exportBounds.width<=viewport.width&&exportBounds.y+exportBounds.height<=viewport.height);
       await page.screenshot({path:join(output,`${name}-video-export.png`)});
       await page.keyboard.press('Escape');
-      assert.equal(await page.getByRole('button',{name:'Export video',exact:true}).evaluate(node=>document.activeElement===node),true);
+      assert.equal(await fileMenu.evaluate(node=>document.activeElement===node),true);
       await page.getByRole('button',{name:'Narration settings',exact:true}).click();
       const narrationModel=page.getByRole('combobox',{name:'Narration model',exact:true});
       const narrationVoice=page.getByRole('combobox',{name:'Narration voice',exact:true});

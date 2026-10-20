@@ -57,7 +57,7 @@ export function RemoveStoryDialog({
 }: RemoveStoryDialogProps) {
   const dialog = useRef<HTMLDivElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
-  const modal = useModalChoreography({ dialog, background, onClose: onCancel });
+  const modal = useModalChoreography({ dialog, background, onClose: onCancel, canClose: () => !busy });
 
   // Strips the live region StatefulButton bakes into its label wrapper, after
   // every render, before paint. `keep` spares this dialog's own announcer —
@@ -74,6 +74,12 @@ export function RemoveStoryDialog({
   useEffect(() => {
     if (modal.shown) cancel.current?.focus();
   }, [modal.shown]);
+
+  // While busy both buttons disable, which would drop focus to the body
+  // inside a still-trapped dialog. Move focus to the dialog itself instead.
+  useEffect(() => {
+    if (busy) dialog.current?.focus();
+  }, [busy]);
 
   // The queued target is the single source of truth for "is this open"; the
   // choreography is driven from it rather than the other way round, so a
@@ -125,20 +131,20 @@ export function RemoveStoryDialog({
             the buttons below it have already come back to life. */}
         <p
           data-remove-error
-          className={cn("mt-2.5 mb-0 text-[12.5px] leading-[1.45] text-diff-del-text", !error && "hidden")}
+          className={cn("mt-3 mb-0 text-md leading-[1.45] text-danger-text", !error && "hidden")}
           role="alert"
         >
           {error ?? ""}
         </p>
 
-        <div className="mt-5 flex justify-end gap-2.5">
+        <div className="mt-5 flex justify-end gap-3">
           <Button
             ref={cancel}
             type="button"
             pressScale={0.97}
             disabled={busy}
             onClick={onCancel}
-            className="h-[var(--control-h)] rounded-full bg-fill-2 px-3.5 text-[12.5px] font-semibold text-text hover:bg-fill-3 disabled:opacity-55"
+            className="h-[var(--control-h)] rounded-full bg-fill-2 px-4 text-md font-semibold text-text hover:bg-fill-3 disabled:opacity-55"
           >
             Cancel
           </Button>
@@ -152,7 +158,7 @@ export function RemoveStoryDialog({
             pressScale={0.97}
             disabled={busy}
             onClick={onConfirm}
-            className="h-[var(--control-h)] rounded-full bg-del-soft px-3.5 text-[12.5px] font-semibold text-diff-del-text hover:bg-del hover:text-on-accent disabled:opacity-55"
+            className="h-[var(--control-h)] rounded-full bg-del-soft px-4 text-md font-semibold text-danger-text hover:bg-del-soft hover:text-danger-text disabled:opacity-55"
           >
             Remove story
           </StatefulButton>

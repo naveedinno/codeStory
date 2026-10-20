@@ -1,5 +1,9 @@
 import { Agent, request as httpRequest } from 'node:http';
 import { randomUUID } from 'node:crypto';
+import { open, rm } from 'node:fs/promises';
+import { Readable, Transform } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+import { setTimeout as delayWithSignal } from 'node:timers/promises';
 // The wire protocol is still Aloud's: Lino ships Aloud's speech engine and
 // codeStory runs that engine itself (see lino-engine.ts). These names describe
 // the protocol, not an app the reviewer has to install.
@@ -60,6 +64,52 @@ export function createAloudReader(endpoint) {
     const status = async () => verifyStatus(await requestJson(await resolve(), 'GET', '/status', undefined, READ_TIMEOUT_MS));
     return {
         status,
+        async generateAudio(input, destination, signal) {
+            signal.throwIfAborted();
+            const target = await resolve();
+            await verifyAloudDaemon(target, 'audio-jobs');
+            const operation = AbortSignal.any([signal, AbortSignal.timeout(10 * 60 * 1000)]);
+            let job;
+            let createdFile = false;
+            try {
+                job = audioJob(await requestJson(target, 'POST', '/api/v1/audio/jobs', { ...input, language: 'en', rate: 1 }, MUTATE_TIMEOUT_MS, operation, { 'Idempotency-Key': randomUUID() }));
+                const path = `/api/v1/audio/jobs/${job.id}`;
+                while (job.state === 'queued' || job.state === 'generating') {
+                    await delayWithSignal(400, undefined, { signal: operation });
+                    job = audioJob(await requestJson(target, 'GET', path, undefined, READ_TIMEOUT_MS, operation), job.id);
+                }
+                if (job.state !== 'ready')
+                    throw new AloudUnavailableError(job.error || job.message || 'Lino could not generate narration.');
+                // Construct the URL ourselves; never follow a job-provided download URL.
+                const response = await fetch(new URL(`${path}/file`, target.url), {
+                    headers: target.secret ? { Authorization: `Bearer ${target.secret}` } : {},
+                    signal: operation, redirect: 'error',
+                });
+                if (!response.ok || !response.body || !/^audio\/(?:x-)?wav\b/i.test(response.headers.get('content-type') ?? '')) {
+                    await response.body?.cancel();
+                    throw new AloudUnavailableError('Lino did not return a WAV narration file.');
+                }
+                let bytes = 0;
+                const bounded = new Transform({ transform(chunk, _encoding, callback) {
+                        bytes += chunk.length;
+                        callback(bytes > 64 * 1024 * 1024 ? new Error('The generated narration passage is too large.') : null, chunk);
+                    } });
+                const output = await open(destination, 'wx', 0o600);
+                createdFile = true;
+                await pipeline(Readable.fromWeb(response.body), bounded, output.createWriteStream(), { signal: operation }).finally(() => output.close());
+            }
+            catch (error) {
+                if (createdFile)
+                    await rm(destination, { force: true }).catch(() => { });
+                throw error;
+            }
+            finally {
+                if (job && job.state !== 'ready') {
+                    // Cancellation belongs to this audio job, never the live reader.
+                    await attemptJson(target, 'DELETE', `/api/v1/audio/jobs/${job.id}`, undefined, READ_TIMEOUT_MS).catch(() => { });
+                }
+            }
+        },
         async models() {
             const target = await resolve();
             await verifyAloudDaemon(target, 'model-catalog');
@@ -119,6 +169,8 @@ async function verifyAloudDaemon(target, capability = ALOUD_BATCH_CAPABILITY) {
     if (!Array.isArray(capabilities) || !capabilities.includes(capability)) {
         if (capability === 'model-catalog')
             throw new AloudControlsUnavailableError();
+        if (capability === 'audio-jobs')
+            throw new AloudUnavailableError('Update Lino to export video with its local voices.');
         if (capability === ALOUD_PREPARE_CAPABILITY) {
             throw new AloudUnavailableError('Lino needs an update before codeStory can prepare narration in the background.');
         }
@@ -203,13 +255,15 @@ const delay = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
  * replaces the current job, /prepare warms a cache, and pause/resume/stop
  * assert a state — so a retry can only ever converge on the intended outcome.
  */
-async function requestJson(target, method, path, body, timeoutMs) {
+async function requestJson(target, method, path, body, timeoutMs, signal, extraHeaders) {
     let lastError;
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
         try {
-            return await attemptJson(target, method, path, body, timeoutMs);
+            signal?.throwIfAborted();
+            return await attemptJson(target, method, path, body, timeoutMs, signal, extraHeaders);
         }
         catch (error) {
+            signal?.throwIfAborted();
             lastError = error;
             if (!isRetryable(error) || attempt === MAX_ATTEMPTS)
                 break;
@@ -218,10 +272,10 @@ async function requestJson(target, method, path, body, timeoutMs) {
     }
     throw lastError;
 }
-function attemptJson(target, method, path, body, timeoutMs) {
+function attemptJson(target, method, path, body, timeoutMs, signal, extraHeaders) {
     return new Promise((resolve, reject) => {
         const payload = body === undefined ? undefined : JSON.stringify(body);
-        const headers = {};
+        const headers = { ...extraHeaders };
         if (target.secret)
             headers['Authorization'] = `Bearer ${target.secret}`;
         if (payload !== undefined) {
@@ -233,6 +287,7 @@ function attemptJson(target, method, path, body, timeoutMs) {
             method,
             headers,
             timeout: timeoutMs,
+            signal,
         }, (res) => {
             const chunks = [];
             let bytes = 0;
@@ -256,7 +311,8 @@ function attemptJson(target, method, path, body, timeoutMs) {
                     return;
                 }
                 if ((res.statusCode ?? 500) >= 400) {
-                    const message = parsed?.error;
+                    const detail = parsed?.error;
+                    const message = typeof detail === 'object' && detail !== null ? detail.message : detail;
                     reject(new AloudUnavailableError(typeof message === 'string' ? message : 'The speech engine rejected the request.'));
                     return;
                 }
@@ -282,4 +338,12 @@ function attemptJson(target, method, path, body, timeoutMs) {
             req.write(payload);
         req.end();
     });
+}
+function audioJob(value, expectedId) {
+    const job = value;
+    if (!job || job.apiVersion !== 1 || typeof job.id !== 'string' || !/^[a-f0-9-]{36}$/.test(job.id)
+        || (expectedId && job.id !== expectedId) || !['queued', 'generating', 'ready', 'cancelled', 'error'].includes(job.state)) {
+        throw new AloudUnavailableError('Lino returned an incompatible audio job. Update Lino and try again.');
+    }
+    return job;
 }

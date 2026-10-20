@@ -13,7 +13,9 @@ import { parseUnifiedDiff } from "./diff.js";
 import { computeCoverage } from "./coverage.js";
 import { renderReviewShell, renderFullFile, renderSplitHunks, renderUnifiedHunks, renderContextRows, renderFilePanelContent, renderStoryStepPanel, renderTrustEvidence, } from "./render.js";
 import { esc } from "./diff-render.js";
-import { renderShell } from "./shell.js";
+import { renderShell, CLIENT_STYLESHEET_HREF } from "./shell.js";
+import { BRAND_HEAD_LINKS } from "./brand.js";
+import { themeBootstrapScript } from "./theme.js";
 import { narrativeText } from "./narrative.js";
 import { summarizeChange } from "./change-view.js";
 import { resolveScope } from "./scope.js";
@@ -77,7 +79,7 @@ export function serve(opts) {
         leaseActive: (token) => !!getReviewPageLease(session, token),
     });
     const aloud = opts.aloud ?? createLinoReader({ home });
-    const videos = new VideoExports();
+    const videos = new VideoExports(undefined, aloud);
     const openEditor = opts.openEditor ?? ((target, editor) => opts.openExternal && editor === "vscode"
         ? openVSCodeTargetWithUrls(target, opts.openExternal)
         : openEditorTarget(target, editor));
@@ -298,7 +300,7 @@ function handle(req, res, session, home, liveHub, aloud, openEditor, videos) {
             return sendJson(res, 200, { app: "codeStory", ready: true });
         }
         if (method === "GET" && url.pathname === "/api/video-export/capabilities") {
-            return sendJson(res, 200, videoRequirements());
+            return sendJson(res, 200, videoRequirements(home));
         }
         if (method === "POST" && url.pathname === "/api/video-export") {
             return readBody(req, res, body => {
@@ -314,10 +316,12 @@ function handle(req, res, session, home, liveHub, aloud, openEditor, videos) {
                 catch (error) {
                     return sendJson(res, 400, { error: error.message });
                 }
-                const requirements = videoRequirements();
-                if (!requirements.available || (options.narration && !requirements.narration))
+                const requirements = videoRequirements(home);
+                if (!requirements.available || (options.narration && !(options.narrationEngine === "lino" ? requirements.lino : requirements.narration)))
                     return sendJson(res, 503, {
-                        error: requirements.missing.join(" ") || "System narration is available on macOS. Choose captions only on this device.",
+                        error: requirements.missing.join(" ") || (options.narrationEngine === "lino"
+                            ? "Install Lino and download an English voice in Settings → Read Aloud, then try again."
+                            : "System narration is available on macOS. Choose Lino or export with subtitles only on this device."),
                     });
                 try {
                     const job = videos.start(page.lease.token, narrativeText(page.tour.title), `http://${req.headers.host}`, options, () => captureVideoSnapshot(session, page.lease.token, options));
@@ -414,8 +418,13 @@ function handle(req, res, session, home, liveHub, aloud, openEditor, videos) {
             session.repo == null &&
             url.pathname.startsWith("/repo/")) {
             const restoredRepo = recentRepoForRoute(url.pathname, home);
-            if (!restoredRepo)
-                return redirect(res, "/");
+            if (!restoredRepo) {
+                if (isPageLikeRepoRoute(url.pathname))
+                    return sendHtml(res, pageNotFound(), 404);
+                res.statusCode = 404;
+                res.end("Not found");
+                return;
+            }
             openRepo(session, restoredRepo);
             restoreStorySelection(session, home);
         }
@@ -866,6 +875,12 @@ function handle(req, res, session, home, liveHub, aloud, openEditor, videos) {
                 }
             });
         }
+        if (method === "GET" && url.pathname === "/api/refs/resolve") {
+            if (!session.repo)
+                return noRepo(res);
+            const ref = url.searchParams.get("ref")?.trim() || "";
+            return sendJson(res, 200, { valid: !!ref && !!resolveCommit(session.repo, ref) });
+        }
         if (method === "GET" && url.pathname === "/api/refs") {
             if (!session.repo)
                 return noRepo(res);
@@ -1156,6 +1171,9 @@ function handle(req, res, session, home, liveHub, aloud, openEditor, videos) {
             }
             return;
         }
+        if (method === "GET" && isPageLikeRepoRoute(url.pathname)) {
+            return sendHtml(res, pageNotFound(), 404);
+        }
         res.statusCode = 404;
         res.end("Not found");
     }
@@ -1229,7 +1247,7 @@ function storyChooser(session, refreshEvidence = false) {
     const repoName = basename(repo);
     return renderShell({
         surface: "stories",
-        title: `${repoName} Review history`,
+        title: "Review history",
         bodyClass: "ds-map-bg",
         payload: {
             repoName,
@@ -1443,7 +1461,7 @@ function explainScreen(session, params) {
     const repoName = basename(repo);
     return renderShell({
         surface: "explain",
-        title: `${repoName} Explain code`,
+        title: "Explain code",
         bodyClass: "ds-map-bg",
         payload: {
             repoName,
@@ -2308,7 +2326,7 @@ function renderContextResponse(page, params) {
     const df = materializePageFile(page, file);
     const newLines = readWholeFile(repo, file, head) ?? [];
     if (!newLines.length)
-        return `<div class="ds-diffnote">Couldn't read ${esc(file)} from the working tree.</div>`;
+        return `<div class="ds-diffnote">Could not read ${esc(file)} from the working tree.</div>`;
     // Clamp to the real file length: ranges past EOF must serve fewer rows,
     // never invented ones. Defense-in-depth — the parser now bounds hunks by
     // their header counts, so it no longer leaks a phantom row past EOF.
@@ -3556,11 +3574,44 @@ function sendJson(res, status, payload) {
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.end(JSON.stringify(payload));
 }
+/** Repository document routes get recovery chrome; missing files stay plain 404s. */
+function isPageLikeRepoRoute(pathname) {
+    const route = pathname.match(/^\/repo\/[^/]+(?:\/(.*))?$/);
+    return !!route && !/^(?:api|assets)(?:\/|$)/.test(route[1] ?? "") &&
+        !/\.[a-z0-9]{1,10}$/i.test((route[1] ?? "").split("/").at(-1) ?? "");
+}
+function pageNotFound() {
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+${themeBootstrapScript()}${BRAND_HEAD_LINKS}
+<title>${APP_BRAND} — Page not found</title>
+<link rel="stylesheet" href="${CLIENT_STYLESHEET_HREF}">
+<style>
+.error-nav{display:flex;align-items:center;gap:12px;min-height:50px;margin:10px 12px 0;padding:8px 16px;border:1px solid var(--line-soft);border-radius:var(--radius-island);background:var(--surface)}
+.error-nav a{color:var(--text);font-size:var(--text-lg);text-decoration:none}
+.error-nav span{color:var(--text-3);font-size:var(--text-base)}
+.error-main{max-width:760px;margin:24px auto;padding:0 24px}
+.error-card{padding:24px;border:1px solid var(--line-soft);border-radius:var(--radius-island);background:var(--surface-2)}
+.error-card h1{margin:0;font-family:var(--font-display);font-size:var(--text-2xl);font-weight:700;letter-spacing:var(--tracking-tight)}
+.error-card p{margin:12px 0 20px;color:var(--text-2);font-size:var(--text-base);line-height:1.5}
+.error-action{display:inline-flex;align-items:center;min-height:var(--control-h-lg);padding:0 16px;border-radius:999px;background:var(--accent);color:var(--on-accent);font-size:var(--text-base);font-weight:600;text-decoration:none}
+.error-action:hover{background:var(--accent-solid-hover)}
+.error-nav a:focus-visible,.error-action:focus-visible{outline:none;box-shadow:var(--shadow-focus)}
+@media(max-width:600px){.error-main{padding:0 14px}.error-card{padding:20px}}
+@media(prefers-contrast:more){.error-nav,.error-card{border-color:var(--text)}}
+</style></head><body class="ds-map-bg">
+<nav class="error-nav" aria-label="Main navigation"><a href="/repos" aria-label="Home — your repositories">code<strong>Story</strong></a><span aria-hidden="true">/</span><span>Page not found</span></nav>
+<main class="error-main" id="main-content" tabindex="-1"><section class="error-card" aria-labelledby="error-heading">
+<h1 id="error-heading">Page not found</h1><p>That repository or page could not be found.</p>
+<a class="error-action" href="/repos">Go to your repositories</a>
+</section></main></body></html>`;
+}
 function errorPage(message) {
     return `<!doctype html><html><head><meta charset="utf-8"><title>${APP_BRAND} — error</title>
 <style>body{background:#0e0f13;color:#e7e8ec;font:15px/1.6 system-ui;padding:60px;max-width:70ch;margin:auto}
 code{background:#16181d;padding:2px 6px;border-radius:4px}h1{color:#f85149}</style></head>
-<body><h1>Couldn't build the review</h1><pre><code>${escapeText(message)}</code></pre>
+<body><h1>Could not build the review</h1><pre><code>${escapeText(message)}</code></pre>
 <p>Fix the issue above and refresh. Most often the story is missing or malformed — open the diff and generate a fresh one.</p>
 </body></html>`;
 }

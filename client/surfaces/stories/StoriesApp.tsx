@@ -29,8 +29,9 @@
 
 import { useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { CheckCircle2, X } from "lucide-react";
 import { ActionSwapRollText } from "../../vendor/beui/motion/action-swap-roll";
-import { ButtonLink } from "../../vendor/beui/motion/button/base";
+import { Button, ButtonLink } from "../../vendor/beui/motion/button/base";
 import { Tooltip } from "../../vendor/beui/motion/tooltip";
 import type { StoriesPayload, StoryRowView } from "../../../src/payloads";
 import { failureMessage, requestJson } from "../../shared/api";
@@ -52,17 +53,26 @@ export function StoriesApp({ payload }: { payload: StoriesPayload }) {
   const [importError, setImportError] = useState<string | null>(null);
   const main = useRef<HTMLDivElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const historyHeading = useRef<HTMLHeadingElement>(null);
+  const savedHeading = useRef<HTMLHeadingElement>(null);
+  const focusAfterRemoval = useRef(false);
   const reduceMotion = useReducedMotion();
 
   const cancel = () => {
     if (busy) return;
     setTarget(null);
     setError(null);
+    if (focusAfterRemoval.current) {
+      focusAfterRemoval.current = false;
+      // The modal returns focus after this callback. Move to a stable heading
+      // on the next frame, once the removed row's trigger has been retired.
+      requestAnimationFrame(() => (savedHeading.current ?? historyHeading.current)?.focus());
+    }
   };
 
   const confirm = () => {
     const story = target;
-    if (!story) return;
+    if (!story || busy) return;
     setBusy(true);
     setError(null);
     requestJson("/api/stories", {
@@ -72,6 +82,7 @@ export function StoriesApp({ payload }: { payload: StoriesPayload }) {
       networkFallback: "Could not reach the server.",
     })
       .then(() => {
+        focusAfterRemoval.current = true;
         setBusy(false);
         setTarget(null);
         setError(null);
@@ -87,10 +98,10 @@ export function StoriesApp({ payload }: { payload: StoriesPayload }) {
       });
   };
 
-  // Reviews with notes, not notes. A metadata-only payload reports zero open
+  // Reviews with comments, not comments. A metadata-only payload reports zero open
   // comments for every story because it never read the comment store, so this
   // is simply absent until someone asks for live evidence.
-  const openNotes = stories.filter((story) => story.openComments).length;
+  const reviewsWithComments = stories.filter((story) => story.openComments).length;
 
   // A bundle import ends in a plain navigation, not a state patch: the new row
   // deserves a server-rendered card, and adopting the POST response's
@@ -151,15 +162,15 @@ export function StoriesApp({ payload }: { payload: StoriesPayload }) {
         <main
           id="main-content"
           tabIndex={-1}
-          className="ds-reveal relative isolate mx-auto w-[min(960px,100%)] px-6 pt-7 pb-16 max-[760px]:px-4 max-[760px]:pt-[22px]"
+          className="ds-reveal relative isolate mx-auto w-[min(960px,100%)] px-6 pt-8 pb-16 max-[760px]:px-4 max-[760px]:pt-6"
         >
-          <header className="mb-[22px] flex items-end justify-between gap-7 border-b border-line-soft pb-[22px] max-[760px]:items-start max-[560px]:block">
+          <header className="mb-6 flex items-end justify-between gap-6 pb-6 max-[760px]:items-start max-[560px]:block">
             <div className="min-w-0">
-              <p className="m-0 mb-1.5 font-mono text-xs font-medium tracking-[var(--tracking-kicker)] text-text-3 uppercase">
+              <p className="m-0 mb-2 break-all font-mono text-xs font-medium tracking-[var(--tracking-kicker)] text-text-3 uppercase">
                 {repoName}
               </p>
-              <div className="flex flex-wrap items-center gap-3.5">
-                <h1 className="m-0 font-display text-[26px] font-bold tracking-[-.02em] text-balance">Review history</h1>
+              <div className="flex flex-wrap items-center gap-4">
+                <h1 ref={historyHeading} tabIndex={-1} className="m-0 rounded-[var(--radius-sm)] font-display text-2xl font-bold tracking-[-.02em] text-balance focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]">Review history</h1>
                 {/* Exactly one "Start review" exists on this page, and it lives
                     with the title rather than in the empty state — the empty
                     state must not become the only way to start. */}
@@ -214,7 +225,7 @@ export function StoriesApp({ payload }: { payload: StoriesPayload }) {
                   accept=".json,application/json"
                   className="ds-sr-only"
                   tabIndex={-1}
-                  aria-hidden="true"
+                  aria-label="Import story bundle"
                   onChange={(event) => {
                     const file = event.target.files?.[0];
                     event.target.value = "";
@@ -223,18 +234,18 @@ export function StoriesApp({ payload }: { payload: StoriesPayload }) {
                 />
               </div>
               {importError ? (
-                <p className="mt-[7px] mb-0 text-base text-danger-text" role="alert">
+                <p className="mt-2 mb-0 text-base text-danger-text" role="alert">
                   {importError}
                 </p>
               ) : null}
-              <p className="mt-[7px] mb-0 max-w-[58ch] text-base leading-[1.45] text-pretty text-text-2">
-                Resume a saved review when you need its scope or its notes.
+              <p className="mt-2 mb-0 max-w-[58ch] text-base leading-[1.45] text-pretty text-text-2">
+                Resume a saved review when you need its scope or its comments.
               </p>
             </div>
-            {openNotes ? (
+            {reviewsWithComments ? (
               <span
                 aria-label="Review history status"
-                className="flex items-center gap-3.5 text-md whitespace-nowrap text-text-2 max-[560px]:mt-3.5"
+                className="flex items-center gap-4 text-md whitespace-nowrap text-text-2 max-[560px]:mt-4"
               >
                 {/* Removing a story with open comments changes this count while
                     the page stays put, and beUI's ActionSwapText is the one
@@ -242,10 +253,10 @@ export function StoriesApp({ payload }: { payload: StoriesPayload }) {
                     (`AnimatePresence initial={false}`) — so the count rolls
                     when it actually changes and stays still on load. A ticker
                     would count up from zero on every navigation. */}
-                <ActionSwapRollText value={`notes-${openNotes}`}>
+                <ActionSwapRollText value={`comments-${reviewsWithComments}`}>
                   <span>
-                    <b className="text-text tabular-nums">{openNotes}</b>{" "}
-                    {openNotes === 1 ? "review has" : "reviews have"} open comments
+                    <b className="text-text tabular-nums">{reviewsWithComments}</b>{" "}
+                    {reviewsWithComments === 1 ? "review has" : "reviews have"} open comments
                   </span>
                 </ActionSwapRollText>
               </span>
@@ -256,8 +267,10 @@ export function StoriesApp({ payload }: { payload: StoriesPayload }) {
             <section className="min-w-0" aria-labelledby="saved-reviews-title">
               <div className="mb-3 flex items-center justify-between gap-4">
                 <h2
+                  ref={savedHeading}
+                  tabIndex={-1}
                   id="saved-reviews-title"
-                  className="m-0 font-display text-[16px] leading-[1.1] font-semibold tracking-[-.012em]"
+                  className="m-0 rounded-[var(--radius-sm)] font-display text-lg leading-[1.1] font-semibold tracking-[-.012em] focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
                 >
                   {/* Same swap, same reason: a delete renumbers this heading in
                       place, and the roll is what says so. */}
@@ -298,15 +311,39 @@ export function StoriesApp({ payload }: { payload: StoriesPayload }) {
             <EmptyHistory />
           )}
 
-          {/* The vanilla page announced a failed delete with alert() and a
-              successful one not at all. The failure now reports inside the
-              dialog; this is the success half, and it stays screen-reader-only
-              because the row visibly disappearing is the sighted confirmation. */}
+          {/* One persistent live region announces success. The visible toast
+              below repeats it without adding a second announcement. */}
           <p className="ds-sr-only" role="status">
             {status}
           </p>
         </main>
       </div>
+
+      {status && !target ? (
+        <div
+          className="pointer-events-none fixed inset-x-4 bottom-[calc(16px+env(safe-area-inset-bottom))] z-[70] flex justify-center"
+        >
+          <div className="pointer-events-auto flex w-fit max-w-[min(560px,100%)] items-center gap-3 rounded-[var(--radius-lg)] border border-line bg-surface-3 px-3 py-3 text-base leading-[1.45] text-text shadow-signal contrast-more:border-text">
+            <CheckCircle2
+              className="h-4 w-4 flex-none text-diff-add-text"
+              strokeWidth={2}
+              aria-hidden="true"
+            />
+            <span className="min-w-0 flex-1 text-pretty">{status}</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              pressScale={0.96}
+              onClick={() => setStatus("")}
+              aria-label="Dismiss message"
+              className="h-9 w-9 flex-none rounded-full text-text-2 hover:bg-fill-2 hover:text-text"
+            >
+              <X className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       <RemoveStoryDialog
         target={target ? { id: target.id, title: target.title || target.id } : null}

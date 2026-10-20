@@ -35,9 +35,10 @@
 import { ArrowRight, Check, ChevronDown } from "lucide-react";
 import { AnimatedBadge } from "../../vendor/beui/motion/animated-badge";
 import { Button, ButtonLink } from "../../vendor/beui/motion/button/base";
+import { Tooltip } from "../../vendor/beui/motion/tooltip";
 import { cn } from "../../shared/cn";
 import type { ChangeFileView } from "../../../src/payloads";
-import { addShare, generatedOutput, plural, splitPath, totals } from "./format";
+import { addShare, formatCount, generatedOutput, plural, splitPath, totals } from "./format";
 
 function FileRow({ file, inset }: { file: ChangeFileView; inset?: boolean }) {
   const [dir, name] = splitPath(file.path);
@@ -47,17 +48,19 @@ function FileRow({ file, inset }: { file: ChangeFileView; inset?: boolean }) {
   return (
     <div
       className={cn(
-        "frow flex items-center gap-3 border-b border-line-soft px-[15px] py-[9px] text-[13px] last:border-b-0",
-        "max-[600px]:gap-[9px] max-[600px]:px-[13px]",
+        "frow flex items-center gap-3 border-b border-line-soft px-4 py-2 text-[0.8125rem] last:border-b-0",
+        "max-[600px]:gap-2 max-[600px]:px-3",
         inset && "bg-[color-mix(in_srgb,var(--fill-1)_50%,transparent)] ps-[25px]",
       )}
     >
-      <span className="flex min-w-0 flex-1 items-baseline overflow-hidden font-mono" title={file.path}>
+      <Tooltip content={file.path} className="max-w-[min(560px,calc(100vw-24px))] whitespace-normal break-all border-line bg-surface-3 text-text" wrapperClassName="min-w-0 flex-1">
+      <span tabIndex={0} onClick={(event) => event.currentTarget.focus()} aria-label={file.path} className="flex min-w-0 flex-1 items-baseline overflow-hidden rounded-[var(--radius-sm)] font-mono focus-visible:shadow-[var(--shadow-focus-inset)] focus-visible:outline-none">
         {dir ? (
-          <span className="min-w-0 flex-[0_1_auto] truncate text-right text-text-3 max-[600px]:max-w-[48%]">{dir}</span>
+          <span className="min-w-0 flex-[0_1_auto] truncate text-end text-text-3 max-[600px]:max-w-[48%]">{dir}</span>
         ) : null}
-        <span className="flex-none font-medium text-text">{name}</span>
+        <span className="min-w-0 flex-[0_1_auto] truncate font-medium text-text">{name}</span>
       </span>
+      </Tooltip>
       {binary ? (
         <span
           aria-hidden="true"
@@ -72,7 +75,7 @@ function FileRow({ file, inset }: { file: ChangeFileView; inset?: boolean }) {
           <span className="h-full bg-del" style={{ width: `${100 - share}%` }} />
         </span>
       )}
-      <span className="min-w-[78px] flex-none text-right font-mono text-xs max-[600px]:min-w-[70px]">
+      <span className="min-w-[78px] flex-none text-end font-mono text-xs max-[600px]:min-w-[70px]">
         {binary ? (
           <span className="text-text-3">binary / metadata</span>
         ) : file.added || file.removed ? (
@@ -80,8 +83,8 @@ function FileRow({ file, inset }: { file: ChangeFileView; inset?: boolean }) {
             {/* Ink variants, not the rail hues — these are 10 px numerals on a
                 light card, which is exactly the case `--diff-add-text` and
                 `--diff-del-text` exist for. Identical to `--add`/`--del` in dark. */}
-            {file.added ? <span className="text-diff-add-text">+{file.added}</span> : null}
-            {file.removed ? <span className="ms-1.5 text-diff-del-text">−{file.removed}</span> : null}
+            {file.added ? <span className="text-diff-add-text">+{formatCount(file.added)}</span> : null}
+            {file.removed ? <span className="ms-1.5 text-diff-del-text">−{formatCount(file.removed)}</span> : null}
           </>
         ) : (
           <span className="text-text-3">metadata</span>
@@ -93,14 +96,14 @@ function FileRow({ file, inset }: { file: ChangeFileView; inset?: boolean }) {
 
 function EmptyState({ routeBase }: { routeBase: string }) {
   return (
-    <div className="overflow-hidden rounded-[var(--radius-island)] border border-transparent bg-surface-2 contrast-more:border-text">
+    <div className="overflow-hidden rounded-[var(--radius-island)] border border-line-soft bg-surface-2 contrast-more:border-text">
       <div className="px-4 pt-[34px] pb-[38px] text-center text-sm text-text-2">
         <p className="m-0 mb-3">
           <AnimatedBadge
             status="success"
             size="sm"
-            icon={<Check strokeWidth={2.4} aria-hidden="true" />}
-            className="h-auto gap-1 rounded-[var(--radius-sm)] border-0 bg-add-soft px-2 py-0.5 font-mono text-[11px] font-medium text-diff-add-text"
+            icon={<Check strokeWidth={1.5} aria-hidden="true" />}
+            className="h-auto gap-1 rounded-[var(--radius-sm)] border-0 bg-add-soft px-2 py-0.5 font-mono text-[0.6875rem] font-medium text-diff-add-text"
           >
             working tree clean
           </AnimatedBadge>
@@ -108,7 +111,7 @@ function EmptyState({ routeBase }: { routeBase: string }) {
         <h2 className="empty-title m-0 mb-2 font-display text-xl font-bold tracking-[var(--tracking-tight)] text-balance text-text">
           Nothing to review
         </h2>
-        <p className="mx-auto mb-5 max-w-[46ch] text-[12.5px] leading-[1.6] text-pretty text-text-2">
+        <p className="mx-auto mb-5 max-w-[46ch] text-[0.78125rem] leading-[1.6] text-pretty text-text-2">
           Pick another scope above, or make a change. When your agent writes code, the changes appear here.
         </p>
         <div className="flex items-center justify-center gap-2">
@@ -117,7 +120,7 @@ function EmptyState({ routeBase }: { routeBase: string }) {
             pressScale={0.97}
             whileHover={undefined}
             onClick={() => window.location.reload()}
-            className="h-[var(--control-h)] rounded-full bg-fill-2 px-3.5 text-[12.5px] font-semibold text-text hover:bg-fill-2"
+            className="h-[var(--control-h)] rounded-full bg-fill-2 px-3.5 text-[0.78125rem] font-semibold text-text hover:bg-fill-2"
           >
             Reload
           </Button>
@@ -125,7 +128,7 @@ function EmptyState({ routeBase }: { routeBase: string }) {
             href={`${routeBase}/stories`}
             pressScale={0.97}
             whileHover={undefined}
-            className="h-[var(--control-h)] rounded-full bg-fill-2 px-3.5 text-[12.5px] font-semibold text-text hover:bg-fill-2"
+            className="h-[var(--control-h)] rounded-full bg-fill-2 px-3.5 text-[0.78125rem] font-semibold text-text hover:bg-fill-2"
           >
             Review history →
           </ButtonLink>
@@ -166,19 +169,19 @@ function Inventory({ files, diffHref }: { files: ChangeFileView[]; diffHref: str
   const total = totals(files);
   const primary = files.filter((file) => !generatedOutput(file.path));
   const generated = files.filter((file) => generatedOutput(file.path));
-  const reviewCount = `${files.length} ${plural(files.length, "file", "files")}`;
+  const reviewCount = `${formatCount(files.length)} ${plural(files.length, "file", "files")}`;
 
   return (
-    <div className="overflow-hidden rounded-[var(--radius-island)] border border-transparent bg-surface-2 contrast-more:border-text">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line-soft bg-fill-1 px-[15px] py-[11px] text-[13px] text-text-2">
+    <div className="overflow-hidden rounded-[var(--radius-island)] border border-line-soft bg-surface-2 contrast-more:border-text">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line-soft bg-fill-1 px-4 py-3 text-[0.8125rem] text-text-2">
         <span>
-          <b className="font-display font-bold text-text tabular-nums">{primary.length}</b> review{" "}
+          <b className="font-display font-bold text-text tabular-nums">{formatCount(primary.length)}</b> review{" "}
           {plural(primary.length, "file", "files")}
-          {generated.length ? <span className="text-text-3"> · {generated.length} generated</span> : null}
+          {generated.length ? <span className="text-text-3"> · {formatCount(generated.length)} generated</span> : null}
         </span>
-        <span className="inline-flex gap-[9px] font-mono text-[12.5px]">
-          <span className="text-diff-add-text">+{total.added}</span>
-          <span className="text-diff-del-text">−{total.removed}</span>
+        <span className="inline-flex gap-2 font-mono text-[0.78125rem]">
+          <span className="text-diff-add-text">+{formatCount(total.added)}</span>
+          <span className="text-diff-del-text">−{formatCount(total.removed)}</span>
         </span>
         <ButtonLink
           href={diffHref}
@@ -186,7 +189,7 @@ function Inventory({ files, diffHref }: { files: ChangeFileView[]; diffHref: str
           pressScale={0.97}
           whileHover={undefined}
           className={cn(
-            "ms-auto h-[var(--control-h)] gap-[7px] rounded-full bg-accent px-[15px] text-[12.5px] font-semibold text-on-accent hover:bg-accent-solid-hover",
+            "ms-auto h-[var(--control-h-lg)] gap-2 rounded-full bg-accent ps-[15px] pe-[13px] text-[0.78125rem] font-semibold text-on-accent hover:bg-accent-solid-hover",
             "max-[600px]:ms-0 max-[600px]:w-full",
           )}
         >
@@ -201,11 +204,11 @@ function Inventory({ files, diffHref }: { files: ChangeFileView[]; diffHref: str
         ))}
         {generated.length ? (
           <details id="generated" className="group border-t border-line-soft bg-fill-1">
-            <summary className="flex cursor-pointer list-none items-center gap-3 px-[15px] py-[11px] text-start text-xs font-semibold text-text-2 outline-none hover:bg-fill-2 focus-visible:bg-fill-2 focus-visible:shadow-[var(--shadow-focus)] [&::-webkit-details-marker]:hidden">
+            <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 text-start text-xs font-semibold text-text-2 outline-none hover:bg-fill-2 focus-visible:bg-fill-2 focus-visible:shadow-[var(--shadow-focus)] [&::-webkit-details-marker]:hidden">
               <span className="flex min-w-0 flex-1 items-center justify-between gap-3">
                 <span>Generated output</span>
                 <span className="font-normal text-text-3">
-                  {generated.length} {plural(generated.length, "file", "files")}
+                  {formatCount(generated.length)} {plural(generated.length, "file", "files")}
                 </span>
               </span>
               <ChevronDown

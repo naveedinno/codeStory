@@ -7,6 +7,13 @@
 
 import type { ChangeFileView } from "../../../src/payloads";
 
+const countFormatter = new Intl.NumberFormat("en-US");
+
+/** Preserve compact small counts; group five-figure totals for scanning. */
+export function formatCount(value: number): string {
+  return Math.abs(value) >= 10_000 ? countFormatter.format(value) : String(value);
+}
+
 export function plural(count: number, one: string, many: string): string {
   return count === 1 ? one : many;
 }

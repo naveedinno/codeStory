@@ -14,7 +14,7 @@
 //   1. `requestAnimationFrame` between un-hiding and adding `.is-shown`.
 //      `hidden` is `display:none`; adding the class in the same frame gives the
 //      browser no "before" style to transition from, and the sheet snaps in.
-//   2. A 210 ms close timer (0 ms under `prefers-reduced-motion: reduce`) before
+//   2. A 340 ms close timer (0 ms under `prefers-reduced-motion: reduce`) before
 //      re-applying `hidden`, so the exit transition is not cut off mid-flight —
 //      and the timer only hides if the modal was not reopened meanwhile.
 //   3. Re-entrancy guards on both entry points, keyed on "is a close in
@@ -34,8 +34,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 export type ModalPhase = "closed" | "opening" | "open" | "closing";
 
-/** Matches `--motion-duration-spatial` minus a frame: the sheet's exit budget. */
-export const MODAL_CLOSE_MS = 210;
+/** Matches `--motion-duration-spatial`: the sheet's exit budget. */
+export const MODAL_CLOSE_MS = 340;
 
 const FOCUSABLE = 'button:not([disabled]),input:not([disabled]),[href],[tabindex]:not([tabindex="-1"])';
 
@@ -84,6 +84,8 @@ export interface ModalChoreographyOptions {
   onOpen?: () => void;
   /** Runs synchronously when closing starts, before focus is restored. */
   onClose?: () => void;
+  /** Return false while an operation must finish before the dialog can close. */
+  canClose?: () => boolean;
 }
 
 export interface ModalChoreography {
@@ -98,7 +100,7 @@ export interface ModalChoreography {
 }
 
 export function useModalChoreography(options: ModalChoreographyOptions): ModalChoreography {
-  const { dialog, background, onOpen, onClose } = options;
+  const { dialog, background, onOpen, onClose, canClose } = options;
   const [phase, setPhase] = useState<ModalPhase>("closed");
   const trigger = useRef<HTMLElement | null>(null);
   const closeTimer = useRef<number>(0);
@@ -111,6 +113,8 @@ export function useModalChoreography(options: ModalChoreographyOptions): ModalCh
   openCb.current = onOpen;
   const closeCb = useRef(onClose);
   closeCb.current = onClose;
+  const canCloseCb = useRef(canClose);
+  canCloseCb.current = canClose;
 
   const open = useCallback(
     (from?: HTMLElement | null) => {
@@ -129,6 +133,7 @@ export function useModalChoreography(options: ModalChoreographyOptions): ModalCh
   const close = useCallback(() => {
     // "bail if already hidden or mid-close"
     if (phaseRef.current === "closed" || phaseRef.current === "closing") return;
+    if (canCloseCb.current?.() === false) return;
     setPhase("closing");
   }, []);
 
@@ -136,6 +141,8 @@ export function useModalChoreography(options: ModalChoreographyOptions): ModalCh
   // let the surface focus/load, then start the transition on the next frame.
   useEffect(() => {
     if (phase !== "opening") return;
+    dialog.current?.removeAttribute("inert");
+    dialog.current?.removeAttribute("aria-hidden");
     const behind = background.current;
     if (behind) {
       behind.setAttribute("inert", "");
@@ -146,7 +153,7 @@ export function useModalChoreography(options: ModalChoreographyOptions): ModalCh
       setPhase((current) => (current === "opening" ? "open" : current));
     });
     return () => cancelAnimationFrame(frame);
-  }, [phase, background]);
+  }, [phase, background, dialog]);
 
   // Closing: drop the class immediately, hand the page back, restore focus, then
   // hide after the exit transition — unless something reopened us meanwhile.
@@ -160,7 +167,18 @@ export function useModalChoreography(options: ModalChoreographyOptions): ModalCh
     closeCb.current?.();
     const restore = trigger.current;
     trigger.current = null;
-    restore?.focus?.();
+    if (restore && document.contains(restore)) {
+      restore.focus();
+    } else if (behind && document.contains(behind)) {
+      // A successful removal can delete its trigger. Return to a stable page
+      // target; the closing sheet is about to be hidden and cannot keep focus.
+      const hadTabIndex = behind.hasAttribute("tabindex");
+      if (!hadTabIndex) behind.setAttribute("tabindex", "-1");
+      behind.focus();
+      if (!hadTabIndex) behind.removeAttribute("tabindex");
+    }
+    dialog.current?.setAttribute("inert", "");
+    dialog.current?.setAttribute("aria-hidden", "true");
     closeTimer.current = window.setTimeout(
       () => {
         closeTimer.current = 0;
@@ -174,14 +192,14 @@ export function useModalChoreography(options: ModalChoreographyOptions): ModalCh
         closeTimer.current = 0;
       }
     };
-  }, [phase, background]);
+  }, [phase, background, dialog]);
 
   // Escape + the Tab/Shift+Tab trap. Bound on `document` for the lifetime of the
   // surface and gated on the phase, exactly as the vanilla listener was bound
   // once and gated on `scrim.hidden`.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (phaseRef.current === "closed") return;
+      if (phaseRef.current === "closed" || phaseRef.current === "closing") return;
       const root = dialog.current;
       if (!root) return;
       if (event.key === "Escape") {

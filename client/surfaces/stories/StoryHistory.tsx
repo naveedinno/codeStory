@@ -10,8 +10,9 @@
 // first), so there is no confirm dialog. Opening a snapshot is a real
 // navigation to review?story=<history-id>, which renders read-only.
 
-import { useState } from "react";
+import { useCallback, useId, useState } from "react";
 import { History } from "lucide-react";
+import { Tooltip } from "../../vendor/beui/motion/tooltip";
 import type { StoryHistoryDiff, StoryHistoryEntry } from "../../../src/types";
 import type { StoryRowView } from "../../../src/payloads";
 import { failureMessage, requestJson } from "../../shared/api";
@@ -42,15 +43,15 @@ export function StoryHistory({ storyId, routeBase, now, onRestored }: StoryHisto
   const [loading, setLoading] = useState(false);
   const [entries, setEntries] = useState<StoryHistoryEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [restoreError, setRestoreError] = useState<{ name: string; message: string } | null>(null);
   const [restoring, setRestoring] = useState<string | null>(null);
   const [status, setStatus] = useState("");
+  const restoreErrorId = useId();
 
-  const toggle = () => {
-    const next = !open;
-    setOpen(next);
-    if (!next || loaded || loading) return;
+  const load = useCallback(() => {
     setLoading(true);
     setError(null);
+    setStatus("");
     requestJson<{ history: StoryHistoryEntry[] }>(
       `/api/stories/history?id=${encodeURIComponent(storyId)}`,
       { fallback: "Could not load story history." },
@@ -64,12 +65,20 @@ export function StoryHistory({ storyId, routeBase, now, onRestored }: StoryHisto
         setLoading(false);
         setError(failureMessage(cause, "Could not load story history."));
       });
+  }, [storyId]);
+
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    if (!next || loaded || loading) return;
+    load();
   };
 
   const restore = (entry: StoryHistoryEntry) => {
     if (restoring) return;
     setRestoring(entry.name);
-    setError(null);
+    setRestoreError(null);
+    setStatus("");
     requestJson<{ stories: StoryRowView[]; history: StoryHistoryEntry[] }>(
       "/api/stories/history/restore",
       {
@@ -99,31 +108,31 @@ export function StoryHistory({ storyId, routeBase, now, onRestored }: StoryHisto
       })
       .catch((cause: unknown) => {
         setRestoring(null);
-        setError(failureMessage(cause, "Could not restore this version."));
+        setRestoreError({ name: entry.name, message: failureMessage(cause, "Could not restore this version.") });
       });
   };
 
   return (
-    <div className="border-t border-line-soft px-[19px] py-2">
+    <div className="border-t border-line-soft px-5 py-2">
       <div className="flex flex-wrap items-center gap-x-5">
         <button
           type="button"
           onClick={toggle}
           aria-expanded={open}
           className={cn(
-            "inline-flex min-h-[36px] items-center gap-2 rounded-[var(--radius-sm)] font-mono text-[11px] text-text-3",
+            "inline-flex min-h-[36px] items-center gap-2 rounded-[var(--radius-sm)] font-mono text-[0.6875rem] text-text-3",
             "transition-colors duration-[var(--motion-duration-fast)] ease-out hover:text-text-2",
             "focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-inset)]",
             "motion-reduce:transition-none",
           )}
         >
-          <History className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden="true" />
+          <History className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
           {open ? "Hide earlier versions" : "Earlier versions"}
         </button>
         <a
           href={`/api/stories/bundle?id=${encodeURIComponent(storyId)}`}
           download
-          className="inline-flex min-h-[36px] items-center rounded-[var(--radius-sm)] font-mono text-[11px] text-text-3 no-underline transition-colors duration-[var(--motion-duration-fast)] ease-out hover:text-text-2 focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-inset)] motion-reduce:transition-none"
+          className="inline-flex min-h-[36px] items-center rounded-[var(--radius-sm)] font-mono text-[0.6875rem] text-text-3 no-underline transition-colors duration-[var(--motion-duration-fast)] ease-out hover:text-text-2 focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-inset)] motion-reduce:transition-none"
         >
           Export bundle
         </a>
@@ -131,13 +140,27 @@ export function StoryHistory({ storyId, routeBase, now, onRestored }: StoryHisto
       {open ? (
         <div className="pt-1 pb-2">
           {loading ? (
-            <p className="m-0 py-2 font-mono text-[11px] text-text-3">Loading versions…</p>
+            <p className="m-0 py-2 font-mono text-[0.6875rem] text-text-3">Loading versions…</p>
           ) : error ? (
-            <p className="m-0 py-2 text-sm text-danger-text" role="alert">
-              {error}
-            </p>
+            <div className="flex flex-wrap items-center gap-3 py-2">
+              <p className="m-0 text-sm text-danger-text" role="alert">
+                {error}
+              </p>
+              <button
+                type="button"
+                onClick={load}
+                className={cn(
+                  "min-h-[var(--control-h)] rounded-[var(--radius-sm)] px-2 py-1 font-mono text-sm text-text-2",
+                  "transition-colors duration-[var(--motion-duration-fast)] ease-out hover:bg-fill-2 hover:text-text",
+                  "focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-inset)]",
+                  "motion-reduce:transition-none",
+                )}
+              >
+                Try again
+              </button>
+            </div>
           ) : entries.length === 0 ? (
-            <p className="m-0 py-2 font-mono text-[11px] text-text-3">
+            <p className="m-0 py-2 font-mono text-[0.6875rem] text-text-3">
               No earlier versions yet. The app snapshots this story whenever it changes.
             </p>
           ) : (
@@ -147,42 +170,55 @@ export function StoryHistory({ storyId, routeBase, now, onRestored }: StoryHisto
                 return (
                   <li
                     key={entry.name}
-                    className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-[var(--radius-sm)] px-2 py-[7px] hover:bg-fill-1"
+                    className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-[var(--radius-sm)] px-2 py-2 hover:bg-fill-1"
                   >
                     <span className="min-w-0 flex-1 basis-48">
-                      <span className="block truncate text-sm font-medium text-text">
-                        {entry.title}
-                      </span>
-                      <span className="block font-mono text-[11px] text-text-3">
+                      <Tooltip
+                        content={entry.title}
+                        side="top"
+                        wrapperClassName="block min-w-0 max-w-full"
+                        className="max-w-[min(52ch,90vw)] rounded-[var(--radius-sm)] border-line-soft bg-surface-3 text-sm whitespace-normal text-text shadow-signal"
+                      >
+                        <span tabIndex={0} className="block truncate rounded-[var(--radius-sm)] text-sm font-medium text-text focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-inset)]">
+                          {entry.title}
+                        </span>
+                      </Tooltip>
+                      <span className="block font-mono text-[0.6875rem] text-text-3">
                         {relativeTime(entry.updatedAt, now)} · {plural(entry.steps, "step")}
                         {summary ? ` · ${summary}` : ""}
                       </span>
                     </span>
                     {!entry.valid ? (
-                      <span className="font-mono text-[11px] text-danger-text">unreadable</span>
+                      <span className="font-mono text-[0.6875rem] text-danger-text">unreadable</span>
                     ) : (
                       <>
                         <a
                           href={`${routeBase}/review?story=${encodeURIComponent(entry.id)}`}
-                          className="rounded-[var(--radius-sm)] px-2 py-1 font-mono text-[11px] text-accent-text no-underline hover:bg-accent-soft focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-inset)]"
+                          className="inline-flex min-h-[var(--control-h)] items-center rounded-[var(--radius-sm)] px-2 py-1 font-mono text-sm text-accent-text no-underline hover:bg-accent-soft focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-inset)]"
                         >
-                          Open
+                          Open this version
                         </a>
                         <button
                           type="button"
-                          disabled={restoring !== null}
+                          aria-disabled={restoring !== null || undefined}
                           aria-busy={restoring === entry.name || undefined}
+                          aria-describedby={restoreError?.name === entry.name ? restoreErrorId : undefined}
                           onClick={() => restore(entry)}
                           className={cn(
-                            "rounded-[var(--radius-sm)] px-2 py-1 font-mono text-[11px] text-text-2",
+                            "min-h-[var(--control-h)] rounded-[var(--radius-sm)] px-2 py-1 font-mono text-sm text-text-2",
                             "transition-colors duration-[var(--motion-duration-fast)] ease-out hover:bg-fill-2 hover:text-text",
-                            "disabled:opacity-55",
+                            "aria-disabled:opacity-55",
                             "focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-inset)]",
                             "motion-reduce:transition-none",
                           )}
                         >
-                          {restoring === entry.name ? "Restoring…" : "Restore"}
+                          {restoring === entry.name ? "Restoring…" : restoreError?.name === entry.name ? "Try again" : "Restore"}
                         </button>
+                        {restoreError?.name === entry.name ? (
+                          <p id={restoreErrorId} className="m-0 basis-full text-sm text-danger-text" role="alert">
+                            {restoreError.message}
+                          </p>
+                        ) : null}
                       </>
                     )}
                   </li>

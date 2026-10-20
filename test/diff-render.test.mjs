@@ -164,12 +164,13 @@ test('story focus keeps every code row readable without partial-edge rails', () 
   const splitFocus = cssRuleBody(DIFF_CSS, '.ds-row.is-story-focus');
   assert.match(splitFocus, /box-shadow:none/);
   assert.doesNotMatch(splitFocus, /inset [1-9][^;]* 0 0/);
-  assert.match(cssRuleBody(DIFF_CSS, '.ds-row.is-story-focus .ds-cell:not(.ds-cell-empty)'), /background-image:linear-gradient/);
+  assert.match(cssRuleBody(DIFF_CSS, '.ds-row.is-story-focus .ds-cell:not(.ds-cell-empty)'), /background-image:none/);
 
   const unifiedFocus = cssRuleBody(DIFF_CSS, '.ds-urow.is-story-focus');
   assert.match(unifiedFocus, /box-shadow:none/);
   assert.doesNotMatch(unifiedFocus, /inset [1-9][^;]* 0 0/);
-  assert.match(unifiedFocus, /background-image:linear-gradient/);
+  assert.match(unifiedFocus, /background-image:none/);
+  assert.match(cssRuleBody(DIFF_CSS, '.ds-row.is-story-focus .ds-no'), /background:var\(--accent-soft\)/, 'focus stays in the gutter without washing out changed words');
 });
 
 test('split placeholders stay visually empty while reading focus remains quiet', () => {

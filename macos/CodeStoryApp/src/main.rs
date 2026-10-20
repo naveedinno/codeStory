@@ -496,7 +496,12 @@ fn main() {
                 .accelerator("CmdOrCtrl+Shift+O")
                 .build(app)?;
             let show_log = MenuItemBuilder::with_id("show_log", "Show Startup Log").build(app)?;
+            let export_video = MenuItemBuilder::with_id("export_video", "Export Video…")
+                .accelerator("CmdOrCtrl+Shift+E")
+                .build(app)?;
             let file_menu = SubmenuBuilder::new(app, "File")
+                .item(&export_video)
+                .separator()
                 .item(&open_browser)
                 .separator()
                 .close_window()
@@ -602,6 +607,12 @@ fn main() {
         .on_menu_event(|app, event| match event.id().as_ref() {
             "show" => show_main_window(app),
             "open_browser" => open_in_browser(app),
+            "export_video" => {
+                show_main_window(app);
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.eval("if (document.querySelector('[data-video-export-dialog]')) { document.dispatchEvent(new Event('codestory:export-video')); } else { window.alert('Open a guided story before exporting a video.'); }");
+                }
+            }
             "show_log" => reveal_log(),
             "back" => {
                 if let Some(window) = app.get_webview_window("main") {

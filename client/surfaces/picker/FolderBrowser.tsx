@@ -27,7 +27,7 @@
 //
 // The sheet itself is NOT a beUI dialog and is not going to become one. The
 // surface inventory ranks this choreography at-risk #5, and `use-modal.ts`
-// implements the whole of it: a rAF before `.is-shown`, a 210 ms close hold
+// implements the whole of it: a rAF before `.is-shown`, a 340 ms close hold
 // (0 ms under reduced motion), re-entrancy guards, `inert` + `aria-hidden` on
 // `#pickerMain`, the `tabindex !== "-1"` focus trap, and focus restore to the
 // trigger. `bottom-sheet`, `drawer`, `center-morph-modal` and `command-palette`
@@ -109,6 +109,7 @@ export const FolderBrowser = forwardRef<FolderBrowserHandle, FolderBrowserProps>
   const [refetching, setRefetching] = useState(false);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(-1);
+  const [showActiveName, setShowActiveName] = useState(false);
   // Set just before a selection change that should also scroll; hover must not.
   const scrollOnSelect = useRef(false);
   // Guards a stale listing from overwriting a newer one when a slow parent
@@ -142,6 +143,7 @@ export const FolderBrowser = forwardRef<FolderBrowserHandle, FolderBrowserProps>
     lastPath.current = path;
     setQuery("");
     setSelected(-1);
+    setShowActiveName(false);
     // A listing already on screen stays mounted at reduced opacity behind a
     // small loading row; the full spinner is only for the first open, when
     // there is nothing to keep.
@@ -197,6 +199,7 @@ export const FolderBrowser = forwardRef<FolderBrowserHandle, FolderBrowserProps>
   const select = (index: number, scroll: boolean) => {
     scrollOnSelect.current = scroll;
     setSelected(index);
+    setShowActiveName(scroll);
   };
 
   const move = (delta: number) => {
@@ -241,16 +244,18 @@ export const FolderBrowser = forwardRef<FolderBrowserHandle, FolderBrowserProps>
     const needle = value.trim().toLocaleLowerCase();
     if (!needle) {
       setSelected(-1);
+      setShowActiveName(false);
       return;
     }
     const next = entries.filter((entry) => entry.name.toLocaleLowerCase().indexOf(needle) !== -1);
     setSelected(next.length ? 0 : -1);
+    setShowActiveName(next.length > 0);
   };
 
   const current = view.kind === "ready" ? view.listing.path : "";
   const currentIsGit = view.kind === "ready" && view.listing.isGit;
   const hasFilter = query.length > 0;
-  // The combobox reports collapsed the instant closing begins, 210ms before the
+  // The combobox reports collapsed the instant closing begins, 340ms before the
   // dialog is actually hidden — the vanilla control did the same.
   const expanded = modal.phase === "opening" || modal.phase === "open";
 
@@ -303,12 +308,12 @@ export const FolderBrowser = forwardRef<FolderBrowserHandle, FolderBrowserProps>
               onClick={() => modal.close()}
               className="relative h-[30px] w-[30px] rounded-full bg-fill-3 text-text-2 transition-colors hover:bg-fill-2 hover:text-text after:absolute after:-inset-2 after:content-['']"
             >
-              <X className="h-4 w-4" strokeWidth={1.9} />
+              <X className="h-4 w-4" strokeWidth={1.9} aria-hidden="true" />
             </Button>
           </Tooltip>
         </div>
 
-        <div className="flex flex-wrap items-center gap-0.5 border-b border-line-soft px-4 py-[9px] text-[12.5px] text-text-2">
+        <div className="flex flex-wrap items-center gap-0.5 border-b border-line-soft px-4 py-2 text-md text-text-2">
           {crumbs.map((crumb, i) => (
             <span key={crumb.path} className="flex items-center gap-0.5">
               {i > 0 ? (
@@ -317,7 +322,7 @@ export const FolderBrowser = forwardRef<FolderBrowserHandle, FolderBrowserProps>
                 </span>
               ) : null}
               {crumb.current ? (
-                <span className="rounded-[var(--radius-sm)] px-[5px] py-0.5 font-semibold text-text" aria-current="location">
+                <span className="rounded-[var(--radius-sm)] px-1 py-0.5 font-semibold text-text" aria-current="location">
                   {crumb.label}
                 </span>
               ) : (
@@ -339,7 +344,7 @@ export const FolderBrowser = forwardRef<FolderBrowserHandle, FolderBrowserProps>
                   pressScale={0.97}
                   whileHover={undefined}
                   onClick={() => browse(crumb.path)}
-                  className="h-auto rounded-[var(--radius-sm)] px-[5px] py-0.5 text-[inherit] font-normal text-accent-text hover:bg-fill-2 hover:text-accent-text"
+                  className="h-auto min-h-6 min-w-6 rounded-[var(--radius-sm)] px-1.5 py-0.5 text-[inherit] font-normal text-accent-text hover:bg-fill-2 hover:text-accent-text"
                 >
                   {crumb.label}
                 </Button>
@@ -365,7 +370,7 @@ export const FolderBrowser = forwardRef<FolderBrowserHandle, FolderBrowserProps>
             value={query}
             onChange={onSearchChange}
             onKeyDown={onSearchKeyDown}
-            leftIcon={<Search className="h-4 w-4" strokeWidth={1.8} />}
+            leftIcon={<Search className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />}
             rightIcon={
               hasFilter ? (
                 <Button
@@ -380,7 +385,7 @@ export const FolderBrowser = forwardRef<FolderBrowserHandle, FolderBrowserProps>
                   }}
                   className="relative h-[23px] w-[23px] rounded-[var(--radius-sm)] bg-fill-3 text-text-2 hover:bg-fill-2 after:absolute after:-inset-2.5 after:content-['']"
                 >
-                  <X className="h-3 w-3" strokeWidth={2} />
+                  <X className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
                 </Button>
               ) : null
             }
@@ -393,7 +398,7 @@ export const FolderBrowser = forwardRef<FolderBrowserHandle, FolderBrowserProps>
                 "data-[state=focused]:border-accent-line contrast-more:border-text",
               ),
               input: cn(
-                "ps-[35px] text-lg leading-[34px] text-text sm:text-[13px]",
+                "ps-[35px] text-lg leading-[34px] text-text sm:text-base [@media(pointer:coarse)]:text-lg",
                 hasFilter ? "pe-[34px]" : "pe-3.5",
                 "placeholder:text-text-3",
                 "[&::-webkit-search-cancel-button]:appearance-none",
@@ -405,6 +410,11 @@ export const FolderBrowser = forwardRef<FolderBrowserHandle, FolderBrowserProps>
           <span className="ds-sr-only" role="status" aria-live="polite">
             {status}
           </span>
+          {showActiveName && activeIndex >= 0 ? (
+            <p className="m-0 mt-2 break-all text-sm text-text-2" aria-hidden="true">
+              {filtered[activeIndex]?.name}
+            </p>
+          ) : null}
         </div>
 
         <div
@@ -413,15 +423,15 @@ export const FolderBrowser = forwardRef<FolderBrowserHandle, FolderBrowserProps>
           role="listbox"
           aria-label="Folders in this location"
           aria-busy={refetching || undefined}
-          className="min-h-[120px] flex-1 overflow-y-auto p-1.5"
+          className="min-h-[120px] flex-1 overflow-y-auto overscroll-contain p-1.5"
         >
           {view.kind === "loading" ? (
-            <div className="flex flex-col items-center gap-2.5 p-[26px] text-center text-[13px] text-text-3">
+            <div className="flex flex-col items-center gap-2.5 p-[26px] text-center text-base text-text-3">
               <Loader variant="dots" size={20} label="" />
-              <span>Loading…</span>
+              <span>Loading folders…</span>
             </div>
           ) : view.kind === "error" ? (
-            <div className="flex flex-col items-center gap-3 p-[26px] text-center text-[13px] text-text-3">
+            <div className="flex flex-col items-center gap-3 p-[26px] text-center text-base text-text-3">
               <span>{READ_ERROR}</span>
               {/* Ghost idiom mirrors the crumb buttons above: the variant's own
                   colours are displaced, so the accent ink is pinned back on. */}
@@ -432,14 +442,14 @@ export const FolderBrowser = forwardRef<FolderBrowserHandle, FolderBrowserProps>
                 pressScale={0.97}
                 whileHover={undefined}
                 onClick={() => browse(lastPath.current)}
-                className="h-auto px-3 py-1.5 text-[13px] font-semibold text-accent-text hover:bg-fill-2 hover:text-accent-text"
+                className="h-auto px-3 py-1.5 text-base font-semibold text-accent-text hover:bg-fill-2 hover:text-accent-text"
               >
                 Try again
               </Button>
             </div>
           ) : filtered.length === 0 && !refetching ? (
-            <div className="p-[26px] text-center text-[13px] text-text-3">
-              {trimmed ? `No folders match “${trimmed}”.` : "No subfolders here."}
+            <div className="p-[26px] text-center text-base text-text-3">
+              {trimmed ? `No folders match "${trimmed}". Clear the filter to see every folder.` : "No subfolders here."}
             </div>
           ) : (
             <>
@@ -457,13 +467,13 @@ export const FolderBrowser = forwardRef<FolderBrowserHandle, FolderBrowserProps>
                     onMouseEnter={() => select(index, false)}
                     onClick={() => activate(entry)}
                     className={cn(
-                      "flex w-full items-center gap-[11px] rounded-[var(--radius)] px-2.5 py-[9px] text-start",
+                      "flex w-full items-center gap-3 rounded-[var(--radius)] px-2.5 py-2 text-start",
                       "hover:bg-fill-2",
                       index === activeIndex && "bg-fill-2 shadow-[inset_0_0_0_1px_var(--accent-line)]",
                     )}
                   >
                     <span className="flex flex-none text-accent">
-                      <Folder className="h-5 w-5" strokeWidth={1.7} />
+                      <Folder className="h-5 w-5" strokeWidth={2} aria-hidden="true" />
                     </span>
                     <Tooltip
                       content={entry.name}
@@ -475,10 +485,10 @@ export const FolderBrowser = forwardRef<FolderBrowserHandle, FolderBrowserProps>
                       <span className="block min-w-0 truncate text-start text-sm">{entry.name}</span>
                     </Tooltip>
                     {entry.isGit ? (
-                      <span className="rounded-[var(--radius-sm)] bg-add-soft px-[7px] py-px text-[11px] font-semibold text-diff-add-text">repo</span>
+                      <span className="rounded-[var(--radius-sm)] bg-add-soft px-2 py-px text-sm font-semibold text-diff-add-text">repo</span>
                     ) : (
                       <span className="flex flex-none text-text-3 opacity-50" aria-hidden="true">
-                        <ChevronRight className="h-4 w-4" strokeWidth={2} />
+                        <ChevronRight className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
                       </span>
                     )}
                   </button>
@@ -487,17 +497,19 @@ export const FolderBrowser = forwardRef<FolderBrowserHandle, FolderBrowserProps>
               {refetching ? (
                 <div className="flex items-center justify-center gap-2 p-3 text-md text-text-3">
                   <Loader variant="dots" size={16} label="" />
-                  <span>Loading…</span>
+                  <span>Loading folders…</span>
                 </div>
               ) : null}
             </>
           )}
         </div>
 
-        <div className="flex items-center gap-2.5 border-t border-line-soft px-4 py-[13px]">
-          <span className="min-w-0 flex-1 truncate font-mono text-sm text-text-3" title={current || undefined}>
-            {current}
-          </span>
+        <div className="flex items-center gap-2.5 border-t border-line-soft px-4 py-3">
+          <Tooltip content={current} side="top" className={TOOLTIP_SURFACE} wrapperClassName="min-w-0 flex-1">
+            <span className="min-w-0 truncate rounded-[var(--radius-sm)] font-mono text-sm text-text-3 focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]" tabIndex={0}>
+              {current}
+            </span>
+          </Tooltip>
           <Button
             type="button"
             pressScale={0.97}
@@ -513,7 +525,7 @@ export const FolderBrowser = forwardRef<FolderBrowserHandle, FolderBrowserProps>
             // neutral pill: ~5:1 in both themes, and greyed-out reads as
             // unavailable more honestly than a washed-out blue anyway.
             className={cn(
-              "h-[var(--control-h-lg)] flex-none rounded-full px-4 text-[13px] font-semibold",
+              "h-[var(--control-h-lg)] flex-none rounded-full px-4 text-base font-semibold",
               "bg-accent text-on-accent hover:bg-accent-solid-hover",
               "disabled:bg-fill-2 disabled:text-text-2 disabled:opacity-100",
             )}

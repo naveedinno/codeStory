@@ -61,12 +61,12 @@ interface SkillUpdateResponse {
 }
 
 const STALE_TEXT =
-  "Story-generation skill is installed but does not match this app. Update it before generating so the agent sees the current story rules.";
+  "The storyteller skill is installed but does not match this app. Update it before generating so the agent sees the current story rules.";
 const MISSING_TEXT =
-  "Story-generation skill was not found in ~/.agents, ~/.claude, or ~/.codex. Install it before generating so the agent can create stories reliably.";
+  "The storyteller skill was not found in ~/.agents, ~/.claude, or ~/.codex. Install it before generating so the agent can create stories reliably.";
 const UPDATING_TEXT = "Installing bundled codeStory skills locally…";
 const FAILED_TEXT =
-  "Could not update skills. Run scripts/install-skills.sh from this repo, or re-run the codeStory installer.";
+  "Could not update skills. Run scripts/install-skills.sh from a codeStory clone, or re-run the codeStory installer.";
 
 /** The migration sentence, naming each retired copy the server found. */
 function legacyText(names: readonly string[] = []): string {
@@ -147,7 +147,7 @@ export function SkillBanner() {
           pressScale={0.97}
           disabled={override?.busy ?? false}
           onClick={update}
-          className="h-auto flex-none rounded-full bg-fill-1 px-[11px] py-1.5 text-sm font-semibold text-text-2 hover:bg-fill-2 hover:text-text disabled:opacity-55"
+          className="h-auto flex-none rounded-full bg-fill-1 px-3 py-1.5 text-sm font-semibold text-text-2 hover:bg-fill-2 hover:text-text disabled:opacity-55"
         >
           {label}
         </Button>

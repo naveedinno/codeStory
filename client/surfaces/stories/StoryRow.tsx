@@ -59,7 +59,7 @@ export interface StoryRowProps {
 
 function Fact({ children }: { children: React.ReactNode }) {
   return (
-    <span className="border-l border-line-soft px-[11px] first:border-l-0 first:ps-0 max-[460px]:px-2">
+    <span className="border-s border-line-soft px-3 first:border-s-0 first:ps-0 max-[460px]:px-2">
       {children}
     </span>
   );
@@ -68,35 +68,19 @@ function Fact({ children }: { children: React.ReactNode }) {
 /**
  * The scope label, with the raw git command behind it.
  *
- * The command used to be a `title` attribute, which meant a ~1 s wait, no
- * styling, and nothing at all when the label is the whole story. The tooltip is
- * conditional for the same reason the attribute was: a story whose scope
- * carries no command must not open an empty bubble.
+ * The row link's tooltip includes this command, so both the full title and
+ * scope are available from the same keyboard stop.
  */
 function ScopeChip({ scope }: { scope: StoryRowView["scope"] }) {
-  const chip = (
+  return (
     <span
-      // The tooltip supplies `aria-describedby`, but only while it is open —
-      // and it only opens on hover, because the chip is not focusable. Measured
-      // in Chrome, the `title` this replaced put the command on the chip's
-      // accessibility node permanently, so `aria-description` restores exactly
-      // that. Unlike a visually hidden span it does not join the row link's
-      // accessible name, which is computed from the card's contents.
+      // Unlike hidden text, the description does not join the row link's
+      // accessible name computed from its contents.
       aria-description={scope.command || undefined}
-      className="rounded-[var(--radius-sm)] bg-fill-3 px-[7px] py-0.5 font-mono text-sm tracking-normal text-text"
+      className="min-w-0 max-w-full break-all rounded-[var(--radius-sm)] bg-fill-3 px-2 py-1 font-mono text-sm tracking-normal text-text"
     >
       {scope.label}
     </span>
-  );
-  if (!scope.command) return chip;
-  return (
-    <Tooltip
-      content={scope.command}
-      side="top"
-      className="max-w-[min(52ch,90vw)] rounded-[var(--radius-sm)] border-line-soft bg-surface-3 font-mono text-sm whitespace-pre-wrap text-text shadow-signal"
-    >
-      {chip}
-    </Tooltip>
   );
 }
 
@@ -121,7 +105,7 @@ export function StoryRow({ story, index, routeBase, now, liveEvidence, busy, onR
         // `story-row` is the UI-atlas evidence selector for this surface
         // (scripts/capture-ui-atlas.mjs) — a capture only counts as coverage if
         // it can find a real row.
-        "story-row relative block overflow-hidden rounded-[var(--radius-island)] border border-transparent bg-surface-2",
+        "story-row relative block overflow-hidden rounded-[var(--radius-island)] border border-line-soft bg-surface-2",
         "transition-[border-color,box-shadow] duration-[var(--motion-duration-fast)] ease-out",
         "focus-within:border-accent-line contrast-more:border-text",
         // Same spatial tier as the page, and no per-row delay: every row lands
@@ -129,41 +113,47 @@ export function StoryRow({ story, index, routeBase, now, liveEvidence, busy, onR
         "ds-reveal",
       )}
     >
+      <Tooltip
+        content={story.scope.command ? `${title}\n${story.scope.command}` : title}
+        side="top"
+        wrapperClassName="block min-w-0"
+        className="max-w-[min(52ch,90vw)] rounded-[var(--radius-sm)] border-line-soft bg-surface-3 text-sm whitespace-pre-wrap text-text shadow-signal"
+      >
       <a
         href={href}
         className={cn(
           // `group` is on the anchor, not the card: the Resume pill reacts to
           // hovering the link, and hovering the delete button must not make the
           // row look like it is about to open.
-          "row-main group relative grid min-h-[132px] grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-3.5 px-[19px] py-[15px]",
+          "row-main group relative grid min-h-[132px] grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-4 px-5 py-4",
           "text-inherit no-underline transition-colors duration-[var(--motion-duration-fast)] ease-out",
           "hover:bg-fill-1 active:bg-fill-2",
           // Inset, because the card clips overflow and an outset ring would be
           // cut off on three sides.
           "focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-inset)]",
           "motion-reduce:transition-none",
-          "max-[760px]:grid-cols-[24px_minmax(0,1fr)] max-[760px]:gap-3 max-[760px]:px-[19px] max-[760px]:pt-4 max-[760px]:pb-[15px]",
+          "max-[760px]:grid-cols-[24px_minmax(0,1fr)] max-[760px]:gap-3",
         )}
       >
         <span
           aria-hidden="true"
-          className="self-start pt-0.5 font-mono text-[11px] font-semibold tracking-[-.01em] text-[var(--numeral)]"
+          className="self-start pt-0.5 font-mono text-[0.6875rem] font-semibold tracking-[-.01em] text-[var(--numeral)]"
         >
           {String(index + 1).padStart(2, "0")}
         </span>
 
-        <span className="flex min-w-0 flex-1 flex-col gap-[5px]">
+        <span className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="flex min-w-0 items-center gap-2 max-[760px]:pe-11 max-[460px]:flex-col max-[460px]:items-start">
-            <span className="min-w-0 truncate text-lg font-semibold tracking-[-.01em] max-[460px]:line-clamp-2 max-[460px]:whitespace-normal max-[460px]:leading-[1.28]">
-              {title}
-            </span>
+              <span className="min-w-0 truncate text-lg font-semibold tracking-[-.01em] max-[460px]:line-clamp-2 max-[460px]:whitespace-normal max-[460px]:leading-[1.28]">
+                {title}
+              </span>
             <AnimatedBadge
               status={BADGE_STATUS[state.tone]}
               size="sm"
               showIcon={false}
               contentKey={state.label}
               className={cn(
-                "h-auto flex-none rounded-[var(--radius-sm)] border-0 px-[7px] py-[3px]",
+                "ds-story-state h-auto flex-none rounded-[var(--radius-sm)] border-0 px-2 py-1",
                 "font-mono text-xs font-semibold tracking-[var(--tracking-kicker)] uppercase",
                 BADGE_CLASS[state.tone],
               )}
@@ -181,7 +171,7 @@ export function StoryRow({ story, index, routeBase, now, liveEvidence, busy, onR
             {summary}
           </span>
 
-          <span className="mt-[5px] flex flex-wrap items-center font-mono text-[11px] text-text-2 max-[460px]:leading-[1.65]">
+          <span className="mt-1 flex flex-wrap items-center font-mono text-sm text-text-2 max-[460px]:leading-[1.65]">
             {code ? <Fact>Code story</Fact> : null}
             <Fact>
               <b className="text-text tabular-nums">{fileCount}</b> {fileCount === 1 ? "file" : "files"}
@@ -189,7 +179,7 @@ export function StoryRow({ story, index, routeBase, now, liveEvidence, busy, onR
             {liveEvidence && !code ? (
               <Fact>
                 <b className={cn("tabular-nums", GREEN_INK)}>+{story.additions}</b>{" "}
-                <b className={cn("ms-[3px] tabular-nums", RED_INK)}>−{story.deletions}</b>
+                <b className={cn("ms-1 tabular-nums", RED_INK)}>−{story.deletions}</b>
               </Fact>
             ) : null}
             <Fact>
@@ -206,8 +196,8 @@ export function StoryRow({ story, index, routeBase, now, liveEvidence, busy, onR
 
           <span
             className={cn(
-              "mt-[3px] flex flex-wrap items-center gap-2 font-mono text-[11px] text-text-3",
-              "max-[460px]:grid max-[460px]:grid-cols-[auto_minmax(0,1fr)] max-[460px]:items-center max-[460px]:gap-x-2 max-[460px]:gap-y-[5px]",
+              "mt-1 flex flex-wrap items-center gap-2 font-mono text-sm text-text-3",
+              "max-[460px]:grid max-[460px]:grid-cols-[minmax(0,1fr)_auto] max-[460px]:items-center max-[460px]:gap-x-2 max-[460px]:gap-y-1",
             )}
           >
             <ScopeChip scope={story.scope} />
@@ -228,23 +218,23 @@ export function StoryRow({ story, index, routeBase, now, liveEvidence, busy, onR
 
         <span
           className={cn(
-            "story-glance inline-flex min-h-[36px] items-center justify-center gap-[6px] overflow-hidden rounded-full border border-transparent bg-accent-soft px-[12px]",
-            "text-[12.5px] font-semibold whitespace-nowrap",
+            "story-glance inline-flex min-h-[36px] items-center justify-center gap-2 overflow-hidden rounded-full border border-transparent bg-accent-soft px-3",
+            "text-md font-semibold whitespace-nowrap",
             "transition-[background-color,box-shadow,transform] duration-[var(--motion-duration-fast)] ease-[var(--motion-ease-out)]",
             "group-hover:bg-[color-mix(in_srgb,var(--accent-soft)_72%,var(--surface))]",
-            "[@media_(hover:hover)_and_(pointer:fine)]:group-hover:-translate-y-px [@media_(hover:hover)_and_(pointer:fine)]:group-hover:shadow-[0_8px_22px_rgba(0,0,0,.18)]",
+            "[@media_(hover:hover)_and_(pointer:fine)]:group-hover:-translate-y-px [@media_(hover:hover)_and_(pointer:fine)]:group-hover:shadow-[var(--shadow)]",
             "max-[760px]:col-start-2 max-[760px]:mt-0.5 max-[760px]:justify-self-start",
             "motion-reduce:transform-none motion-reduce:transition-none",
             BLUE_INK,
           )}
         >
-          <Eye className="h-3.5 w-3.5 flex-none" strokeWidth={1.9} aria-hidden="true" />
+          <Eye className="h-3.5 w-3.5 flex-none" strokeWidth={2} aria-hidden="true" />
           {code ? "Read story" : "Resume review"}
           <span
             aria-hidden="true"
             className={cn(
               "story-glance-detail w-0 translate-x-1 overflow-hidden opacity-0",
-              "text-[11px] font-medium whitespace-nowrap text-text-2",
+              "text-[0.6875rem] font-medium whitespace-nowrap text-text-2",
               "transition-[opacity,transform] duration-[var(--motion-duration-fast)] ease-[var(--motion-ease-out)]",
               "[@media_(hover:hover)_and_(pointer:fine)]:group-hover:w-[150px] [@media_(hover:hover)_and_(pointer:fine)]:group-hover:translate-x-0 [@media_(hover:hover)_and_(pointer:fine)]:group-hover:opacity-100",
               "group-focus-visible:w-[150px] group-focus-visible:translate-x-0 group-focus-visible:opacity-100",
@@ -265,9 +255,11 @@ export function StoryRow({ story, index, routeBase, now, liveEvidence, busy, onR
             // rule from app.css entirely, so the nudge never fired anywhere.
             className="h-3.5 w-3.5 transition-transform duration-[var(--motion-duration-fast)] ease-out motion-reduce:transition-none [@media_(hover:hover)_and_(pointer:fine)]:group-hover:translate-x-0.5"
             strokeWidth={2}
+            aria-hidden="true"
           />
         </span>
       </a>
+      </Tooltip>
 
       {/* Outside the anchor, and the handler lives on the button itself — never
           on an ancestor resolving the target with closest(), which is the WebKit
@@ -278,9 +270,9 @@ export function StoryRow({ story, index, routeBase, now, liveEvidence, busy, onR
           Its label duplicates `aria-label`, which is what keeps this honest for
           a reader who never sees the bubble. */}
       <Tooltip
-        content="Remove review"
+        content="Remove story"
         side="left"
-        wrapperClassName="absolute top-[13px] end-[13px] z-[2]"
+        wrapperClassName="absolute top-3 end-3 z-[2]"
         className="rounded-[var(--radius-sm)] border-line-soft bg-surface-3 text-sm text-text shadow-signal"
       >
         <Button
@@ -307,7 +299,7 @@ export function StoryRow({ story, index, routeBase, now, liveEvidence, busy, onR
             "motion-reduce:transition-none",
           )}
         >
-          <Trash2 className="h-[15px] w-[15px]" strokeWidth={1.9} />
+          <Trash2 className="h-[15px] w-[15px]" strokeWidth={2} aria-hidden="true" />
         </Button>
       </Tooltip>
 

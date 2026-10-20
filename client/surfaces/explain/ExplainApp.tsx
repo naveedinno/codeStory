@@ -71,22 +71,22 @@ const DEFAULT_QUALITY: Record<Writer, QualityChoice[]> = {
 const WRITER_LABEL: Record<Writer, string> = { claude: "Claude", codex: "Codex" };
 
 const KICKER = "font-mono text-xs font-medium tracking-[var(--tracking-kicker)] uppercase";
-const LABEL = "text-[13px] font-semibold text-text";
+const LABEL = "text-[0.8125rem] font-semibold text-text";
 const HELP = "m-0 text-xs leading-[1.45] text-text-3 contrast-more:text-text";
 const FIELD = cn(
-  "w-full rounded-[var(--radius-lg)] border border-line-soft bg-fill-1 px-3 py-2.5 text-base text-text",
+  "w-full rounded-[calc(var(--radius-island)-20px)] border border-line-soft bg-fill-1 px-3 py-2.5 text-base text-text max-sm:text-lg [@media(pointer:coarse)]:text-lg",
   "placeholder:text-text-3 focus:border-accent-line focus:shadow-[var(--shadow-focus)] focus:outline-none",
   "contrast-more:border-text",
 );
 // A native radio, visually hidden; the tile beside it carries the state.
 const CHOICE_TILE = cn(
-  "flex h-full cursor-pointer flex-col gap-1 rounded-[var(--radius)] border border-transparent px-3 py-2.5 text-start text-text-2",
+  "flex h-full cursor-pointer flex-col gap-1 rounded-[max(0px,calc(var(--radius-island)-24px))] border border-transparent px-3 py-2.5 text-start text-text-2",
   "transition-[background-color,border-color] duration-[var(--motion-duration-fast)] ease-out motion-reduce:transition-none",
   "hover:bg-fill-2 hover:text-text",
   "peer-checked:border-accent-line peer-checked:bg-accent-soft peer-checked:text-text",
   "peer-focus-visible:shadow-[var(--shadow-focus)] contrast-more:border-text",
 );
-const TRACK = "grid gap-1 rounded-[var(--radius-lg)] border border-line-soft bg-fill-1 p-1 contrast-more:border-text";
+const TRACK = "grid gap-1 rounded-[calc(var(--radius-island)-20px)] border border-line-soft bg-fill-1 p-1 contrast-more:border-text";
 
 /** A ref that is itself a commit id is a fixed point, not "the current code". */
 const isCommitId = (ref: string) => /^[0-9a-f]{7,40}$/i.test(ref);
@@ -95,6 +95,35 @@ function initialRef(payload: ExplainPayload): string {
   const old = payload.prefill?.ref;
   if (old && !isCommitId(old)) return old;
   return payload.branch ?? "HEAD";
+}
+
+interface ExplainDraft {
+  storyId?: string;
+  question?: string;
+  paths?: string;
+  ref?: string;
+}
+
+function explainDraftKey(routeBase: string): string {
+  return `explain-draft:${routeBase}`;
+}
+
+function readExplainDraft(routeBase: string): ExplainDraft | null {
+  try {
+    if (typeof sessionStorage === "undefined") return null;
+    const raw = sessionStorage.getItem(explainDraftKey(routeBase));
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    const values = parsed as Record<string, unknown>;
+    return Object.fromEntries(
+      ["storyId", "question", "paths", "ref"]
+        .filter((key) => typeof values[key] === "string")
+        .map((key) => [key, values[key]]),
+    ) as ExplainDraft;
+  } catch {
+    return null;
+  }
 }
 
 function Choice<T extends string>({
@@ -127,9 +156,13 @@ function Choice<T extends string>({
 
 export function ExplainApp({ payload }: { payload: ExplainPayload }) {
   const { repoName, routeBase, branch, headCommit, headSubject, dirty, defaults, prefill, notice } = payload;
-  const [question, setQuestion] = useState(prefill?.question ?? "");
-  const [paths, setPaths] = useState((prefill?.paths ?? []).join("\n"));
-  const [ref, setRef] = useState(() => initialRef(payload));
+  const [draft] = useState(() => {
+    const saved = readExplainDraft(routeBase);
+    return saved?.storyId === prefill?.storyId ? saved : null;
+  });
+  const [question, setQuestion] = useState(draft?.question ?? prefill?.question ?? "");
+  const [paths, setPaths] = useState(draft?.paths ?? (prefill?.paths ?? []).join("\n"));
+  const [ref, setRef] = useState(() => draft?.ref ?? initialRef(payload));
   const [mode, setMode] = useState<StoryMode>(prefill?.mode ?? defaults.mode);
   const [audience, setAudience] = useState<StoryAudience>(defaults.audience);
   const [writers, setWriters] = useState<Writer[] | null>(null);
@@ -144,6 +177,14 @@ export function ExplainApp({ payload }: { payload: ExplainPayload }) {
   const [foot, setFoot] = useState<ReactNode>(null);
   const controller = useRef<AbortController | null>(null);
   const submitRef = useRef<() => void>(() => {});
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(explainDraftKey(routeBase), JSON.stringify({ question, paths, ref, storyId: prefill?.storyId }));
+    } catch {
+      // Storage can be unavailable; typed input simply will not persist.
+    }
+  }, [routeBase, question, paths, ref, prefill?.storyId]);
 
   const backToForm = () => {
     run.close();
@@ -166,6 +207,11 @@ export function ExplainApp({ payload }: { payload: ExplainPayload }) {
     onDone: (status, result) => {
       controller.current = null;
       if (status === "complete" && result.storyWritten && typeof result.storyId === "string") {
+        try {
+          sessionStorage.removeItem(explainDraftKey(routeBase));
+        } catch {
+          // A storage restriction must not prevent opening the saved story.
+        }
         window.location.href = `${routeBase}/review?story=${encodeURIComponent(result.storyId)}`;
         return;
       }
@@ -236,7 +282,7 @@ export function ExplainApp({ payload }: { payload: ExplainPayload }) {
         setSkills(body.skills);
       })
       .catch(() =>
-        setSkillsError("Could not update skills. Run scripts/install-skills.sh from a codeStory clone."),
+        setSkillsError("Could not update skills. Run scripts/install-skills.sh from a codeStory clone, or re-run the codeStory installer."),
       )
       .finally(() => setSkillsBusy(false));
   };
@@ -278,6 +324,13 @@ export function ExplainApp({ payload }: { payload: ExplainPayload }) {
   const skillsStale = !!skills && (skills.legacyInstalled || !writerSkill?.current);
   const refIsHead = ref.trim() === "" || ref.trim() === "HEAD" || (!!branch && ref.trim() === branch);
   const ready = !!writer && !!headCommit && !running;
+  const submitHelp = !headCommit
+    ? "This repository has no commits yet. Commit some code to write a story."
+    : writers === null
+      ? "Checking whether Claude or Codex is installed…"
+      : !writer
+        ? writerError || "Install Claude or Codex to write a story, then reload this page."
+        : "Saved to Review history. Nothing in the repository changes.";
 
   return (
     <>
@@ -286,7 +339,7 @@ export function ExplainApp({ payload }: { payload: ExplainPayload }) {
         crumbs={[{ label: repoName, href: `${routeBase}/stories` }, { label: "Explain code" }]}
         right={
           <a className={navActionClass} href={`${routeBase}/stories`}>
-            History
+            Review history
           </a>
         }
       />
@@ -298,7 +351,7 @@ export function ExplainApp({ payload }: { payload: ExplainPayload }) {
       >
         <header className="mb-[18px]">
           <p className={cn(KICKER, "m-0 mb-[7px] text-accent-text")}>Code story</p>
-          <h1 className="m-0 font-display text-[26px] font-bold tracking-[-.02em] text-balance max-[600px]:text-2xl">
+          <h1 className="m-0 font-display text-[1.625rem] font-bold tracking-[-.02em] text-balance max-[600px]:text-2xl">
             Explain the code
           </h1>
           <p className="m-0 mt-2 max-w-[62ch] text-sm leading-[1.45] text-pretty text-text-2 contrast-more:text-text">
@@ -331,7 +384,7 @@ export function ExplainApp({ payload }: { payload: ExplainPayload }) {
           <form
             onSubmit={submit}
             aria-label="Code story request"
-            className="grid gap-5 rounded-[var(--radius-island)] border border-transparent bg-surface-2 p-5 max-[600px]:p-3.5 contrast-more:border-text"
+            className="grid gap-5 rounded-[var(--radius-island)] border border-line-soft bg-surface-2 p-5 max-[600px]:p-3.5 contrast-more:border-text"
           >
             <label className="grid gap-1.5">
               <span className="flex flex-wrap items-baseline justify-between gap-2">
@@ -365,7 +418,7 @@ export function ExplainApp({ payload }: { payload: ExplainPayload }) {
                 aria-describedby="explainPathsHelp"
                 placeholder={"contracts/facets/PartyB\nsrc/settlement.ts"}
                 spellCheck={false}
-                className={cn(FIELD, "resize-y font-mono text-sm leading-[1.6]")}
+                className={cn(FIELD, "resize-y font-mono text-sm leading-[1.6] max-sm:text-lg [@media(pointer:coarse)]:text-lg")}
               />
               <p className={HELP} id="explainPathsHelp">
                 Files or folders, one per line. The story leaves them only when the explanation needs a caller, a
@@ -383,7 +436,7 @@ export function ExplainApp({ payload }: { payload: ExplainPayload }) {
                 aria-describedby="explainRefHelp"
                 spellCheck={false}
                 autoComplete="off"
-                className={cn(FIELD, "font-mono text-sm")}
+                className={cn(FIELD, "font-mono text-sm max-sm:text-lg [@media(pointer:coarse)]:text-lg")}
               />
               <p className={HELP} id="explainRefHelp">
                 {refIsHead && headSubject
@@ -403,8 +456,8 @@ export function ExplainApp({ payload }: { payload: ExplainPayload }) {
                 {DEPTHS.map((depth) => (
                   <Choice key={depth.value} name="mode" value={depth.value} checked={mode === depth.value} onChange={setMode}>
                     <span className="flex flex-wrap items-center justify-between gap-1.5">
-                      <strong className="text-[13px] font-bold text-text">{depth.title}</strong>
-                      <span className={cn(KICKER, "text-[10px] text-text-3")}>{depth.badge}</span>
+                      <strong className="text-[0.8125rem] font-bold text-text">{depth.title}</strong>
+                      <span className={cn(KICKER, "text-[0.625rem] text-text-3")}>{depth.badge}</span>
                     </span>
                     <span className="text-sm leading-[1.35]">{depth.desc}</span>
                   </Choice>
@@ -423,7 +476,7 @@ export function ExplainApp({ payload }: { payload: ExplainPayload }) {
                     checked={audience === option.value}
                     onChange={setAudience}
                   >
-                    <strong className="text-[13px] font-bold text-text">{option.title}</strong>
+                    <strong className="text-[0.8125rem] font-bold text-text">{option.title}</strong>
                     <span className="text-sm leading-[1.35]">{option.desc}</span>
                   </Choice>
                 ))}
@@ -446,7 +499,7 @@ export function ExplainApp({ payload }: { payload: ExplainPayload }) {
                   <div className={cn(TRACK, writers.length > 1 ? "grid-cols-2" : "grid-cols-1")}>
                     {writers.map((name) => (
                       <Choice key={name} name="writer" value={name} checked={writer === name} onChange={pickWriter}>
-                        <strong className="text-[13px] font-bold text-text">{WRITER_LABEL[name]}</strong>
+                        <strong className="text-[0.8125rem] font-bold text-text">{WRITER_LABEL[name]}</strong>
                       </Choice>
                     ))}
                   </div>
@@ -454,7 +507,7 @@ export function ExplainApp({ payload }: { payload: ExplainPayload }) {
                     <div className={cn(TRACK, "grid-cols-2")} role="radiogroup" aria-label="Quality">
                       {quality[writer].map((choice) => (
                         <Choice key={choice.model || choice.label} name="model" value={choice.model} checked={model === choice.model} onChange={setModel}>
-                          <strong className="text-[13px] font-bold text-text">{choice.label}</strong>
+                          <strong className="text-[0.8125rem] font-bold text-text">{choice.label}</strong>
                           <span className="text-sm leading-[1.35]">{choice.description}</span>
                         </Choice>
                       ))}
@@ -488,8 +541,9 @@ export function ExplainApp({ payload }: { payload: ExplainPayload }) {
               <button
                 type="submit"
                 disabled={!ready}
+                aria-describedby="explainSubmitHelp"
                 className={cn(
-                  "inline-flex h-[var(--control-h-lg)] items-center gap-[7px] rounded-full bg-accent px-4 text-base font-semibold text-on-accent",
+                  "inline-flex h-[var(--control-h-lg)] items-center gap-[7px] rounded-full bg-accent ps-4 pe-[14px] text-base font-semibold text-on-accent",
                   "transition-colors duration-[var(--motion-duration-fast)] ease-out hover:bg-accent-solid-hover motion-reduce:transition-none",
                   "focus-visible:shadow-[var(--shadow-focus)] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-55",
                 )}
@@ -497,8 +551,8 @@ export function ExplainApp({ payload }: { payload: ExplainPayload }) {
                 {prefill ? "Rewrite code story" : "Write code story"}
                 <ArrowRight className="h-[15px] w-[15px]" strokeWidth={2} aria-hidden="true" />
               </button>
-              <span className="text-sm text-text-3">
-                Saved to Review history. Nothing in the repository changes.
+              <span id="explainSubmitHelp" className="text-sm text-text-3">
+                {submitHelp}
               </span>
             </div>
           </form>

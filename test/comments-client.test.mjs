@@ -105,7 +105,7 @@ test("Copy is the primary default action and never persists", () => {
   assert.match(copy, /writeClipboard\(commentsToText\(\[payload\]\)/);
   assert.match(copy, /removeComposer\(box,false\)/);
   assert.doesNotMatch(copy, /fetch\(/);
-  assert.match(PAGE_JS, /ds-btn ds-btn-solid ds-composer-copy','Copy'/);
+  assert.match(PAGE_JS, /ds-btn ds-btn-solid ds-composer-copy','Copy comment'/);
   assert.match(PAGE_JS, /ds-ghost ds-composer-add','Add to queue'/);
 });
 
@@ -248,7 +248,7 @@ test("file filters, resume state, and generic review dialogs remain local", () =
 test("excluded-only scope truth and sidebar containment remain intact", () => {
   assert.match(
     PAGE_JS,
-    /if\(progress&&!fileItems\.length&&excludedCount\)progress\.textContent=excludedCount\+/,
+    /if\(progress&&!fileItems\.length&&excludedCount\)progress\.textContent=formatReviewCount\(excludedCount\)\+/,
   );
   assert.match(
     PAGE_CSS,

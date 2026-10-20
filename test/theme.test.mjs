@@ -206,6 +206,66 @@ test('page atmosphere shares one map, thread pulse, compact, and reduced-motion 
   assert.match(css, /max-width:480px\)\{\.ds-thread-layer\[data-thread-compact="hide"\]\{display:none\}/);
 });
 
+test('syntax and text inks stay WCAG AA on word-level emphasis backgrounds in both themes', () => {
+  const tokens = sharedTokens();
+  const themes = [
+    ['dark', cssBlock(tokens, ':root')],
+    ['light', cssBlock(tokens, ':root[data-theme="light"]')],
+  ];
+  const tokenNames = ['--tk-k', '--tk-t', '--tk-f', '--tk-s', '--tk-n', '--tk-c', '--text'];
+
+  for (const [theme, block] of themes) {
+    const surface = hexVariable(block, '--surface');
+    const addEmphasis = composite(
+      rgbaVariable(block, '--add-emphasis-bg'),
+      composite(rgbaVariable(block, '--add-bg'), surface),
+    );
+    const delEmphasis = composite(
+      rgbaVariable(block, '--del-emphasis-bg'),
+      composite(rgbaVariable(block, '--del-bg'), surface),
+    );
+    const backgrounds = [
+      ['add emphasis', addEmphasis],
+      ['delete emphasis', delEmphasis],
+    ];
+    for (const name of tokenNames) {
+      const foreground = hexVariable(block, name);
+      for (const [surfaceName, background] of backgrounds) {
+        const ratio = contrastRatio(foreground, background);
+        assert.ok(ratio >= 4.5, `${theme} ${name} on ${surfaceName} is ${ratio.toFixed(2)}:1, below WCAG AA`);
+      }
+    }
+  }
+});
+
+test('type size tokens use rem so a larger root font size scales text', () => {
+  const dark = cssBlock(sharedTokens(), ':root');
+  const expected = [
+    ['--text-xs', '.625rem'],
+    ['--text-sm', '.6875rem'],
+    ['--text-md', '.78125rem'],
+    ['--text-base', '.8125rem'],
+    ['--text-lg', '1rem'],
+    ['--text-xl', '1.25rem'],
+    ['--text-2xl', '1.625rem'],
+    ['--text-numeral', '1.625rem'],
+    ['--text-numeral-lg', '3.5rem'],
+  ];
+  for (const [name, value] of expected) {
+    assert.ok(dark.includes(`${name}:${value};`), `${name} should be ${value}`);
+  }
+  assert.doesNotMatch(dark, /--text-(?:xs|sm|md|base|lg|xl|2xl|numeral|numeral-lg):[^;]*px/);
+});
+
+test('increased contrast widens canonical text, line and ink tokens', () => {
+  const tokens = sharedTokens();
+  assert.match(tokens, /@media \(prefers-contrast: more\)/);
+  const block = tokens.slice(tokens.indexOf('@media (prefers-contrast: more)'));
+  for (const name of ['--text:', '--text-2:', '--line:', '--accent-text:', '--diff-add-text:', '--amber-text:']) {
+    assert.ok(block.includes(name), `prefers-contrast block should widen ${name}`);
+  }
+});
+
 test('front-door pages apply the saved theme before CSS and expose one selector', () => {
   // All three front doors — the repository picker, review history and the
   // change/scope page — are React surfaces now and none of them renders its

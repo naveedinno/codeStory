@@ -4,7 +4,7 @@ import { existsSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { parseVideoOptions, videoFilename, videoScenes, videoSubtitles, VideoExports } from '../dist/video-export.js';
+import { parseVideoOptions, videoFilename, videoScenes, videoSubtitles, videoNarrationSettings, VideoExports } from '../dist/video-export.js';
 
 const options = { resolution:'720p', narration:false, speed:1, theme:'light' };
 const prose = text => ({text, speech:text, html:text});
@@ -25,11 +25,36 @@ async function finished(exports, id) {
 
 test('video options reject arbitrary settings and filename injection', () => {
   assert.deepEqual(parseVideoOptions(options),options);
-  for(const value of [null,{}, {...options,resolution:'4k'}, {...options,narration:'true'}, {...options,speed:0}, {...options,theme:'auto'}])
+  for (const narrationEngine of ['lino','system']) assert.deepEqual(parseVideoOptions({...options,narration:true,narrationEngine}),{...options,narration:true,narrationEngine});
+  const selected={...options,narration:true,narrationEngine:'lino',lino:{engine:'pocket',voice:'marius'}};
+  assert.deepEqual(parseVideoOptions(selected),selected);
+  for(const lino of [null,{}, {engine:'pocket',voice:''}, {engine:12,voice:'marius'}, {engine:'x'.repeat(101),voice:'marius'}])
+    assert.throws(()=>parseVideoOptions({...selected,lino}),/Choose/);
+  assert.throws(()=>parseVideoOptions({...selected,narrationEngine:'system'}),/Choose/);
+  for(const value of [null,{}, {...options,resolution:'4k'}, {...options,narration:'true'}, {...options,speed:0}, {...options,theme:'auto'}, {...options,narrationEngine:'remote'}])
     assert.throws(()=>parseVideoOptions(value),/Choose/);
   assert.equal(videoFilename('../../A "flow"\r\n.mp4'),'a-flow-mp4.mp4');
   assert.equal(videoFilename('فارسی'),'codestory.mp4');
   assert.ok(videoFilename('A'.repeat(500)).length<=84);
+});
+
+test('export-specific model and voice override live choices without configuring or stopping the narrator', async () => {
+  const models=[
+    {id:'kokoro',ready:true,languages:['en'],voices:[{id:'af_heart'}]},
+    {id:'pocket',ready:true,languages:['en'],voices:[{id:'alba'},{id:'marius'}]},
+    {id:'missing',ready:false,languages:['en'],voices:[{id:'missing_voice'}]},
+    {id:'farsi',ready:true,languages:['fa'],voices:[{id:'farsi_voice'}]},
+  ];
+  const reader={async models(){return models;},async generateAudio(){},
+    async status(){assert.fail('Explicit export choices must not read the live narrator.');},
+    async configure(){assert.fail('Export must not configure live narration.');},
+    async control(){assert.fail('Export must not stop live narration.');}};
+  const choice={engine:'pocket',voice:'marius'};
+  const frozen=await videoNarrationSettings(reader,choice);
+  choice.voice='alba';assert.deepEqual(frozen,{engine:'pocket',voice:'marius'});
+  await assert.rejects(videoNarrationSettings(reader,{engine:'missing',voice:'missing_voice'}),/downloaded voice model/);
+  await assert.rejects(videoNarrationSettings(reader,{engine:'farsi',voice:'farsi_voice'}),/supports English/);
+  await assert.rejects(videoNarrationSettings(reader,{engine:'pocket',voice:'af_heart'}),/selected model/);
 });
 
 test('video follows every concept, beat and single note, preserving focus and all caption words', () => {
@@ -100,6 +125,10 @@ test('failed snapshot or encoding never exposes a download and cleans source dat
     const job=exports.start('owner','Story','http://localhost',options,snapshot);
     const result=await finished(exports,job.id);
     assert.equal(result.state,'error');assert.equal(result.message,'Source moved');
-    assert.equal(exports.file(job.id,'owner'),undefined);assert.equal(existsSync(directory),false);
+    assert.equal(exports.file(job.id,'owner'),undefined);
+    // The terminal error is visible immediately; asynchronous file cleanup
+    // must still complete promptly even when the full suite is busy.
+    for(let tries=0;existsSync(directory)&&tries<100;tries++)await delay(10);
+    assert.equal(existsSync(directory),false);
   } finally {await exports.dispose();}
 });

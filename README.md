@@ -171,14 +171,17 @@ codeStory keeps long reviews oriented and makes comments portable:
 
 ## Video Export
 
-Open a story and choose **Export video** in the top bar. Choose 1080p or 720p,
+Open a story and choose **File → Export Video…** (⇧⌘E on macOS). Choose 1080p or 720p,
 set the reading speed, and select **Create video**. The MP4 follows the overview,
 concept pages, and every code spotlight, with an attached, selectable subtitle
 track. Enable or disable subtitles in your player’s subtitle menu.
 The video uses a slightly wider view and leaves out app navigation and playback
-controls to give the story more room. On macOS you
-can include narration using the system voice; this is separate from the voice
-selected for interactive read-aloud. The export uses the current theme.
+controls to give the story more room. Choose **Lino** in **Narration**, then
+choose a **Voice model** and **Voice** directly in the export dialog, or choose the
+**macOS system voice**. Lino generates the soundtrack locally without playing
+it aloud or changing interactive narration settings. The export keeps the selected
+model and voice throughout the video and applies its own reading speed.
+Choose **None** for subtitles only. The export uses the current theme.
 
 Export runs locally and requires Google Chrome or a Playwright Chromium install,
 plus FFmpeg and ffprobe. On macOS, install the encoder with `brew install ffmpeg`.

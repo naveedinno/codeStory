@@ -19,8 +19,9 @@ import { CircleAlert, CheckCircle2, LoaderCircle, Plus, RotateCcw, X } from "luc
 import type { PickerPayload, RecentRow } from "../../../src/payloads";
 import { Button } from "../../vendor/beui/motion/button/base";
 import { Tooltip } from "../../vendor/beui/motion/tooltip";
-import { failureMessage, requestJson } from "../../shared/api";
+import { ApiError, failureMessage, requestJson } from "../../shared/api";
 import { cn } from "../../shared/cn";
+import { SkipLink } from "../../shared/nav";
 import { FolderBrowser, type FolderBrowserHandle } from "./FolderBrowser";
 import { Hero } from "./Hero";
 import { RecentRepos, TOOLTIP_SURFACE } from "./RecentRepos";
@@ -68,7 +69,7 @@ function StatusToast({
       {status ? (
         <div
           data-picker-status
-          className="pointer-events-auto flex w-fit max-w-[min(560px,100%)] items-center gap-3 rounded-[var(--radius-lg)] border border-line bg-surface-3 px-3 py-2.5 text-[13px] leading-[1.45] text-text shadow-signal contrast-more:border-text"
+          className="pointer-events-auto flex w-fit max-w-[min(560px,100%)] items-center gap-3 rounded-[var(--radius-lg)] border border-line bg-surface-3 px-3 py-2.5 text-base leading-[1.45] text-text shadow-signal contrast-more:border-text"
         >
           <Icon
             className={cn(
@@ -91,7 +92,7 @@ function StatusToast({
               size="sm"
               pressScale={0.96}
               onClick={onUndo}
-              className="h-9 flex-none gap-1.5 rounded-full bg-fill-2 px-3 text-[12.5px] font-semibold text-text hover:bg-fill-3"
+              className="h-9 flex-none gap-1.5 rounded-full bg-fill-2 px-3 text-md font-semibold text-text hover:bg-fill-3"
             >
               <RotateCcw className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
               {status.undo ? (status.undo.actionLabel ?? "Undo") : "Try again"}
@@ -117,6 +118,7 @@ function StatusToast({
 export function PickerApp({ payload }: { payload: PickerPayload }) {
   const [recents, setRecents] = useState<RecentRow[]>(payload.recents);
   const [status, setStatus] = useState<Status>(null);
+  const [heldUndo, setHeldUndo] = useState<{ payload: RecentUndo; name: string } | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
   const main = useRef<HTMLElement>(null);
   const browser = useRef<FolderBrowserHandle>(null);
@@ -138,10 +140,13 @@ export function PickerApp({ payload }: { payload: PickerPayload }) {
         window.location.href = data?.route || fallbackRepoRoute(path);
       })
       .catch((cause: unknown) => {
+        // Transport and server failures can be transient. A rejected path needs
+        // a different folder, so repeating the same open cannot help.
+        const retryable = cause instanceof ApiError && (cause.kind === "network" || cause.status >= 500);
         setStatus({
           text: failureMessage(cause, "Could not open that path."),
           tone: "error",
-          retry: { kind: "open", path },
+          ...(retryable ? { retry: { kind: "open" as const, path } } : {}),
         });
       });
   };
@@ -160,6 +165,7 @@ export function PickerApp({ payload }: { payload: PickerPayload }) {
         // empty state — all of which `syncRecentUi()` did by hand.
         setRecents(data.recents ?? recents.filter((recent) => recent.path !== path));
         setRemoving(null);
+        if (data.undo) setHeldUndo({ payload: data.undo, name: row?.name ?? data.undo.entry.name });
         setStatus({
           text: `Removed ${row?.name ?? "repository"} from recent repositories.`,
           tone: "success",
@@ -179,7 +185,9 @@ export function PickerApp({ payload }: { payload: PickerPayload }) {
   };
 
   const restoreRepo = () => {
-    const undo = status?.undo;
+    const undo = status?.undo
+      ? { payload: status.undo.payload, name: status.undo.name }
+      : heldUndo;
     if (!undo) return;
     setRemoving(undo.payload.entry.path);
     requestJson<RecentResponse>("/api/repos/recent/restore", {
@@ -190,31 +198,36 @@ export function PickerApp({ payload }: { payload: PickerPayload }) {
       .then((data) => {
         if (data.recents) setRecents(data.recents);
         setRemoving(null);
+        setHeldUndo(null);
         setStatus({ text: `Restored ${undo.name} to recent repositories.`, tone: "success" });
       })
       .catch(() => {
         setRemoving(null);
+        setHeldUndo({ payload: undo.payload, name: undo.name });
         setStatus({
           text: `Could not restore ${undo.name}. Try again.`,
           tone: "error",
-          undo: { ...undo, actionLabel: "Try again" },
+          undo: { payload: undo.payload, name: undo.name, actionLabel: "Try again" },
         });
       });
   };
 
   return (
     <>
+      <SkipLink />
       <main
+        id="picker-main"
+        tabIndex={-1}
         ref={main}
         className="mx-auto flex min-h-screen w-[min(820px,100%)] flex-col px-6 pt-9 pb-7 max-[760px]:px-4 max-[760px]:py-6"
       >
         <Hero />
 
         <section className="ds-reveal ds-reveal-2 mb-14 min-w-0 max-[760px]:mb-10">
-          <div className="mt-0.5 mb-3.5 flex items-end justify-between gap-[18px] max-[480px]:items-center">
-            <h2 className="m-0 font-display text-2xl leading-[1.1] font-bold tracking-[-.02em] text-balance max-[480px]:text-xl">
+          <div className="mt-0.5 mb-3.5 flex items-end justify-between gap-5 max-[480px]:items-center">
+            <h1 id="main-content" tabIndex={-1} className="m-0 font-display text-2xl leading-[1.1] font-bold tracking-[-.02em] text-balance max-[480px]:text-xl">
               Repositories
-            </h2>
+            </h1>
             {/* Icon-only below 760px; the accessible name has to survive that.
                 The beUI Tooltip replaces the `title` this used to carry: it also
                 shows on keyboard focus, which `title` never did, and it is the
@@ -227,9 +240,9 @@ export function PickerApp({ payload }: { payload: PickerPayload }) {
                 aria-label="Add repository"
                 pressScale={0.97}
                 onClick={(event) => browser.current?.open(event.currentTarget as HTMLElement)}
-                className="h-[var(--control-h)] gap-[7px] rounded-full bg-accent px-3.5 text-[12.5px] font-semibold text-on-accent hover:bg-accent-solid-hover max-[760px]:w-[var(--control-h)] max-[760px]:px-0"
+                className="h-[var(--control-h-lg)] gap-2 rounded-full bg-accent px-4 text-md font-semibold text-on-accent hover:bg-accent-solid-hover max-[760px]:w-[var(--control-h-lg)] max-[760px]:px-0"
               >
-                <Plus className="h-[15px] w-[15px]" strokeWidth={2} />
+                <Plus className="h-[15px] w-[15px]" strokeWidth={2} aria-hidden="true" />
                 <span className="max-[760px]:hidden">Add repository</span>
               </Button>
             </Tooltip>
@@ -243,6 +256,23 @@ export function PickerApp({ payload }: { payload: PickerPayload }) {
             onOpen={openRepo}
             onRemove={removeRepo}
           />
+
+          {heldUndo && !status?.undo ? (
+            <p className="mt-3 flex min-w-0 flex-wrap items-center gap-2 text-sm text-text-2">
+              <span className="min-w-0 break-all">Removed {heldUndo.name} from recents.</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                pressScale={0.97}
+                disabled={removing === heldUndo.payload.entry.path}
+                onClick={restoreRepo}
+                className="h-8 rounded-full bg-fill-1 px-3 text-sm font-semibold text-accent-text hover:bg-fill-2 hover:text-accent-text"
+              >
+                Restore
+              </Button>
+            </p>
+          ) : null}
 
           <SkillBanner />
         </section>

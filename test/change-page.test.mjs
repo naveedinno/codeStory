@@ -460,7 +460,7 @@ test('the refs request happens once, and its failure is silent and retryable', (
   assert.match(refPicker, /if \(inflightRefs\) return inflightRefs;/);
   assert.match(refPicker, /\.catch\(\(\) => \{\s*inflightRefs = null;\s*return null;\s*\}\)/, 'a failure clears the in-flight promise so the next interaction retries');
   // Opening a panel loads refs, and so does arriving with one already open.
-  assert.match(scopeCard, /const showPanel = \(panel: Panel\) => \{\s*setOpenPanel\(panel\);\s*ensureRefs\(\);/);
+  assert.match(scopeCard, /const showPanel = \(panel: Panel\) => \{\s*if \(navTimer\.current\) window\.clearTimeout\(navTimer\.current\);\s*validationVersion\.current\+\+;\s*setOpenPanel\(panel\);\s*ensureRefs\(\);/);
   assert.match(scopeCard, /if \(openPanel\) ensureRefs\(\);/);
 });
 
@@ -475,7 +475,7 @@ test('selection comes from the URL and disclosure does not', () => {
   assert.match(scopeCard, /function segmentClass\(selected: boolean, open: boolean\)/);
   assert.match(scopeCard, /selected\s*\?\s*"border-accent-line bg-accent-soft/, 'selected wins over open');
   assert.equal(
-    (scopeCard.match(/text-sm leading-\[1\.3\] max-\[600px\]:hidden/g) ?? []).length,
+    (scopeCard.match(/text-sm leading-\[1\.3\] @max-\[600px\]:hidden/g) ?? []).length,
     4,
     'scope descriptions inherit the segment state color instead of pinning muted ink over the selected tint',
   );
@@ -546,12 +546,16 @@ test('the scope summary and the compare editor never show the same two refs at o
 test('scope changes are real URLs, debounced, and never loop', () => {
   // The same-URL guard. Without it the page recomputes the URL it is already on
   // and navigates to itself forever.
-  assert.match(scopeCard, /if \(url !== window\.location\.pathname \+ window\.location\.search\) window\.location\.href = url;/);
+  assert.match(scopeCard, /if \(url === window\.location\.pathname \+ window\.location\.search\) return;\s*setBusy\(true\);\s*window\.setTimeout\(\(\) => \{ window\.location\.href = url; \}, 0\);/);
   assert.match(scopeCard, /if \(delay > 0\) navTimer\.current = window\.setTimeout\(go, delay\);\s*else go\(\);/);
   assert.match(scopeCard, /if \(navTimer\.current\) window\.clearTimeout\(navTimer\.current\);/);
   // Typing waits 700ms; choosing a row or leaving an edited field does not.
   assert.match(scopeCard, /commit\(next, 700\)/);
   assert.match(scopeCard, /scheduleNavTo\(commitUrl\(value\), 0\)/);
+  assert.match(scopeCard, /picker\.validateRef\(kind, value, delay === 0\)\.then/);
+  assert.match(scopeCard, /if \(version !== validationVersion\.current\) return;/);
+  assert.match(scopeCard, /"aria-invalid": errors\[kind\] \? true : undefined/);
+  assert.match(scopeCard, /"aria-describedby": errors\[kind\] \? `\$\{id\}Error` : undefined/);
   // The two URL shapes.
   assert.match(scopeCard, /\$\{routeBase\}\/change\?scope=commit&commit=\$\{encodeURIComponent\(value\.trim\(\) \|\| "HEAD"\)\}/);
   assert.match(scopeCard, /if \(!source\) return "";/, 'no base means no navigation at all');
@@ -664,19 +668,21 @@ test('the vendored ref field keeps a focus ring, drawn on the slot that labels i
   // The picker's `value` still arrives as a string, because that is what the
   // component hands back — the old handler read `event.target.value` and this
   // one must not silently start committing `[object Object]`.
-  assert.match(scopeCard, /onChange: \(next: string\) => \{\s*picker\.open\(kind, next\);\s*commit\(next, 700\);/);
+  assert.match(scopeCard, /onChange: \(next: string\) => \{\s*setErrors\(\(current\) => \(\{ \.\.\.current, \[kind\]: undefined \}\)\);\s*picker\.open\(kind, next\);\s*commit\(next, 700\);/);
 });
 
-test('every live-region carrier this surface adopts is quieted', () => {
-  // `Input` bakes in a `role="alert"` and `Loader` a `role="status"`. Importing
+test('adopted live-region carriers stay quiet while committed ref errors remain audible', () => {
+  // `Input` bakes in a `role="alert"` and `Loader` a `role="status"`. Committed
+  // ref errors are explicitly preserved; repeated loaders stay quiet. Importing
   // the hook is not the same as covering the node, so assert the ref each hook
   // is given actually wraps the carrier: the card element for the fields, the
   // listbox element for its spinner, and a `display: contents` box for the
   // reload control, which lives in the nav rather than in the card.
   assert.match(scopeCard, /vendor\/beui\/motion\/input/);
   assert.match(scopeCard, /vendor\/beui\/motion\/loader/);
-  assert.match(scopeCard, /const card = useRef<HTMLElement>\(null\);\s*useQuietSubtree\(card\);/);
+  assert.match(scopeCard, /const card = useRef<HTMLElement>\(null\);\s*useQuietSubtree\(card, \{ keep: "\[data-ref-error\]" \}\);/);
   assert.match(scopeCard, /<section\s*\n?\s*ref=\{card\}/);
+  assert.match(scopeCard, /data-ref-error="" role="alert"/);
   assert.match(scopeCard, /const root = useRef<HTMLSpanElement>\(null\);\s*useQuietSubtree\(root\);/);
   assert.match(scopeCard, /<span ref=\{root\} className="contents">/);
   assert.match(refPicker, /useQuietSubtree\(ref\);/);
@@ -691,8 +697,8 @@ test('the file inventory keeps its reading order, its generated split, and its c
   assert.match(format, /package-lock\\\.json\|yarn\\\.lock\|pnpm-lock\\\.yaml/);
   assert.match(fileSummary, /const primary = files\.filter\(\(file\) => !generatedOutput\(file\.path\)\);/);
   assert.match(fileSummary, /const generated = files\.filter\(\(file\) => generatedOutput\(file\.path\)\);/);
-  assert.match(fileSummary, /<b className="font-display font-bold text-text tabular-nums">\{primary\.length\}<\/b> review/);
-  assert.match(fileSummary, /const reviewCount = `\$\{files\.length\} \$\{plural\(files\.length, "file", "files"\)\}`;/, 'the CTA counts every file, generated output included');
+  assert.match(fileSummary, /<b className="font-display font-bold text-text tabular-nums">\{formatCount\(primary\.length\)\}<\/b> review/);
+  assert.match(fileSummary, /const reviewCount = `\$\{formatCount\(files\.length\)\} \$\{plural\(files\.length, "file", "files"\)\}`;/, 'the CTA counts every file, generated output included');
   assert.match(format, /acc\.added \+ \(file\.added \?\? 0\)/, 'so does the ledger');
   // The CTA spells out the verb for assistive technology.
   assert.match(fileSummary, /aria-label=\{`Review \$\{reviewCount\}`\}/);
@@ -706,7 +712,7 @@ test('the file inventory keeps its reading order, its generated split, and its c
   // Generated output is still a disclosure, still collapsed, still counted.
   assert.match(fileSummary, /<details id="generated"/);
   assert.match(fileSummary, /<span>Generated output<\/span>/);
-  assert.match(fileSummary, /\{generated\.length\} \{plural\(generated\.length, "file", "files"\)\}/);
+  assert.match(fileSummary, /\{formatCount\(generated\.length\)\} \{plural\(generated\.length, "file", "files"\)\}/);
   assert.ok(!/<details[^>]*open/.test(fileSummary), 'and it does not arrive open');
   // The native disclosure stays flush with the file list: no rounding, no
   // island. (The vendored accordion it replaced needed a rounded-none!
@@ -766,7 +772,7 @@ test('the empty working tree keeps its honest, non-error copy', () => {
 });
 
 test('the failure notice keeps its wording and its way forward', () => {
-  assert.match(changeApp, /That review couldn&rsquo;t be loaded\./);
+  assert.match(changeApp, /That review could not be loaded\./);
   assert.match(changeApp, /Start the review below,\s*\n?\s*then generate a fresh story from the Story tab\./);
   assert.match(changeApp, /\{notice\}/, 'and the server’s own reason, verbatim');
   assert.match(changeApp, /border-amber bg-amber-soft/);
@@ -794,7 +800,7 @@ test('the session header keeps the heading primary and the workflow stepper seco
 test('the nav keeps the wordmark, the breadcrumb, and the two page actions', () => {
   assert.match(changeApp, /crumbs=\{\[\{ label: repoName, href: `\$\{routeBase\}\/change` \}, \{ label: "Scope" \}\]\}/);
   assert.match(changeApp, /href=\{`\$\{routeBase\}\/stories`\}/);
-  assert.match(changeApp, />\s*History\s*</);
+  assert.match(changeApp, />\s*Review history\s*</);
   assert.match(scopeCard, /aria-label="Reload current scope"/);
   // The reload hint used to be a `title`, which is a permanent accessible
   // DESCRIPTION. A tooltip only supplies `aria-describedby` while its bubble is
@@ -805,7 +811,7 @@ test('the nav keeps the wordmark, the breadcrumb, and the two page actions', () 
   assert.match(scopeCard, /aria-description=\{RELOAD_HINT\}/, 'the hover-only bubble is not the whole story');
   assert.match(scopeCard, /max-\[480px\]:hidden">Reload<\/span>/, 'the reload label goes away on a phone, the icon does not');
   // The shared bar itself.
-  assert.match(nav, /title="Home — your repositories"\s*\n?\s*aria-label="Home"/);
+  assert.match(nav, /title="Home — your repositories"\s*\n?\s*aria-label="Home — your repositories"/);
   assert.match(nav, /<nav aria-label="Breadcrumb"/);
   assert.match(nav, /aria-current="page"/);
   assert.match(nav, /max-\[560px\]:hidden/, 'the wordmark gives way to the mark on a phone');
@@ -880,7 +886,8 @@ test('the built bundle actually ships the change behaviour', (t) => {
     'Shows that commit against its first parent',
     'Available Git references',
     'Loading refs…',
-    'No matching refs',
+    'No refs match',
+    'Try a branch name, tag, or commit.',
     'HEAD plus uncommitted edits',
     'Working tree',
     'Selected comparison',
@@ -891,12 +898,12 @@ test('the built bundle actually ships the change behaviour', (t) => {
     'Review history →',
     'Generated output',
     'binary / metadata',
-    'Retry',
+    'Try again',
     'Reload current scope',
     'Review workflow',
     // The failure branch a user only ever sees when something has gone wrong is
     // the easiest string on the surface to lose and the hardest to notice.
-    'That review couldn',
+    'That review could not be loaded.',
     'Start the review below, then generate a fresh story from the Story tab.',
   ]) {
     assert.ok(js.includes(text), `bundle should contain ${JSON.stringify(text)}`);

@@ -14,7 +14,7 @@
 import { useEffect, useState } from "react";
 import type { StoryHealthFinding, StoryHealthView } from "../../../src/payloads";
 import { capHealthRows } from "./engine/health-cap";
-import { plural } from "./format";
+import { formatCount, plural } from "./format";
 
 interface DiagramFailure {
   step: string;
@@ -80,12 +80,12 @@ function FindingRow({ finding }: { finding: StoryHealthFinding }) {
     : finding.fix;
   return (
     <li className="ds-health-finding">
-      <span
-        className={`ds-health-dot is-${finding.severity}`}
-        aria-label={finding.severity === "error" ? "Error" : "Warning"}
-      />
+      <span className={`ds-health-dot is-${finding.severity}`} aria-hidden="true" />
       <div className="ds-health-copy">
-        <span className="ds-health-message">{message}</span>{" "}
+        <span className="ds-health-message">
+          {finding.severity === "error" ? "Error: " : "Warning: "}
+          {message}
+        </span>{" "}
         <details className="ds-health-location"><summary>Technical details</summary><code>{finding.where}: {finding.message}</code></details>
         {fix ? <span className="ds-health-fix">{fix}</span> : null}
       </div>
@@ -117,7 +117,7 @@ function CappedFindings({ rows }: { rows: StoryHealthFinding[] }) {
       ))}
       {rest ? (
         <li className="ds-health-more">
-          …and {rest} more {plural(rest, "finding")} in this section.
+          …and {formatCount(rest)} more {plural(rest, "finding")} in this section.
         </li>
       ) : null}
     </ul>
@@ -160,7 +160,7 @@ export function StoryHealthRow({ health }: { health: StoryHealthView }) {
   const total = findings.length;
 
   const summary = total
-    ? `${errors} ${plural(errors, "error")} · ${warnings} ${plural(warnings, "warning")}`
+    ? `${formatCount(errors)} ${plural(errors, "error")} · ${formatCount(warnings)} ${plural(warnings, "warning")}`
     : "No issues found";
 
   return (
@@ -177,7 +177,7 @@ export function StoryHealthRow({ health }: { health: StoryHealthView }) {
       <div className="ds-health-body">
         {health.unexplainedRanges > 0 ? (
           <p className="ds-health-unexplained">
-            {health.unexplainedRanges} {plural(health.unexplainedRanges, "change")} no step
+            {formatCount(health.unexplainedRanges)} {plural(health.unexplainedRanges, "change")} no step
             explains.{" "}
             <button type="button" data-goto-review="unexplained">
               See evidence <span aria-hidden="true">→</span>

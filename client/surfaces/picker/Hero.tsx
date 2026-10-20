@@ -11,8 +11,8 @@ import { ThemeMenu } from "../../shared/theme-menu";
 
 export function Hero() {
   return (
-    <section className="ds-reveal ds-reveal-1 relative mb-6 flex min-h-[168px] items-center overflow-visible border-b border-line-soft pt-6 pb-[26px] max-[760px]:mb-5 max-[760px]:min-h-[128px] max-[760px]:pt-3.5 max-[760px]:pb-[18px] max-[480px]:min-h-0 max-[480px]:pt-1.5 max-[480px]:pb-4">
-      <ThreadBackdrop className="pointer-events-none absolute inset-0 z-0 h-full w-full max-[480px]:hidden" />
+    <section className="ds-reveal ds-reveal-1 relative mb-6 flex min-h-[168px] items-center overflow-visible border-b border-line-soft pt-6 pb-[26px] max-[760px]:mb-5 max-[760px]:min-h-[128px] max-[760px]:pt-3.5 max-[760px]:pb-5 max-[480px]:min-h-0 max-[480px]:pt-1.5 max-[480px]:pb-4">
+      <ThreadBackdrop className="pointer-events-none absolute inset-0 z-0 h-full w-full [clip-path:inset(35%_0_30%_0)] max-[480px]:hidden" />
 
       <div className="relative z-[1] -ms-3.5 flex flex-none items-center gap-3.5 rounded-[var(--radius-lg)] bg-bg py-2.5 pe-4 ps-3.5">
         <span className="flex flex-none items-center justify-center" aria-hidden="true">
@@ -22,11 +22,11 @@ export function Hero() {
           />
         </span>
         <span className="flex min-w-0 flex-col gap-0.5">
-          <h1 className="m-0 font-display text-2xl leading-none font-normal tracking-[-.03em]">
-            <span className="font-normal text-text-2">code</span>
+          <span className="m-0 font-display text-2xl leading-none font-medium tracking-[-.03em]">
+            <span className="font-medium text-text-2">code</span>
             <span className="font-bold text-text">Story</span>
-          </h1>
-          <span className="font-mono text-xs tracking-[.22em] text-accent-text uppercase max-[400px]:hidden">
+          </span>
+          <span className="font-mono text-xs tracking-[var(--tracking-kicker)] text-accent-text uppercase max-[400px]:hidden">
             the story of this change
           </span>
         </span>

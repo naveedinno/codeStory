@@ -863,9 +863,9 @@ test("Mermaid diagrams use app typography and readable multiline spacing", () =>
   assert.match(engine, /look:'neo'/);
   assert.match(engine, /fontFamily:'IBM Plex Sans, sans-serif'/);
   assert.match(engine, /flowchart:\{[^}]*nodeSpacing:32[^}]*rankSpacing:44[^}]*wrappingWidth:180/);
-  assert.match(reviewCss, /\.ds-concept-diagram-output svg \.node \.label text\{font-size:10\.5px/);
-  assert.match(reviewCss, /\.ds-concept-diagram figcaption\{[^}]*font-size:var\(--ds-concept-diagram-caption-size,14px\)/);
-  assert.match(engine, /canvas\.style\.setProperty\('--ds-concept-diagram-caption-size',\(11\.5\*scale\)/);
+  assert.match(reviewCss, /\.ds-concept-diagram-output svg \.node \.label text\{font-size:var\(--text-xs\)/);
+  assert.match(reviewCss, /\.ds-concept-diagram figcaption\{[^}]*font-size:var\(--ds-concept-diagram-caption-size,0.875rem\)/);
+  assert.match(engine, /canvas\.style\.setProperty\('--ds-concept-diagram-caption-size',\(11\.5\/16\*scale\)/);
   assert.match(engine, /function spaceMermaidLabelRows\(root\)/);
   assert.match(engine, /spaceMermaidLabelRows\(root\)/);
   assert.match(engine, /var lineSpacing=1\.7/);
@@ -1112,7 +1112,7 @@ test("the accessibility contract the old renderer guaranteed is still in the mar
   assert.match(reviewViewSrc, /data-review-summary-count/);
   assert.match(
     engine,
-    /\$\('\[data-review-summary-count\]'\)[\s\S]{0,120}summary\.textContent=openN\+' queued '/,
+    /\$\('\[data-review-summary-count\]'\)[\s\S]{0,120}summary\.textContent=formatReviewCount\(openN\)\+' queued '/,
   );
   for (const view of ["tour", "files", "review"]) {
     assert.ok(
@@ -1280,7 +1280,7 @@ test("the built bundle actually ships the review behaviour", (t) => {
     "No queued comments. Select code in the diff and press C.",
     "Keyboard-first review without hidden magic.",
     "Comment selected code",
-    "Story updated. Reloading in 10 seconds.",
+    "Story updated. Reloading soon; hover or focus here to pause.",
     "Live updates interrupted.",
     "The review changed while this page was open",
     "Opening implementation in ",

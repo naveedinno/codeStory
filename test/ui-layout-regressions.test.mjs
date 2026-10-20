@@ -202,11 +202,11 @@ test("concept steps use a plain full-stage canvas instead of an inner card", () 
 test("spacious concept scenes fit their content typography to real stage capacity", () => {
   assert.match(
     source,
-    /\.ds-concept-title\{[^}]*font-size:var\(--ds-concept-title-size,30px\)/,
+    /\.ds-concept-title\{[^}]*font-size:var\(--ds-concept-title-size,1.875rem\)/,
   );
   assert.match(
     source,
-    /\.ds-step\[data-scene-layout="concept-diagram"\] \.ds-concept-body\{[^}]*font-size:var\(--ds-concept-body-size,14px\)/,
+    /\.ds-step\[data-scene-layout="concept-diagram"\] \.ds-concept-body\{[^}]*font-size:var\(--ds-concept-body-size,0.875rem\)/,
   );
   assert.match(source, /function fitConceptTypography\(panel\)/);
   assert.match(source, /targetHeight=availableHeight\*\.92/);
@@ -221,12 +221,12 @@ test("spacious concept scenes fit their content typography to real stage capacit
 test("the reading dock keeps its active sentence and step numerals comfortably legible", () => {
   assert.match(
     source,
-    /\.ds-beatdock-note\{[^}]*font-size:15px[^}]*line-height:1\.45/,
+    /\.ds-beatdock-note\{[^}]*font-size:var\(--text-lg\)[^}]*line-height:1\.45/,
   );
-  assert.match(source, /\.ds-beatdock-count b\{[^}]*font-size:13px/);
+  assert.match(source, /\.ds-beatdock-count b\{[^}]*font-size:var\(--text-base\)/);
   assert.match(
     source,
-    /\.ds-filmnode-num\{[^}]*width:36px[^}]*height:36px[^}]*font-size:17px/,
+    /\.ds-filmnode-num\{[^}]*width:36px[^}]*height:36px[^}]*font-size:var\(--text-xl\)/,
   );
   assert.match(source, /\.ds-dock-transport\{[^}]*min-height:66px/);
 });

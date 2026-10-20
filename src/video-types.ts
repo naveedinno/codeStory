@@ -2,6 +2,8 @@
 export interface VideoOptions {
   resolution: "720p" | "1080p";
   narration: boolean;
+  narrationEngine?: "system" | "lino";
+  lino?: { engine: string; voice: string };
   speed: number;
   theme: "light" | "dark";
 }

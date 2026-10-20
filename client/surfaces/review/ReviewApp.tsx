@@ -39,7 +39,7 @@ import { FilesView, ReviewPage } from "./ReviewView";
 import { Sidebar } from "./Sidebar";
 import { StoryView } from "./StoryView";
 import { VideoExport } from "./VideoExport";
-import { plural } from "./format";
+import { formatCount, plural } from "./format";
 
 const ICONS = {
   menu: <path d="M4 6h16M4 12h16M4 18h16" />,
@@ -57,9 +57,10 @@ function ChromeIcon({ name }: { name: keyof typeof ICONS }) {
   return (
     <svg
       viewBox="0 0 24 24"
+      aria-hidden="true"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.8"
+      strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
       focusable="false"
@@ -128,16 +129,16 @@ function reviewTabLabel(payload: ReviewPayload): string {
   const open = chrome.openCount;
   const tail = chrome.feedbackHealthy
     ? divergent.length
-      ? `, ${divergent.length} staged and working-tree ${plural(divergent.length, "version")} differ`
+      ? `, ${formatCount(divergent.length)} staged and working-tree ${plural(divergent.length, "version")} ${divergent.length === 1 ? "differs" : "differ"}`
       : storyFreshness === "current"
         ? trust.uncoveredCount
-          ? `, ${trust.uncoveredCount} ${plural(trust.uncoveredCount, "change")} not explained by the story`
+          ? `, ${formatCount(trust.uncoveredCount)} ${plural(trust.uncoveredCount, "change")} not explained by the story`
           : excludedFiles.length
-            ? `, ${excludedFiles.length} excluded ${plural(excludedFiles.length, "file")} to inspect`
+            ? `, ${formatCount(excludedFiles.length)} excluded ${plural(excludedFiles.length, "file")} to inspect`
             : ""
         : ", story requires regeneration"
     : ", feedback file needs repair";
-  return `Review, ${open} queued ${plural(open, "comment")}${tail}`;
+  return `Review, ${formatCount(open)} queued ${plural(open, "comment")}${tail}`;
 }
 
 function DriftDrawer({ payload }: { payload: ReviewPayload }) {
@@ -145,12 +146,12 @@ function DriftDrawer({ payload }: { payload: ReviewPayload }) {
   if (!report || report.state === "unverified" || !report.files.length)
     return null;
   const summary = report.inScopeFiles
-    ? `${report.inScopeFiles} story ${plural(report.inScopeFiles, "file")}${
+    ? `${formatCount(report.inScopeFiles)} story ${plural(report.inScopeFiles, "file")}${
         report.outsideScopeFiles
-          ? ` and ${report.outsideScopeFiles} ${plural(report.outsideScopeFiles, "file")} outside the story`
+          ? ` and ${formatCount(report.outsideScopeFiles)} ${plural(report.outsideScopeFiles, "file")} outside the story`
           : ""
       } changed after this story was captured.`
-    : `${report.outsideScopeFiles} ${plural(report.outsideScopeFiles, "file")} outside the story changed. The story's selected files still match its baseline.`;
+    : `${formatCount(report.outsideScopeFiles)} ${plural(report.outsideScopeFiles, "file")} outside the story changed. The story's selected files still match its baseline.`;
   return (
     <div
       className="ds-drawer-root"
@@ -224,8 +225,8 @@ function DriftDrawer({ payload }: { payload: ReviewPayload }) {
                     {file.additions !== undefined ||
                     file.deletions !== undefined ? (
                       <span className="ds-drift-lines">
-                        <i>+{file.additions ?? 0}</i>
-                        <b>−{file.deletions ?? 0}</b>
+                        <i>+{formatCount(file.additions ?? 0)}</i>
+                        <b>−{formatCount(file.deletions ?? 0)}</b>
                       </span>
                     ) : null}
                   </span>
@@ -253,11 +254,11 @@ function DriftDrawer({ payload }: { payload: ReviewPayload }) {
 }
 
 const COMMANDS: [string, string, string, string][] = [
-  ["story", "Open Story", "J / K", "Move through the guided walkthrough"],
-  ["files", "Open All files", "/", "Search and filter the changed files"],
+  ["story", "Open story", "J / K", "Move through the guided walkthrough"],
+  ["files", "Open all files", "/", "Search and filter the changed files"],
   [
     "review",
-    "Open Review",
+    "Open review",
     "",
     "Unresolved comments, coverage evidence, and the challenge pass",
   ],
@@ -526,7 +527,7 @@ export function ReviewApp({ payload }: { payload: ReviewPayload }) {
                   title="Unresolved comments"
                   hidden={!chrome.openCount}
                 >
-                  <b>{chrome.openCount}</b>
+                  <b>{formatCount(chrome.openCount)}</b>
                 </span>
               </button>
             </div>
@@ -568,7 +569,7 @@ export function ReviewApp({ payload }: { payload: ReviewPayload }) {
         hidden
       >
         <span className="ds-live-banner-icon" aria-hidden="true">
-          <svg viewBox="0 0 16 16" focusable="false">
+          <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
             <path d="M12.7 5.3A5.25 5.25 0 1 0 13 9" />
             <path d="M12.7 2.7v2.6h-2.6" />
           </svg>
@@ -601,7 +602,7 @@ export function ReviewApp({ payload }: { payload: ReviewPayload }) {
         aria-atomic="true"
         hidden
       >
-        <span>Story updated. Reloading in 10 seconds.</span>
+        <span>Story updated. Reloading soon; hover or focus here to pause.</span>
         <button
           type="button"
           data-story-reload-cancel

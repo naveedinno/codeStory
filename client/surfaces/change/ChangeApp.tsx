@@ -32,10 +32,11 @@
 import { Fragment } from "react";
 import { Nav, navActionClass } from "../../shared/nav";
 import { cn } from "../../shared/cn";
+import { History } from "lucide-react";
 import type { ChangePayload } from "../../../src/payloads";
 import { FileSummary } from "./FileSummary";
 import { ReloadButton, ScopeCard } from "./ScopeCard";
-import { plural, scopeQuery, totals } from "./format";
+import { formatCount, plural, scopeQuery, totals } from "./format";
 
 const STAGES: [string, string][] = [
   ["01", "Scope"],
@@ -46,7 +47,7 @@ const STAGES: [string, string][] = [
 
 function Metric({ value, label, tone }: { value: string; label: string; tone?: "add" | "del" }) {
   return (
-    <span className="flex min-w-[76px] flex-col gap-[3px] border-l border-line-soft px-3.5 py-[3px] first:border-l-0 contrast-more:border-text">
+    <span className="flex min-w-[76px] flex-col gap-1 border-s border-line-soft px-3.5 py-1 first:border-s-0 contrast-more:border-text">
       {/* `--diff-*-text`, not `--add`/`--del`: those two are the rail-and-fill
           hues, and the light theme deliberately ships darker ink variants for
           small text (see the comment above the light block in src/theme.ts).
@@ -71,9 +72,9 @@ function ReviewPath() {
       role="list"
       aria-label="Review workflow"
       className={cn(
-        "mt-[18px] flex items-center border-y border-line-soft py-2.5",
-        "font-mono text-[10px] font-medium tracking-[var(--tracking-kicker)] text-text-3 uppercase contrast-more:text-text",
-        "max-[600px]:mt-4 max-[600px]:w-full max-[600px]:py-[9px] contrast-more:border-text",
+        "mt-5 flex items-center  py-2.5",
+        "font-mono text-[0.625rem] font-medium tracking-[var(--tracking-kicker)] text-text-3 uppercase contrast-more:text-text",
+        "max-[600px]:mt-4 max-[600px]:w-full max-[600px]:py-2 contrast-more:border-text",
       )}
     >
       {STAGES.map(([numeral, label], index) => {
@@ -84,7 +85,7 @@ function ReviewPath() {
               <b
                 aria-hidden="true"
                 className={cn(
-                  "mx-[13px] h-px min-w-[18px] flex-1 bg-line-soft max-[600px]:mx-[7px] max-[600px]:min-w-[10px]",
+                  "mx-3 h-px min-w-[18px] flex-1 bg-line-soft max-[600px]:mx-2 max-[600px]:min-w-[10px]",
                   index === 1 && "bg-gradient-to-r from-accent-line to-line-soft",
                 )}
               />
@@ -94,7 +95,7 @@ function ReviewPath() {
               aria-current={active ? "step" : undefined}
               className={cn(
                 "flex items-center gap-2 whitespace-nowrap",
-                active ? "text-accent-text max-[600px]:gap-[7px] max-[600px]:text-xs" : "max-[600px]:flex-none max-[600px]:gap-0 max-[600px]:text-[0px]",
+                active ? "text-accent-text max-[600px]:gap-2 max-[600px]:text-xs" : "max-[600px]:flex-none max-[600px]:gap-0 max-[600px]:text-[0rem]",
               )}
             >
               {/* An upcoming stage inherits the row's --text-3 rather than
@@ -103,11 +104,11 @@ function ReviewPath() {
                   1.42:1 in light / 1.93:1 in dark — while the LABEL beside it
                   sat at --text-3 and was perfectly legible. Numeral and label
                   are one wayfinding unit ("02 READ"); below 600px the label is
-                  collapsed to text-[0px] and the numeral is the only marker
+                  collapsed to text-[0rem] and the numeral is the only marker
                   left, so it is the half that cannot afford to be invisible. */}
               <i
                 className={cn(
-                  "font-display text-sm leading-none font-bold tracking-[var(--tracking-numeral)] not-italic max-[600px]:text-[13px]",
+                  "font-display text-sm leading-none font-bold tracking-[var(--tracking-numeral)] not-italic max-[600px]:text-[0.8125rem]",
                   active && "text-accent-text",
                 )}
               >
@@ -138,8 +139,9 @@ export function ChangeApp({ payload }: { payload: ChangePayload }) {
             <a className={navActionClass} href={`${routeBase}/explain`}>
               Explain code
             </a>
-            <a className={navActionClass} href={`${routeBase}/stories`}>
-              History
+            <a className={navActionClass} href={`${routeBase}/stories`} aria-label="Review history">
+              <History className="h-[15px] w-[15px]" strokeWidth={2} aria-hidden="true" />
+              <span className="max-[560px]:hidden">Review history</span>
             </a>
           </>
         }
@@ -150,13 +152,13 @@ export function ChangeApp({ payload }: { payload: ChangePayload }) {
         tabIndex={-1}
         className="mx-auto max-w-[960px] px-6 pt-6 pb-10 max-[600px]:px-3.5 max-[600px]:pt-5 max-[600px]:pb-[26px]"
       >
-        <header className="mb-[18px] max-[600px]:mb-4">
+        <header className="mb-5 max-[600px]:mb-4">
           <div className="m-0 flex items-center justify-between gap-8 max-[600px]:block">
             <div>
-              <p className="m-0 mb-[7px] font-mono text-xs font-medium tracking-[var(--tracking-kicker)] text-accent-text uppercase">
+              <p className="m-0 mb-2 font-mono text-xs font-medium tracking-[var(--tracking-kicker)] text-accent-text uppercase">
                 Review session
               </p>
-              <h1 className="m-0 font-display text-[26px] font-bold tracking-[-.02em] text-balance max-[600px]:text-2xl">
+              <h1 className="m-0 font-display text-[1.625rem] font-bold tracking-[-.02em] text-balance max-[600px]:text-2xl">
                 Choose what to review
               </h1>
               <p className="m-0 mt-2 max-w-[62ch] text-sm leading-[1.45] text-pretty text-text-2 contrast-more:text-text">
@@ -168,30 +170,30 @@ export function ChangeApp({ payload }: { payload: ChangePayload }) {
                 scope controls rather than wrapping under the heading. */}
             <div
               aria-label="Current scope summary"
-              className="flex flex-none items-center text-[12.5px] text-text-2 contrast-more:text-text max-[980px]:hidden"
+              className="flex flex-none items-center text-[0.78125rem] text-text-2 contrast-more:text-text max-[980px]:hidden"
             >
-              <Metric value={String(files.length)} label={plural(files.length, "file", "files")} />
-              <Metric value={`+${total.added}`} label="added" tone="add" />
-              <Metric value={`−${total.removed}`} label="removed" tone="del" />
+              <Metric value={formatCount(files.length)} label={plural(files.length, "file", "files")} />
+              <Metric value={`+${formatCount(total.added)}`} label="added" tone="add" />
+              <Metric value={`−${formatCount(total.removed)}`} label="removed" tone="del" />
             </div>
           </div>
           <ReviewPath />
         </header>
 
         {notice ? (
-          <div className="mb-4 rounded-[var(--radius-lg)] border border-amber bg-amber-soft px-[15px] py-3 text-base leading-[1.5] text-text contrast-more:border-text">
-            <b className="font-semibold">That review couldn&rsquo;t be loaded.</b> {notice} Start the review below,
+          <div className="mb-4 rounded-[var(--radius-lg)] border border-amber bg-amber-soft px-4 py-3 [overflow-wrap:anywhere] text-base leading-[1.5] text-text contrast-more:border-text">
+            <b className="font-semibold">That review could not be loaded.</b> {notice} Start the review below,
             then generate a fresh story from the Story tab.
           </div>
         ) : null}
 
         {scopeNotice ? (
-          <div className="mb-4 rounded-[var(--radius-lg)] border border-amber bg-amber-soft px-[15px] py-3 text-base leading-[1.5] text-text contrast-more:border-text">
+          <div className="mb-4 rounded-[var(--radius-lg)] border border-amber bg-amber-soft px-4 py-3 [overflow-wrap:anywhere] text-base leading-[1.5] text-text contrast-more:border-text">
             {scopeNotice}
           </div>
         ) : null}
 
-        <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-[18px]">
+        <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-5">
           <ScopeCard payload={payload} />
           <FileSummary files={files} routeBase={routeBase} diffHref={diffHref} />
         </div>

@@ -19,7 +19,7 @@
 
 import type { ReviewPayload, ReviewStepView } from "../../../src/payloads";
 import { ExcludedScopeNotice, StoryMark } from "./Sidebar";
-import { fileExtension, html, numeral, plural, refLabel, withBreaks } from "./format";
+import { fileExtension, formatCount, html, numeral, plural, refLabel, withBreaks } from "./format";
 import { StoryHealthRow } from "./StoryHealth";
 import { NarrationSettings } from "./NarrationSettings";
 
@@ -86,9 +86,9 @@ function DriftStatus({ drift }: { drift: NonNullable<ReviewPayload["storyDrift"]
   }
   const needsRefresh = drift.inScopeFiles > 0;
   const parts = [
-    drift.inScopeFiles ? `${drift.inScopeFiles} story ${plural(drift.inScopeFiles, "file")}` : "",
+    drift.inScopeFiles ? `${formatCount(drift.inScopeFiles)} story ${plural(drift.inScopeFiles, "file")}` : "",
     drift.outsideScopeFiles
-      ? `${drift.outsideScopeFiles} ${plural(drift.outsideScopeFiles, "file")} outside the story`
+      ? `${formatCount(drift.outsideScopeFiles)} ${plural(drift.outsideScopeFiles, "file")} outside the story`
       : "",
   ]
     .filter(Boolean)
@@ -129,7 +129,7 @@ function CodeDriftStatus({ payload }: { payload: ReviewPayload }) {
     return (
       <div className="ds-intro-freshness" role="status">
         <span aria-hidden="true">▲</span>
-        <span>{`Can’t compare with ${code.shortCommit} in this checkout`}</span>
+        <span>{`Cannot compare with ${code.shortCommit} in this checkout`}</span>
       </div>
     );
   }
@@ -150,7 +150,7 @@ function CodeDriftStatus({ payload }: { payload: ReviewPayload }) {
   return (
     <div className="ds-intro-freshness is-stale" role="status">
       <span aria-hidden="true">▲</span>
-      <span>{`${changed} story ${plural(changed, "file")} changed since ${code.shortCommit}`}</span>
+      <span>{`${formatCount(changed)} story ${plural(changed, "file")} changed since ${code.shortCommit}`}</span>
       {rewrite}
     </div>
   );
@@ -178,7 +178,7 @@ function EvolutionDetails({ evolution }: { evolution: NonNullable<ReviewPayload[
     <details className="ds-intro-evolution">
       <summary>
         <span>How this evolved</span>
-        <small><span aria-hidden="true">·</span> {evolution.commitCount} {plural(evolution.commitCount, "commit")}</small>
+        <small><span aria-hidden="true">·</span> {formatCount(evolution.commitCount)} {plural(evolution.commitCount, "commit")}</small>
         <span className="ds-intro-evolution-caret" aria-hidden="true">⌄</span>
       </summary>
       <ol>
@@ -192,7 +192,7 @@ function EvolutionDetails({ evolution }: { evolution: NonNullable<ReviewPayload[
                 <div className="ds-evolution-titleline">
                   <strong>{phase.title}</strong>
                   <span className="ds-evolution-range">
-                    {phase.commitCount} {plural(phase.commitCount, "commit")} · {first}{first === last ? "" : `…${last}`}
+                    {formatCount(phase.commitCount)} {plural(phase.commitCount, "commit")} · {first}{first === last ? "" : `…${last}`}
                   </span>
                 </div>
                 <p dangerouslySetInnerHTML={html(phase.summary.html)} />
@@ -431,23 +431,23 @@ function IntroPanel({ payload }: { payload: ReviewPayload }) {
 const DEPTHS: [string, string, string, string, string][] = [
   [
     "brief",
-    "Compact",
+    "Quick tour",
     "Shortest",
-    "Groups related edits into the fewest useful stops and keeps low-risk mechanical detail brief.",
+    "The fewest stops that still answer the question.",
     "Same selected changes",
   ],
   [
     "guided",
-    "Guided review",
+    "Guided tour",
     "Recommended",
-    "Follows intent, behavior, and code flow with the context that matters—without narrating every line.",
+    "One stop per idea, with the context each one needs.",
     "Same selected changes",
   ],
   [
     "detailed",
-    "Deep review",
+    "Deep dive",
     "Most detail",
-    "Adds smaller stops for guards, branches, state writes, errors, side effects, and tests.",
+    "Smaller stops for every guard, branch, state write, and test on the path.",
     "Trivial syntax stays skipped",
   ],
 ];
@@ -490,7 +490,7 @@ function StoryScopeControls({ files }: { files: ReviewPayload["files"] }) {
           </span>
           <span className="ds-storyscope-summary">
             <strong aria-live="polite">
-              <b id="storyScopeCount">{changed.length}</b> of {changed.length} selected
+              <b id="storyScopeCount">{formatCount(changed.length)}</b> of {formatCount(changed.length)} selected
             </strong>
             <span className="ds-storyscope-edit">Change</span>
             <span className="ds-storyscope-caret" aria-hidden="true">
@@ -574,10 +574,10 @@ function GenerateCta({ payload }: { payload: ReviewPayload }) {
         </h1>
         <p className="ds-intro-lede">
           {excludedOnly ? (
-            "This exact scope contains a file too large for the diff DOM. Its bounded preview remains available without loading the full body."
+            "This scope contains a file whose full diff is too large to load here. Inspect its file preview under Review."
           ) : excludedFiles.length ? (
             <>
-              Read the bounded diff under <b>All files</b>. {excludedFiles.length}{" "}
+              Read the diff under <b>All files</b>. {formatCount(excludedFiles.length)}{" "}
               {plural(excludedFiles.length, "file")} {excludedFiles.length === 1 ? "stays" : "stay"} available
               separately under <b>Review</b>.
             </>
@@ -590,16 +590,16 @@ function GenerateCta({ payload }: { payload: ReviewPayload }) {
         </p>
         <div className="ds-intro-facts">
           <div className="ds-fact">
-            <span className="ds-fact-n">{scope.changedFiles}</span>
+            <span className="ds-fact-n">{formatCount(scope.changedFiles)}</span>
             <span className="ds-fact-l">
               {plural(scope.changedFiles, "file")} changed
-              {contextFiles ? ` · ${contextFiles} for context` : ""}
+              {contextFiles ? ` · ${formatCount(contextFiles)} for context` : ""}
             </span>
           </div>
           <div className="ds-fact">
             <span className="ds-fact-n">
-              <span className="ds-stat-add">+{scope.addedLines}</span>{" "}
-              <span className="ds-stat-del">−{scope.removedLines}</span>
+              <span className="ds-stat-add">+{formatCount(scope.addedLines)}</span>{" "}
+              <span className="ds-stat-del">−{formatCount(scope.removedLines)}</span>
             </span>
             <span className="ds-fact-l">
               {scope.hasUnknownLines ? "known lines · binary counts separate" : "lines"}
@@ -617,7 +617,7 @@ function GenerateCta({ payload }: { payload: ReviewPayload }) {
                 <strong>Choose how the story should guide your review</strong>
                 <p>
                   {excludedFiles.length
-                    ? `The story covers the ${filesChanged} bounded ${plural(filesChanged, "file")} you select. Review the ${excludedFiles.length} excluded ${plural(excludedFiles.length, "file")} separately.`
+                    ? `The story covers the ${formatCount(filesChanged)} ${plural(filesChanged, "file")} you select. Review the ${formatCount(excludedFiles.length)} excluded ${plural(excludedFiles.length, "file")} separately.`
                     : "Every mode reviews the same selected changes. Depth changes the grouping, context, and explanation—not the coverage."}
                 </p>
               </div>
@@ -721,7 +721,7 @@ function GenerateCta({ payload }: { payload: ReviewPayload }) {
                 <span className="ds-intro-arrow">→</span>
               </span>
               <span className="ds-intro-start-sub" data-storygen-cta-sub>
-                {filesChanged} {plural(filesChanged, "file")} selected · gaps are flagged as Unexplained
+                {formatCount(filesChanged)} {plural(filesChanged, "file")} selected · gaps are flagged as unexplained
               </span>
             </button>
             <p className="ds-storygen-warn" id="storySkillWarn" hidden>
@@ -854,7 +854,7 @@ export function StoryView({ payload }: { payload: ReviewPayload }) {
             <button type="button" className="ds-filmthread-allfiles" data-goto-review="exclusions">
               {payload.excludedFiles.length === 1
                 ? "Review excluded file"
-                : `Review ${payload.excludedFiles.length} ${plural(payload.excludedFiles.length, "excluded file")}`}{" "}
+                : `Review ${formatCount(payload.excludedFiles.length)} ${plural(payload.excludedFiles.length, "excluded file")}`}{" "}
               <span aria-hidden="true">→</span>
             </button>
           </nav>

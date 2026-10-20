@@ -6,6 +6,13 @@
 // label) is computed once in the route and travels in the payload, so the
 // server and the client cannot disagree about a verdict.
 
+const countFormatter = new Intl.NumberFormat("en-US");
+
+/** Preserve compact small counts; group five-figure totals for scanning. */
+export function formatCount(value: number): string {
+  return Math.abs(value) >= 10_000 ? countFormatter.format(value) : String(value);
+}
+
 /** `plural(1,'file')` → "file"; `plural(0,'file')` → "files". */
 export function plural(n: number, word: string): string {
   return n === 1 ? word : `${word}s`;

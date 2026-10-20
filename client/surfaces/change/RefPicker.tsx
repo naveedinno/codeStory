@@ -70,7 +70,10 @@ function loadRefs(): Promise<RefData | null> {
   if (cachedRefs) return Promise.resolve(cachedRefs);
   if (inflightRefs) return inflightRefs;
   inflightRefs = fetch("/api/refs")
-    .then((response) => response.json())
+    .then((response) => {
+      if (!response.ok) throw new Error("Could not load refs");
+      return response.json();
+    })
     .then((body: RefsResponse) => {
       cachedRefs = normalizeRefs(body);
       inflightRefs = null;
@@ -104,6 +107,10 @@ export interface RefPicker {
   ensureRefs: () => void;
   open: (kind: FieldKind, query: string) => void;
   close: () => void;
+  /** An option was explicitly highlighted with keys or the pointer. */
+  hasSelection: boolean;
+  /** Validate against the full ref list, independent of the visible filter. */
+  validateRef: (kind: FieldKind, value: string, committed?: boolean) => Promise<boolean | null>;
   fieldProps: (kind: FieldKind, id: string) => FieldProps;
   listboxProps: ListboxProps;
 }
@@ -130,6 +137,7 @@ export interface ListboxProps {
   rows: RefOption[];
   index: number;
   open: boolean;
+  query: string;
   optionId: (index: number) => string;
   onHover: (index: number) => void;
   onChoose: (value: string) => void;
@@ -215,6 +223,23 @@ export function useRefPicker({ values, onChoose }: RefPickerOptions): RefPicker 
   const close = useCallback(() => {
     setActive(null);
     setOverride(null);
+  }, []);
+
+  const validateRef = useCallback(async (kind: FieldKind, value: string, committed = false) => {
+    const text = value.trim();
+    // Suggestions are intentionally bounded. Tags, merge commits and Git
+    // revision expressions must still resolve when Enter or blur commits them.
+    if (committed) {
+      try {
+        const response = await fetch(`/api/refs/resolve?ref=${encodeURIComponent(text)}`);
+        if (!response.ok) return null;
+        const result = await response.json() as { valid?: boolean };
+        return typeof result.valid === "boolean" ? result.valid : null;
+      } catch { return null; }
+    }
+    const refs = cachedRefs ?? await loadRefs();
+    if (!refs) return null;
+    return optionsFor(kind, refs).some((row) => row.value === text || row.label === text);
   }, []);
 
   const move = useCallback(
@@ -349,12 +374,15 @@ export function useRefPicker({ values, onChoose }: RefPickerOptions): RefPicker 
     ensureRefs,
     open,
     close,
+    hasSelection: override !== null,
+    validateRef,
     fieldProps,
     listboxProps: {
       ref: listbox,
       rows,
       index,
       open: active !== null,
+      query: active ? queries[active] : "",
       optionId: (position: number) => `ref-option-${active ? ids.current[active] : "input"}-${position}`,
       onHover: (position: number) => {
         scrollNext.current = false;
@@ -375,7 +403,7 @@ export function useRefPicker({ values, onChoose }: RefPickerOptions): RefPicker 
  * transition is interruptible, so reopening during dismissal retargets the
  * current material instead of waiting for a scripted exit to finish.
  */
-export function RefListbox({ ref, rows, index, open, optionId, onHover, onChoose }: ListboxProps) {
+export function RefListbox({ ref, rows, index, open, query, optionId, onHover, onChoose }: ListboxProps) {
   const reduce = useReducedMotion();
   const [present, setPresent] = useState(open);
   const shown = { opacity: 1, clipPath: "inset(0px round 10px)", transform: "translateY(0px) scale(1)" };
@@ -417,11 +445,11 @@ export function RefListbox({ ref, rows, index, open, optionId, onHover, onChoose
       }}
       className={cn(
         "refpick-surface fixed z-50 max-h-[260px] overflow-auto rounded-[var(--radius-lg)] border border-line bg-surface p-1.5",
-        "shadow-[0_18px_44px_rgba(0,0,0,.28),0_2px_8px_rgba(0,0,0,.18)] contrast-more:border-text",
+        "shadow-[var(--shadow)] contrast-more:border-text",
       )}
     >
       {rows.length === 0 ? (
-        <div className="refpick-empty px-2.5 py-[9px] text-xs text-text-3">No matching refs</div>
+        <div className="refpick-empty px-2.5 py-2 text-xs text-text-3">{`No refs match "${query}". Try a branch name, tag, or commit.`}</div>
       ) : (
         rows.map((row, position) => (
           <button
@@ -453,7 +481,7 @@ export function RefListbox({ ref, rows, index, open, optionId, onHover, onChoose
               className={TOOLTIP_SURFACE}
               wrapperClassName="block min-w-0 max-w-full"
             >
-              <span className="block min-w-0 truncate font-mono text-[12.5px] font-semibold text-text">
+              <span className="block min-w-0 truncate font-mono text-[0.78125rem] font-semibold text-text">
                 {row.label}
               </span>
             </Tooltip>
@@ -468,7 +496,7 @@ export function RefListbox({ ref, rows, index, open, optionId, onHover, onChoose
             {/* The placeholder row has no value and no kind, so the tag column
                 is free for a spinner: the row then reads as work in progress
                 rather than as a ref you could pick called "Loading refs…". */}
-            <span className="col-start-2 row-start-1 row-span-2 self-center text-xs font-bold tracking-[.05em] text-text-3 uppercase">
+            <span className="col-start-2 row-start-1 row-span-2 self-center text-xs font-bold tracking-[var(--tracking-kicker)] text-text-3 uppercase">
               {row.value ? row.kind : <Loader variant="spinner" size={13} label="" className="text-text-3" />}
             </span>
           </button>

@@ -103,18 +103,18 @@ const TOOLTIP_SURFACE =
 // the segment itself is transparent — the track supplies the fill — and colour
 // is spent only on the two states that mean something (see `segmentClass`).
 const SEGMENT_TRACK = cn(
-  "grid grid-cols-4 gap-1 rounded-[var(--radius-lg)] border border-line-soft bg-fill-1 p-1",
-  "max-[600px]:grid-cols-2 max-[600px]:gap-0.5 contrast-more:border-text",
+  "grid grid-cols-4 gap-1 rounded-[calc(var(--radius-island)-16px)] border border-line-soft bg-fill-1 p-1",
+  "@max-[600px]:grid-cols-2 @max-[600px]:gap-0.5 contrast-more:border-text",
 );
 
 const SEGMENT_BASE = cn(
   // `h-auto` and `items-stretch justify-start` undo the height and the centring
   // that beUI's base/size classes bake into every Button.
-  "flex h-auto min-h-16 cursor-pointer flex-col items-stretch justify-start gap-1 rounded-[var(--radius)] border border-transparent bg-transparent px-3 py-2.5 text-start no-underline",
+  "flex h-auto min-h-16 cursor-pointer flex-col items-stretch justify-start gap-1 rounded-[calc(var(--radius-island)-20px)] border border-transparent bg-transparent px-3 py-2.5 text-start no-underline",
   "transition-[background-color,border-color,transform,box-shadow] duration-[var(--motion-duration-fast)] ease-out",
   "focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]",
   "motion-reduce:transition-none motion-reduce:active:transform-none",
-  "max-[600px]:min-h-[44px] max-[600px]:justify-center max-[600px]:px-1.5 max-[600px]:py-2 max-[600px]:text-center",
+  "@max-[600px]:min-h-[44px] @max-[600px]:justify-center @max-[600px]:px-1.5 @max-[600px]:py-2 @max-[600px]:text-center",
 );
 
 /** The press scale the vanilla segments were written for and never got. */
@@ -170,7 +170,7 @@ const FIELD_CLASSNAMES: InputClassNames = {
   field: "h-7 min-w-0 rounded-none border-transparent bg-transparent ring-0",
   input: cn(
     "h-7 pe-0 ps-[22px] font-mono text-lg font-semibold text-text sm:text-base",
-    "placeholder:font-sans placeholder:text-[13px] placeholder:font-normal placeholder:text-text-3",
+    "placeholder:font-sans placeholder:text-[0.8125rem] placeholder:font-normal placeholder:text-text-3",
   ),
   leftIcon: "start-0 text-text-3 [&_svg]:h-[15px] [&_svg]:w-[15px]",
 };
@@ -182,8 +182,8 @@ const FIELD_CLASSNAMES: InputClassNames = {
 // in the same place, and switching between them looked like a layout change
 // rather than one object resolving.
 const SLOT = cn(
-  "flex min-h-[72px] min-w-0 flex-col justify-center gap-1 rounded-[var(--radius-lg)] border border-line-soft px-3 py-2.5",
-  "max-[600px]:min-h-[62px] max-[600px]:px-2.5 max-[600px]:py-2 contrast-more:border-text",
+  "flex min-h-[72px] min-w-0 flex-col justify-center gap-1 rounded-[calc(var(--radius-island)-16px)] border border-line-soft px-3 py-2.5",
+  "@max-[600px]:min-h-[62px] @max-[600px]:px-2.5 @max-[600px]:py-2 contrast-more:border-text",
 );
 
 /** Being edited: neutral fill, and the whole tile shows the focus ring. */
@@ -221,7 +221,7 @@ function Arrow({ className }: { className?: string }) {
       aria-hidden="true"
       className={cn(
         "grid h-6 w-6 flex-none place-items-center self-center rounded-full border border-line bg-surface-2 text-text-2",
-        "max-[600px]:h-5 max-[600px]:w-5 contrast-more:border-text",
+        "@max-[600px]:h-5 @max-[600px]:w-5 contrast-more:border-text",
         className,
       )}
     >
@@ -259,8 +259,10 @@ function SummaryValue({ value, mono, className }: { value: string; mono?: boolea
   return (
     <Tooltip content={value} side="bottom" className={TOOLTIP_SURFACE} wrapperClassName="block min-w-0 max-w-full">
       <b
+        tabIndex={0}
+        onClick={(event) => event.currentTarget.focus()}
         className={cn(
-          "block min-w-0 truncate leading-[1.25] tracking-[-.01em] text-text max-[600px]:text-[13px]",
+          "block min-w-0 truncate leading-[1.25] tracking-[-.01em] text-text @max-[600px]:text-[0.8125rem]",
           // A ref is data and takes the mono voice, matching the field it was
           // typed into and the mono the rest of the app gives refs. `scopeLabel`
           // is the one value here that is prose ("Uncommitted changes"), so it
@@ -302,16 +304,21 @@ export function ScopeCard({ payload }: ScopeCardProps) {
   const [branchValue, setBranchValue] = useState(inBranch ? (payload.branch ?? "") : "");
   const [fromValue, setFromValue] = useState(inBranch && payload.branchFrom ? payload.branchFrom : AUTO_PARENT_LABEL);
   const [fromAuto, setFromAuto] = useState(!(inBranch && payload.branchFrom));
+  const [busy, setBusy] = useState(false);
+  const [errors, setErrors] = useState<Partial<Record<FieldKind, string>>>({});
   const reduceMotion = useReducedMotion();
 
   const navTimer = useRef(0);
   const focusValue = useRef<Record<FieldKind, string>>({ commit: "", base: "", head: "", branch: "", from: "" });
+  const validationVersion = useRef(0);
 
   const scheduleNavTo = (url: string, delay: number) => {
     if (!url) return;
     if (navTimer.current) window.clearTimeout(navTimer.current);
     const go = () => {
-      if (url !== window.location.pathname + window.location.search) window.location.href = url;
+      if (url === window.location.pathname + window.location.search) return;
+      setBusy(true);
+      window.setTimeout(() => { window.location.href = url; }, 0);
     };
     if (delay > 0) navTimer.current = window.setTimeout(go, delay);
     else go();
@@ -342,6 +349,8 @@ export function ScopeCard({ payload }: ScopeCardProps) {
       from: { value: fromAuto ? AUTO_PARENT : fromValue, worktree: false },
     },
     onChoose: (kind, value) => {
+      validationVersion.current++;
+      setErrors((current) => ({ ...current, [kind]: undefined }));
       if (kind === "commit") {
         setCommitValue(value);
         scheduleNavTo(commitUrl(value), 0);
@@ -380,6 +389,8 @@ export function ScopeCard({ payload }: ScopeCardProps) {
   }, [ensureRefs]);
 
   const showPanel = (panel: Panel) => {
+    if (navTimer.current) window.clearTimeout(navTimer.current);
+    validationVersion.current++;
     setOpenPanel(panel);
     ensureRefs();
   };
@@ -409,57 +420,71 @@ export function ScopeCard({ payload }: ScopeCardProps) {
     return {
       ...props,
       value,
+      disabled: busy,
+      "aria-invalid": errors[kind] ? true : undefined,
+      "aria-describedby": errors[kind] ? `${id}Error` : undefined,
       onFocus: () => {
         focusValue.current[kind] = value;
         props.onFocus();
       },
       onBlur: (event: React.FocusEvent<HTMLInputElement>) => {
         props.onBlur(event);
+        if (event.relatedTarget instanceof Element && event.relatedTarget.closest("#refPicker")) return;
         if (value !== focusValue.current[kind]) {
           focusValue.current[kind] = value;
           commit(value, 0);
         }
       },
       onChange: (next: string) => {
+        setErrors((current) => ({ ...current, [kind]: undefined }));
         picker.open(kind, next);
         commit(next, 700);
+      },
+      onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => {
+        if (event.key === "Enter" && !picker.hasSelection) {
+          event.preventDefault();
+          commit(value, 0);
+          return;
+        }
+        props.onKeyDown(event);
       },
     };
   };
 
   /**
-   * Whether the typed text already names a cached ref exactly. The picker's
-   * rows are the cached `/api/refs` list filtered to the previous query, so an
-   * exact value match means the keystrokes so far spell a real branch, commit,
-   * or HEAD — the one case where typing navigates. The worktree and
-   * auto-detect sentinels never match anything typed, and the loading row has
-   * no value, so all three are excluded.
-   *
-   * Every keystroke clears the pending navigation first: without that, typing
-   * one more character after an exact match would still sail to the stale
-   * destination when the old timer fires.
+   * Every keystroke cancels pending navigation and supersedes in-flight ref
+   * validation. Commit edges report unmatched input; typing alone stays quiet.
    */
-  const isCachedRef = (next: string): boolean => {
-    const current = next.trim();
-    if (!current) return false;
-    return picker.rows.some((row) => row.value === current && row.value !== WORKTREE && row.value !== AUTO_PARENT);
-  };
-  const commitIfKnown = (value: string, delay: number, apply: () => void, url: string): void => {
+  const commitIfKnown = (kind: FieldKind, value: string, delay: number, apply: () => void, url: string): void => {
     apply();
     if (navTimer.current) window.clearTimeout(navTimer.current);
-    if (isCachedRef(value)) scheduleNavTo(url, delay);
+    const version = ++validationVersion.current;
+    if (!value.trim()) return;
+    void picker.validateRef(kind, value, delay === 0).then((known) => {
+      if (version !== validationVersion.current) return;
+      if (known) {
+        setErrors((current) => ({ ...current, [kind]: undefined }));
+        scheduleNavTo(url, delay);
+      } else if (delay === 0) {
+        const message = known === null
+          ? "Could not check this ref. Check the repository, then try again."
+          : `No ref matches "${value.trim()}". Enter a valid branch, tag, or commit.`;
+        setErrors((current) => ({ ...current, [kind]: message }));
+      }
+    });
   };
 
   const commitField = wire("commit", "commitRef", commitValue, (value, delay) => {
-    commitIfKnown(value, delay, () => setCommitValue(value), commitUrl(value));
+    commitIfKnown("commit", value, delay, () => setCommitValue(value), commitUrl(value));
   });
 
   const branchField = wire("branch", "branchRef", branchValue, (value, delay) => {
-    commitIfKnown(value, delay, () => setBranchValue(value), branchUrl(value, fromValue, fromAuto));
+    commitIfKnown("branch", value, delay, () => setBranchValue(value), branchUrl(value, fromValue, fromAuto));
   });
 
   const fromField = wire("from", "branchFrom", fromValue, (value, delay) => {
     commitIfKnown(
+      "from",
       value,
       delay,
       () => {
@@ -471,11 +496,12 @@ export function ScopeCard({ payload }: ScopeCardProps) {
   });
 
   const baseField = wire("base", "cmpBase", baseValue, (value, delay) => {
-    commitIfKnown(value, delay, () => setBaseValue(value), compareUrl(value, headValue, headWorktree));
+    commitIfKnown("base", value, delay, () => setBaseValue(value), compareUrl(value, headValue, headWorktree));
   });
 
   const headField = wire("head", "cmpHead", headValue, (value, delay) => {
     commitIfKnown(
+      "head",
       value,
       delay,
       () => {
@@ -518,16 +544,17 @@ export function ScopeCard({ payload }: ScopeCardProps) {
         },
   });
 
-  // `Input` bakes in a `role="alert"` error message and the listbox below owns a
-  // `Loader` with `role="status"`; neither belongs inside a scope picker.
+  // Keep committed ref errors audible while silencing the listbox and busy
+  // spinner statuses, which would otherwise repeat during scope selection.
   const card = useRef<HTMLElement>(null);
-  useQuietSubtree(card);
+  useQuietSubtree(card, { keep: "[data-ref-error]" });
 
   return (
     <section
       ref={card}
       aria-label="Review scope"
-      className="overflow-visible rounded-[var(--radius-island)] border border-transparent bg-surface-2 p-4 max-[600px]:p-3.5 contrast-more:border-text"
+      aria-busy={busy || undefined}
+      className="@container overflow-visible rounded-[var(--radius-island)] border border-line-soft bg-surface-2 p-4 max-[600px]:p-3.5 contrast-more:border-text"
     >
       {/* Three columns at every width above 600px. The old
           `max-[1080px]:grid-cols-2` dropped to two columns while the card was
@@ -538,16 +565,23 @@ export function ScopeCard({ payload }: ScopeCardProps) {
         <ButtonLink
           href={`${routeBase}/change?scope=uncommitted`}
           aria-current={active === "uncommitted" ? "true" : undefined}
+          aria-disabled={busy || undefined}
+          onClick={(event) => {
+            if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            event.preventDefault();
+            if (!busy) scheduleNavTo(`${routeBase}/change?scope=uncommitted`, 0);
+          }}
           pressScale={SEGMENT_PRESS}
           whileHover={undefined}
           className={segmentClass(active === "uncommitted", false)}
         >
-          <span className="text-[13px] leading-[1.2] font-bold text-text max-[600px]:text-xs">Uncommitted</span>
-          <span className="text-sm leading-[1.3] max-[600px]:hidden">Working tree vs HEAD</span>
+          <span className="text-[0.8125rem] leading-[1.2] font-bold text-text @max-[600px]:text-xs">Uncommitted</span>
+          <span className="text-sm leading-[1.3] @max-[600px]:hidden">Working tree vs HEAD</span>
         </ButtonLink>
         <Button
           type="button"
           data-open-panel="commit"
+          disabled={busy}
           aria-controls="commitPanel"
           aria-expanded={openPanel === "commit"}
           pressScale={SEGMENT_PRESS}
@@ -555,12 +589,13 @@ export function ScopeCard({ payload }: ScopeCardProps) {
           onClick={() => showPanel("commit")}
           className={segmentClass(active === "commit", openPanel === "commit")}
         >
-          <span className="text-[13px] leading-[1.2] font-bold text-text max-[600px]:text-xs">Single commit</span>
-          <span className="text-sm leading-[1.3] max-[600px]:hidden">Parent → selected commit</span>
+          <span className="text-[0.8125rem] leading-[1.2] font-bold text-text @max-[600px]:text-xs">Single commit</span>
+          <span className="text-sm leading-[1.3] @max-[600px]:hidden">Parent → selected commit</span>
         </Button>
         <Button
           type="button"
           data-open-panel="branch"
+          disabled={busy}
           aria-controls="branchPanel"
           aria-expanded={openPanel === "branch"}
           pressScale={SEGMENT_PRESS}
@@ -568,12 +603,13 @@ export function ScopeCard({ payload }: ScopeCardProps) {
           onClick={() => showPanel("branch")}
           className={segmentClass(active === "branch", openPanel === "branch")}
         >
-          <span className="text-[13px] leading-[1.2] font-bold text-text max-[600px]:text-xs">Whole branch</span>
-          <span className="text-sm leading-[1.3] max-[600px]:hidden">Fork point → branch tip</span>
+          <span className="text-[0.8125rem] leading-[1.2] font-bold text-text @max-[600px]:text-xs">Whole branch</span>
+          <span className="text-sm leading-[1.3] @max-[600px]:hidden">Fork point → branch tip</span>
         </Button>
         <Button
           type="button"
           data-open-panel="compare"
+          disabled={busy}
           aria-controls="comparePanel"
           aria-expanded={openPanel === "compare"}
           pressScale={SEGMENT_PRESS}
@@ -581,12 +617,19 @@ export function ScopeCard({ payload }: ScopeCardProps) {
           onClick={() => showPanel("compare")}
           className={segmentClass(active === "compare", openPanel === "compare")}
         >
-          <span className="text-[13px] leading-[1.2] font-bold text-text max-[600px]:text-xs">Compare any refs</span>
-          <span className="text-sm leading-[1.3] max-[600px]:hidden">
+          <span className="text-[0.8125rem] leading-[1.2] font-bold text-text @max-[600px]:text-xs">Compare any refs</span>
+          <span className="text-sm leading-[1.3] @max-[600px]:hidden">
             Source → target, any branch or commit
           </span>
         </Button>
       </div>
+
+      {busy ? (
+        <div className="mt-3 flex items-center gap-2 text-sm text-text-2">
+          <Loader variant="spinner" size={15} label="" />
+          <span>Loading review scope…</span>
+        </div>
+      ) : null}
 
       <motion.div
         id="commitPanel"
@@ -598,14 +641,17 @@ export function ScopeCard({ payload }: ScopeCardProps) {
         className={cn("overflow-hidden", openPanel !== "commit" && "pointer-events-none")}
       >
         <div className="mt-3 grid grid-cols-[minmax(0,1fr)] gap-1.5 pb-px">
-          <label className={SLOT_EDIT}>
-            <span className={KICKER_EDIT}>Commit</span>
-            <Input
-              {...commitField}
-              leftIcon={<GitCommitHorizontal strokeWidth={1.8} aria-hidden="true" />}
-              placeholder="HEAD or a commit SHA"
-              classNames={FIELD_CLASSNAMES}
-            />
+          <label className="grid min-w-0 content-start gap-1.5">
+            <span className={SLOT_EDIT}>
+              <span className={KICKER_EDIT}>Commit</span>
+              <Input
+                {...commitField}
+                leftIcon={<GitCommitHorizontal strokeWidth={2} aria-hidden="true" />}
+                placeholder="HEAD or a commit SHA"
+                classNames={FIELD_CLASSNAMES}
+              />
+            </span>
+            <RefError id="commitRefError" message={errors.commit} />
           </label>
           <p className="m-0 px-0.5 text-xs leading-[1.4] text-text-3">
             Shows that commit against its first parent; root commits are shown against the empty tree.
@@ -623,35 +669,49 @@ export function ScopeCard({ payload }: ScopeCardProps) {
         className={cn("overflow-hidden", openPanel !== "branch" && "pointer-events-none")}
       >
         <div className="mt-3 grid grid-cols-[minmax(0,1fr)] gap-1.5 pb-px">
-          <div className="grid grid-cols-[minmax(0,1fr)_32px_minmax(0,1fr)] items-stretch gap-2 max-[700px]:grid-cols-[minmax(0,1fr)] max-[700px]:gap-2.5">
-            <label className={SLOT_EDIT}>
-              <span className={KICKER_EDIT}>
-                Forked from <i className={GLOSS}>parent</i>
+          <div className="grid grid-cols-[minmax(0,1fr)_32px_minmax(0,1fr)] items-stretch gap-2 @max-[700px]:grid-cols-[minmax(0,1fr)] @max-[700px]:gap-2.5">
+            <label className="grid min-w-0 content-start gap-1.5">
+              <span className={SLOT_EDIT}>
+                <span className={KICKER_EDIT}>
+                  Forked from <i className={GLOSS}>parent</i>
+                </span>
+                <Input
+                  {...fromField}
+                  {...(fromAuto ? { "data-auto": "1" } : {})}
+                  leftIcon={<GitBranch strokeWidth={2} aria-hidden="true" />}
+                  placeholder="main, develop, or any ref"
+                  classNames={FIELD_CLASSNAMES}
+                />
               </span>
-              <Input
-                {...fromField}
-                {...(fromAuto ? { "data-auto": "1" } : {})}
-                leftIcon={<GitBranch strokeWidth={1.8} aria-hidden="true" />}
-                placeholder="main, develop, or any ref"
-                classNames={FIELD_CLASSNAMES}
-              />
+              <RefError id="branchFromError" message={errors.from} />
             </label>
-            <Arrow className="max-[700px]:hidden" />
-            <label className={SLOT_EDIT}>
-              <span className={KICKER_EDIT}>
-                Branch <i className={GLOSS}>tip</i>
+            <Arrow className="@max-[700px]:hidden" />
+            <label className="grid min-w-0 content-start gap-1.5">
+              <span className={SLOT_EDIT}>
+                <span className={KICKER_EDIT}>
+                  Branch <i className={GLOSS}>tip</i>
+                </span>
+                <Input
+                  {...branchField}
+                  leftIcon={<GitBranch strokeWidth={2} aria-hidden="true" />}
+                  placeholder="current branch"
+                  classNames={FIELD_CLASSNAMES}
+                />
               </span>
-              <Input
-                {...branchField}
-                leftIcon={<GitBranch strokeWidth={1.8} aria-hidden="true" />}
-                placeholder="current branch"
-                classNames={FIELD_CLASSNAMES}
-              />
+              <RefError id="branchRefError" message={errors.branch} />
             </label>
           </div>
           <p className="m-0 px-0.5 text-xs leading-[1.4] text-text-3">
             Shows every commit on the branch since it split from its parent.{" "}
-            <a href={`${routeBase}/change?scope=branch`} className="font-semibold text-accent-text underline-offset-2 decoration-from-font hover:underline">
+            <a
+              href={`${routeBase}/change?scope=branch`}
+              aria-disabled={busy || undefined}
+              onClick={(event) => {
+                if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                event.preventDefault();
+                if (!busy) scheduleNavTo(`${routeBase}/change?scope=branch`, 0);
+              }}
+              className="font-semibold text-accent-text underline-offset-2 decoration-from-font hover:underline">
               Use the current branch
             </a>
           </p>
@@ -669,30 +729,36 @@ export function ScopeCard({ payload }: ScopeCardProps) {
         style={{ transformOrigin: "100% 0" }}
         className={cn("overflow-hidden", openPanel !== "compare" && "pointer-events-none")}
       >
-        <div className="mt-3 grid grid-cols-[minmax(0,1fr)_32px_minmax(0,1fr)] items-stretch gap-2 pb-px max-[700px]:grid-cols-[minmax(0,1fr)] max-[700px]:gap-2.5">
-          <label className={SLOT_EDIT}>
-            <span className={KICKER_EDIT}>
-              Source <i className={GLOSS}>older</i>
+        <div className="mt-3 grid grid-cols-[minmax(0,1fr)_32px_minmax(0,1fr)] items-stretch gap-2 pb-px @max-[700px]:grid-cols-[minmax(0,1fr)] @max-[700px]:gap-2.5">
+          <label className="grid min-w-0 content-start gap-1.5">
+            <span className={SLOT_EDIT}>
+              <span className={KICKER_EDIT}>
+                Source <i className={GLOSS}>older</i>
+              </span>
+              <Input
+                {...baseField}
+                leftIcon={<GitBranch strokeWidth={2} aria-hidden="true" />}
+                placeholder="branch, tag, or commit"
+                classNames={FIELD_CLASSNAMES}
+              />
             </span>
-            <Input
-              {...baseField}
-              leftIcon={<GitBranch strokeWidth={1.8} aria-hidden="true" />}
-              placeholder="branch, tag, or commit"
-              classNames={FIELD_CLASSNAMES}
-            />
+            <RefError id="cmpBaseError" message={errors.base} />
           </label>
-          <Arrow className="max-[700px]:hidden" />
-          <label className={SLOT_EDIT}>
-            <span className={KICKER_EDIT}>
-              Target <i className={GLOSS}>newer</i>
+          <Arrow className="@max-[700px]:hidden" />
+          <label className="grid min-w-0 content-start gap-1.5">
+            <span className={SLOT_EDIT}>
+              <span className={KICKER_EDIT}>
+                Target <i className={GLOSS}>newer</i>
+              </span>
+              <Input
+                {...headField}
+                {...(headWorktree ? { "data-worktree": "1" } : {})}
+                leftIcon={<GitBranch strokeWidth={2} aria-hidden="true" />}
+                placeholder="branch, tag, or commit"
+                classNames={FIELD_CLASSNAMES}
+              />
             </span>
-            <Input
-              {...headField}
-              {...(headWorktree ? { "data-worktree": "1" } : {})}
-              leftIcon={<GitBranch strokeWidth={1.8} aria-hidden="true" />}
-              placeholder="branch, tag, or commit"
-              classNames={FIELD_CLASSNAMES}
-            />
+            <RefError id="cmpHeadError" message={errors.head} />
           </label>
         </div>
       </motion.div>
@@ -701,7 +767,7 @@ export function ScopeCard({ payload }: ScopeCardProps) {
         <div
           role="group"
           aria-label="Selected comparison"
-          className="mt-3 grid grid-cols-[minmax(0,1fr)_32px_minmax(0,1fr)] items-stretch gap-2 max-[600px]:grid-cols-[minmax(0,1fr)_24px_minmax(0,1fr)] max-[600px]:gap-1.5"
+          className="mt-3 grid grid-cols-[minmax(0,1fr)_32px_minmax(0,1fr)] items-stretch gap-2 @max-[700px]:grid-cols-[minmax(0,1fr)] @max-[700px]:gap-2.5"
         >
           <span aria-label={`Source: ${baseValue}`} className={SLOT_DONE}>
             <span className={KICKER}>
@@ -709,7 +775,7 @@ export function ScopeCard({ payload }: ScopeCardProps) {
             </span>
             <SummaryValue value={baseValue} mono />
           </span>
-          <Arrow />
+          <Arrow className="@max-[700px]:hidden" />
           <span aria-label={`Target: ${headValue}`} className={SLOT_DONE}>
             <span className={KICKER}>
               Target <i className={GLOSS}>newer</i>
@@ -720,7 +786,7 @@ export function ScopeCard({ payload }: ScopeCardProps) {
       ) : inCompare ? null : (
         <div
           aria-label="Selected review scope"
-          className={cn(SLOT_DONE, "mt-3 min-h-[58px] max-[600px]:min-h-[54px]")}
+          className={cn(SLOT_DONE, "mt-3 min-h-[58px] @max-[600px]:min-h-[54px]")}
         >
           <span className={KICKER}>{summaryKicker}</span>
           <SummaryValue value={scopeLabel} className="text-base tracking-[-.012em]" />
@@ -730,6 +796,14 @@ export function ScopeCard({ payload }: ScopeCardProps) {
       <RefListbox {...picker.listboxProps} />
     </section>
   );
+}
+
+function RefError({ id, message }: { id: string; message?: string }) {
+  return message ? (
+    <span id={id} data-ref-error="" role="alert" className="text-xs leading-normal text-danger-text">
+      {message}
+    </span>
+  ) : null;
 }
 
 /** What the reload control does, said once and used three ways. */
@@ -764,7 +838,7 @@ export function ReloadButton() {
             setBusy(true);
             window.location.reload();
           }}
-          className="h-[var(--control-h)] flex-none gap-1.5 rounded-full bg-fill-2 px-3.5 text-[12.5px] font-semibold text-text hover:bg-fill-3 max-[560px]:px-2.5 contrast-more:border contrast-more:border-text"
+          className="h-[var(--control-h)] flex-none gap-1.5 rounded-full bg-fill-2 px-3.5 text-[0.78125rem] font-semibold text-text hover:bg-fill-3 max-[560px]:px-2.5 contrast-more:border contrast-more:border-text"
         >
           {busy ? (
             <Loader variant="spinner" size={15} label="" />

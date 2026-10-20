@@ -1,0 +1,863 @@
+{
+  "captures": [
+    {
+      "file": "picker-375x812-dark.png",
+      "screen": "picker",
+      "viewport": "375x812",
+      "theme": "dark",
+      "state": "loaded",
+      "notes": " | title=codeStory — Pick a repository overflowX=0px differror=false"
+    },
+    {
+      "file": "picker-375x812-light.png",
+      "screen": "picker",
+      "viewport": "375x812",
+      "theme": "light",
+      "state": "loaded",
+      "notes": " | title=codeStory — Pick a repository overflowX=0px differror=false"
+    },
+    {
+      "file": "picker-768x1024-dark.png",
+      "screen": "picker",
+      "viewport": "768x1024",
+      "theme": "dark",
+      "state": "loaded",
+      "notes": " | title=codeStory — Pick a repository overflowX=0px differror=false"
+    },
+    {
+      "file": "picker-768x1024-light.png",
+      "screen": "picker",
+      "viewport": "768x1024",
+      "theme": "light",
+      "state": "loaded",
+      "notes": " | title=codeStory — Pick a repository overflowX=0px differror=false"
+    },
+    {
+      "file": "picker-1440x900-dark.png",
+      "screen": "picker",
+      "viewport": "1440x900",
+      "theme": "dark",
+      "state": "loaded",
+      "notes": " | title=codeStory — Pick a repository overflowX=0px differror=false"
+    },
+    {
+      "file": "picker-1440x900-light.png",
+      "screen": "picker",
+      "viewport": "1440x900",
+      "theme": "light",
+      "state": "loaded",
+      "notes": " | title=codeStory — Pick a repository overflowX=0px differror=false"
+    },
+    {
+      "file": "stories-375x812-dark.png",
+      "screen": "stories",
+      "viewport": "375x812",
+      "theme": "dark",
+      "state": "loaded",
+      "notes": " | title=codeStory — codestory-demo-cap Review history overflowX=0px differror=false"
+    },
+    {
+      "file": "stories-375x812-light.png",
+      "screen": "stories",
+      "viewport": "375x812",
+      "theme": "light",
+      "state": "loaded",
+      "notes": " | title=codeStory — codestory-demo-cap Review history overflowX=0px differror=false"
+    },
+    {
+      "file": "stories-768x1024-dark.png",
+      "screen": "stories",
+      "viewport": "768x1024",
+      "theme": "dark",
+      "state": "loaded",
+      "notes": " | title=codeStory — codestory-demo-cap Review history overflowX=0px differror=false"
+    },
+    {
+      "file": "stories-768x1024-light.png",
+      "screen": "stories",
+      "viewport": "768x1024",
+      "theme": "light",
+      "state": "loaded",
+      "notes": " | title=codeStory — codestory-demo-cap Review history overflowX=0px differror=false"
+    },
+    {
+      "file": "stories-1440x900-dark.png",
+      "screen": "stories",
+      "viewport": "1440x900",
+      "theme": "dark",
+      "state": "loaded",
+      "notes": " | title=codeStory — codestory-demo-cap Review history overflowX=0px differror=false"
+    },
+    {
+      "file": "stories-1440x900-light.png",
+      "screen": "stories",
+      "viewport": "1440x900",
+      "theme": "light",
+      "state": "loaded",
+      "notes": " | title=codeStory — codestory-demo-cap Review history overflowX=0px differror=false"
+    },
+    {
+      "file": "change-375x812-dark.png",
+      "screen": "change",
+      "viewport": "375x812",
+      "theme": "dark",
+      "state": "loaded",
+      "notes": " | title=codeStory — Choose review scope overflowX=9px differror=false"
+    },
+    {
+      "file": "change-375x812-light.png",
+      "screen": "change",
+      "viewport": "375x812",
+      "theme": "light",
+      "state": "loaded",
+      "notes": " | title=codeStory — Choose review scope overflowX=9px differror=false"
+    },
+    {
+      "file": "change-768x1024-dark.png",
+      "screen": "change",
+      "viewport": "768x1024",
+      "theme": "dark",
+      "state": "loaded",
+      "notes": " | title=codeStory — Choose review scope overflowX=0px differror=false"
+    },
+    {
+      "file": "change-768x1024-light.png",
+      "screen": "change",
+      "viewport": "768x1024",
+      "theme": "light",
+      "state": "loaded",
+      "notes": " | title=codeStory — Choose review scope overflowX=0px differror=false"
+    },
+    {
+      "file": "change-1440x900-dark.png",
+      "screen": "change",
+      "viewport": "1440x900",
+      "theme": "dark",
+      "state": "loaded",
+      "notes": " | title=codeStory — Choose review scope overflowX=0px differror=false"
+    },
+    {
+      "file": "change-1440x900-light.png",
+      "screen": "change",
+      "viewport": "1440x900",
+      "theme": "light",
+      "state": "loaded",
+      "notes": " | title=codeStory — Choose review scope overflowX=0px differror=false"
+    },
+    {
+      "file": "review-375x812-dark.png",
+      "screen": "review",
+      "viewport": "375x812",
+      "theme": "dark",
+      "state": "loaded",
+      "notes": " | title=codeStory — Diff annotations in one spending-limit review overflowX=0px differror=false"
+    },
+    {
+      "file": "review-375x812-light.png",
+      "screen": "review",
+      "viewport": "375x812",
+      "theme": "light",
+      "state": "loaded",
+      "notes": " | title=codeStory — Diff annotations in one spending-limit review overflowX=0px differror=false"
+    },
+    {
+      "file": "review-768x1024-dark.png",
+      "screen": "review",
+      "viewport": "768x1024",
+      "theme": "dark",
+      "state": "loaded",
+      "notes": " | title=codeStory — Diff annotations in one spending-limit review overflowX=0px differror=false"
+    },
+    {
+      "file": "review-768x1024-light.png",
+      "screen": "review",
+      "viewport": "768x1024",
+      "theme": "light",
+      "state": "loaded",
+      "notes": " | title=codeStory — Diff annotations in one spending-limit review overflowX=0px differror=false"
+    },
+    {
+      "file": "review-1440x900-dark.png",
+      "screen": "review",
+      "viewport": "1440x900",
+      "theme": "dark",
+      "state": "loaded",
+      "notes": " | title=codeStory — Diff annotations in one spending-limit review overflowX=0px differror=false"
+    },
+    {
+      "file": "review-1440x900-light.png",
+      "screen": "review",
+      "viewport": "1440x900",
+      "theme": "light",
+      "state": "loaded",
+      "notes": " | title=codeStory — Diff annotations in one spending-limit review overflowX=0px differror=false"
+    },
+    {
+      "file": "explain-375x812-dark.png",
+      "screen": "explain",
+      "viewport": "375x812",
+      "theme": "dark",
+      "state": "loaded",
+      "notes": " | title=codeStory — codestory-demo-cap Explain code overflowX=0px differror=false"
+    },
+    {
+      "file": "explain-375x812-light.png",
+      "screen": "explain",
+      "viewport": "375x812",
+      "theme": "light",
+      "state": "loaded",
+      "notes": " | title=codeStory — codestory-demo-cap Explain code overflowX=0px differror=false"
+    },
+    {
+      "file": "explain-768x1024-dark.png",
+      "screen": "explain",
+      "viewport": "768x1024",
+      "theme": "dark",
+      "state": "loaded",
+      "notes": " | title=codeStory — codestory-demo-cap Explain code overflowX=0px differror=false"
+    },
+    {
+      "file": "explain-768x1024-light.png",
+      "screen": "explain",
+      "viewport": "768x1024",
+      "theme": "light",
+      "state": "loaded",
+      "notes": " | title=codeStory — codestory-demo-cap Explain code overflowX=0px differror=false"
+    },
+    {
+      "file": "explain-1440x900-dark.png",
+      "screen": "explain",
+      "viewport": "1440x900",
+      "theme": "dark",
+      "state": "loaded",
+      "notes": " | title=codeStory — codestory-demo-cap Explain code overflowX=0px differror=false"
+    },
+    {
+      "file": "explain-1440x900-light.png",
+      "screen": "explain",
+      "viewport": "1440x900",
+      "theme": "light",
+      "state": "loaded",
+      "notes": " | title=codeStory — codestory-demo-cap Explain code overflowX=0px differror=false"
+    },
+    {
+      "file": "diff-375x812-dark.png",
+      "screen": "diff",
+      "viewport": "375x812",
+      "theme": "dark",
+      "state": "loaded",
+      "notes": " | title=codeStory — Reviewing the diff overflowX=1px differror=false"
+    },
+    {
+      "file": "diff-375x812-light.png",
+      "screen": "diff",
+      "viewport": "375x812",
+      "theme": "light",
+      "state": "loaded",
+      "notes": " | title=codeStory — Reviewing the diff overflowX=1px differror=false"
+    },
+    {
+      "file": "diff-768x1024-dark.png",
+      "screen": "diff",
+      "viewport": "768x1024",
+      "theme": "dark",
+      "state": "loaded",
+      "notes": " | title=codeStory — Reviewing the diff overflowX=0px differror=false"
+    },
+    {
+      "file": "diff-768x1024-light.png",
+      "screen": "diff",
+      "viewport": "768x1024",
+      "theme": "light",
+      "state": "loaded",
+      "notes": " | title=codeStory — Reviewing the diff overflowX=0px differror=false"
+    },
+    {
+      "file": "diff-1440x900-dark.png",
+      "screen": "diff",
+      "viewport": "1440x900",
+      "theme": "dark",
+      "state": "loaded",
+      "notes": " | title=codeStory — Reviewing the diff overflowX=0px differror=false"
+    },
+    {
+      "file": "diff-1440x900-light.png",
+      "screen": "diff",
+      "viewport": "1440x900",
+      "theme": "light",
+      "state": "loaded",
+      "notes": " | title=codeStory — Reviewing the diff overflowX=0px differror=false"
+    },
+    {
+      "file": "picker-320-dark.png",
+      "screen": "picker",
+      "viewport": "320x700",
+      "theme": "dark",
+      "state": "reflow-320",
+      "notes": " | title=codeStory — Pick a repository overflowX=0px differror=false"
+    },
+    {
+      "file": "picker-zoom200-dark.png",
+      "screen": "picker",
+      "viewport": "1440x900@200%",
+      "theme": "dark",
+      "state": "zoom200",
+      "notes": " | title=codeStory — Pick a repository overflowX=0px differror=false"
+    },
+    {
+      "file": "review-320-dark.png",
+      "screen": "review",
+      "viewport": "320x700",
+      "theme": "dark",
+      "state": "reflow-320",
+      "notes": " | title=codeStory — Diff annotations in one spending-limit review overflowX=6px differror=false"
+    },
+    {
+      "file": "review-zoom200-dark.png",
+      "screen": "review",
+      "viewport": "1440x900@200%",
+      "theme": "dark",
+      "state": "zoom200",
+      "notes": " | title=codeStory — Diff annotations in one spending-limit review overflowX=0px differror=false"
+    },
+    {
+      "file": "change-320-dark.png",
+      "screen": "change",
+      "viewport": "320x700",
+      "theme": "dark",
+      "state": "reflow-320",
+      "notes": " | title=codeStory — Choose review scope overflowX=64px differror=false"
+    },
+    {
+      "file": "change-zoom200-dark.png",
+      "screen": "change",
+      "viewport": "1440x900@200%",
+      "theme": "dark",
+      "state": "zoom200",
+      "notes": " | title=codeStory — Choose review scope overflowX=0px differror=false"
+    },
+    {
+      "file": "review-1440x900-dark-reduced-motion.png",
+      "screen": "review",
+      "viewport": "1440x900",
+      "theme": "dark",
+      "state": "reduced-motion",
+      "notes": " | title=codeStory — Diff annotations in one spending-limit review overflowX=0px differror=false"
+    },
+    {
+      "file": "change-empty-1440x900-dark.png",
+      "screen": "change",
+      "viewport": "1440x900",
+      "theme": "dark",
+      "state": "empty-working-tree",
+      "notes": " | title=codeStory — Choose review scope overflowX=0px differror=false"
+    },
+    {
+      "file": "stories-badrepo-1440x900-dark.png",
+      "screen": "stories",
+      "viewport": "1440x900",
+      "theme": "dark",
+      "state": "error-bad-repo-route",
+      "notes": " | title= overflowX=0px differror=false"
+    },
+    {
+      "file": "review-missing-story-1440x900-dark.png",
+      "screen": "review",
+      "viewport": "1440x900",
+      "theme": "dark",
+      "state": "error-missing-story",
+      "notes": " | title=codeStory — Choose review scope overflowX=0px differror=false"
+    },
+    {
+      "file": "picker-modal-1440x900-dark.png",
+      "screen": "picker",
+      "viewport": "1440x900",
+      "theme": "dark",
+      "state": "folder-browser-modal",
+      "notes": " | title=codeStory — Pick a repository overflowX=0px differror=false"
+    },
+    {
+      "file": "change-refpicker-1440x900-dark.png",
+      "screen": "change",
+      "viewport": "1440x900",
+      "theme": "dark",
+      "state": "ref-picker-open-attempt",
+      "notes": " | title=codeStory — Choose review scope overflowX=0px differror=false"
+    },
+    {
+      "file": "review-step-1440x900-dark.png",
+      "screen": "review",
+      "viewport": "1440x900",
+      "theme": "dark",
+      "state": "walkthrough-step-after-start",
+      "notes": " | title=codeStory — Diff annotations in one spending-limit review overflowX=0px differror=false"
+    },
+    {
+      "file": "review-step-next-1440x900-dark.png",
+      "screen": "review",
+      "viewport": "1440x900",
+      "theme": "dark",
+      "state": "after-ArrowRight",
+      "notes": " | title=codeStory — Diff annotations in one spending-limit review overflowX=0px differror=false"
+    },
+    {
+      "file": "review-rapid-nav-1440x900-dark.png",
+      "screen": "review",
+      "viewport": "1440x900",
+      "theme": "dark",
+      "state": "rapid-ArrowRight-x6",
+      "notes": " | title=codeStory — Diff annotations in one spending-limit review overflowX=0px differror=false"
+    },
+    {
+      "file": "review-allfiles-1440x900-dark.png",
+      "screen": "review",
+      "viewport": "1440x900",
+      "theme": "dark",
+      "state": "all-files-tab",
+      "notes": " | title=codeStory — Diff annotations in one spending-limit review overflowX=0px differror=false"
+    },
+    {
+      "file": "progress-running-1440x900-dark.png",
+      "screen": "progress",
+      "viewport": "1440x900",
+      "theme": "dark",
+      "state": "running-fixture-events",
+      "notes": " | title=codeStory — Reviewing the diff overflowX=0px differror=false"
+    },
+    {
+      "file": "picker-tab-focus-1440x900-dark.png",
+      "screen": "picker",
+      "viewport": "1440x900",
+      "theme": "dark",
+      "state": "tab-stop-3-focused",
+      "notes": " | title=codeStory — Pick a repository overflowX=0px differror=false"
+    },
+    {
+      "file": "review-tab-focus-1440x900-dark.png",
+      "screen": "review",
+      "viewport": "1440x900",
+      "theme": "dark",
+      "state": "tab-stop-3-focused",
+      "notes": " | title=codeStory — Diff annotations in one spending-limit review overflowX=0px differror=false"
+    }
+  ],
+  "failed": [],
+  "consoleErrors": {
+    "picker-375x812-dark": [],
+    "picker-375x812-light": [],
+    "picker-768x1024-dark": [],
+    "picker-768x1024-light": [],
+    "picker-1440x900-dark": [],
+    "picker-1440x900-light": [],
+    "stories-375x812-dark": [],
+    "stories-375x812-light": [],
+    "stories-768x1024-dark": [],
+    "stories-768x1024-light": [],
+    "stories-1440x900-dark": [],
+    "stories-1440x900-light": [],
+    "change-375x812-dark": [],
+    "change-375x812-light": [],
+    "change-768x1024-dark": [],
+    "change-768x1024-light": [],
+    "change-1440x900-dark": [],
+    "change-1440x900-light": [],
+    "review-375x812-dark": [],
+    "review-375x812-light": [],
+    "review-768x1024-dark": [],
+    "review-768x1024-light": [],
+    "review-1440x900-dark": [],
+    "review-1440x900-light": [],
+    "explain-375x812-dark": [],
+    "explain-375x812-light": [],
+    "explain-768x1024-dark": [],
+    "explain-768x1024-light": [],
+    "explain-1440x900-dark": [],
+    "explain-1440x900-light": [],
+    "diff-375x812-dark": [],
+    "diff-375x812-light": [],
+    "diff-768x1024-dark": [],
+    "diff-768x1024-light": [],
+    "diff-1440x900-dark": [],
+    "diff-1440x900-light": []
+  },
+  "notes": {
+    "repoOpen": [
+      {
+        "path": "/tmp/codestory-demo-cap",
+        "name": "codestory-demo-cap",
+        "isGit": true,
+        "hasTour": true,
+        "currentBranch": "feat/spending-limit",
+        "changedFiles": 6,
+        "lastOpened": 1792476872193
+      },
+      {
+        "path": "/Users/naveed/Codes/blockchain/ivy/vaults",
+        "name": "vaults",
+        "isGit": true,
+        "hasTour": false,
+        "currentBranch": "main",
+        "changedFiles": 0,
+        "lastOpened": 1790777002540
+      },
+      {
+        "path": "/Users/naveed/Codes/blockchain/symmio/perps-core",
+        "name": "perps-core",
+        "isGit": true,
+        "hasTour": false,
+        "currentBranch": "version_0.8.6",
+        "changedFiles": 225,
+        "lastOpened": 1790676646495
+      }
+    ],
+    "reducedMotionAnimations": {
+      "mq": true
+    },
+    "pickerModalAfterEscape": "codeStory\nTHE STORY OF THIS CHANGE\nVS Code\nRepositories\nAdd repository\n01\ncodest",
+    "tabOrder-picker": [
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "VS Code",
+        "visibleFocus": true,
+        "rect": "94x34@970,114"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "Color theme: Dark",
+        "visibleFocus": true,
+        "rect": "34x34@1072,114"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "Add repository",
+        "visibleFocus": true,
+        "rect": "136x34@970,242"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "01\ncodestory-demo-cap\n/tmp/codestory-demo-cap\nfeat/spending-",
+        "visibleFocus": true,
+        "rect": "720x91@334,290"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "Remove codestory-demo-cap from recent repositories",
+        "visibleFocus": true,
+        "rect": "44x91@1062,290"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "02\nvaults\n~/Codes/blockchain/ivy/vaults\ndynamic-terms-rule-d",
+        "visibleFocus": true,
+        "rect": "720x91@334,389"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "Remove vaults from recent repositories",
+        "visibleFocus": true,
+        "rect": "44x91@1062,389"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "03\nperps-core\n~/Codes/blockchain/symmio/perps-core\nversion_0",
+        "visibleFocus": true,
+        "rect": "720x91@334,488"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "Remove perps-core from recent repositories",
+        "visibleFocus": true,
+        "rect": "44x91@1062,488"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "04\nevm-swap-contract\n~/Codes/blockchain/symmio/evm-swap-cont",
+        "visibleFocus": true,
+        "rect": "720x91@334,587"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "Remove evm-swap-contract from recent repositories",
+        "visibleFocus": true,
+        "rect": "44x91@1062,587"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "05\nperps-core3\n~/Codes/blockchain/symmio/perps-core3\nversion",
+        "visibleFocus": true,
+        "rect": "720x91@334,686"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "Remove perps-core3 from recent repositories",
+        "visibleFocus": true,
+        "rect": "44x91@1062,686"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "06\nperps-core-2\n~/Codes/blockchain/symmio/perps-core-2\nversi",
+        "visibleFocus": true,
+        "rect": "720x91@334,785"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "Remove perps-core-2 from recent repositories",
+        "visibleFocus": true,
+        "rect": "44x91@1062,785"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "07\ntoken\n~/Codes/blockchain/symmio/token\nfeature/nft-manager",
+        "visibleFocus": true,
+        "rect": "720x91@334,809"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "Remove token from recent repositories",
+        "visibleFocus": true,
+        "rect": "44x91@1062,809"
+      },
+      {
+        "tag": "SUMMARY",
+        "role": "",
+        "text": "2 unavailable repositories",
+        "visibleFocus": true,
+        "rect": "772x30@334,733"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "Update skills",
+        "visibleFocus": true,
+        "rect": "88x28@1016,788"
+      },
+      {
+        "tag": "BODY",
+        "text": ""
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "VS Code",
+        "visibleFocus": true,
+        "rect": "94x34@970,114"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "Color theme: Dark",
+        "visibleFocus": true,
+        "rect": "34x34@1072,114"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "Add repository",
+        "visibleFocus": true,
+        "rect": "136x34@970,242"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "01\ncodestory-demo-cap\n/tmp/codestory-demo-cap\nfeat/spending-",
+        "visibleFocus": true,
+        "rect": "720x91@334,290"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "Remove codestory-demo-cap from recent repositories",
+        "visibleFocus": true,
+        "rect": "44x91@1062,290"
+      }
+    ],
+    "tabOrder-review": [
+      {
+        "tag": "A",
+        "role": "",
+        "text": "Skip to content",
+        "visibleFocus": true,
+        "rect": "123x40@12,12"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "tab",
+        "text": "Story",
+        "visibleFocus": true,
+        "rect": "53x32@1054,24"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "Source editor: VS Code",
+        "visibleFocus": true,
+        "rect": "36x36@1289,22"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "Color theme: Dark",
+        "visibleFocus": true,
+        "rect": "36x36@1335,22"
+      },
+      {
+        "tag": "A",
+        "role": "",
+        "text": "Close story",
+        "visibleFocus": true,
+        "rect": "36x36@1381,22"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "Start the walkthrough\n→",
+        "visibleFocus": true,
+        "rect": "216x51@244,485"
+      },
+      {
+        "tag": "SUMMARY",
+        "role": "",
+        "text": "How this evolved\n· 3 commits\n⌄",
+        "visibleFocus": true,
+        "rect": "818x46@245,561"
+      },
+      {
+        "tag": "SUMMARY",
+        "role": "",
+        "text": "Story health\n· No issues found\n⌄",
+        "visibleFocus": true,
+        "rect": "818x46@245,625"
+      },
+      {
+        "tag": "SUMMARY",
+        "role": "",
+        "text": "Review notes\n⌄",
+        "visibleFocus": true,
+        "rect": "84x28@621,690"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "All files →",
+        "visibleFocus": true,
+        "rect": "53x28@723,690"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "Play",
+        "visibleFocus": true,
+        "rect": "86x40@25,834"
+      },
+      {
+        "tag": "BODY",
+        "text": ""
+      },
+      {
+        "tag": "A",
+        "role": "",
+        "text": "Skip to content",
+        "visibleFocus": true,
+        "rect": "123x40@12,12"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "tab",
+        "text": "Story",
+        "visibleFocus": true,
+        "rect": "53x32@1054,24"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "Source editor: VS Code",
+        "visibleFocus": true,
+        "rect": "36x36@1289,22"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "Color theme: Dark",
+        "visibleFocus": true,
+        "rect": "36x36@1335,22"
+      },
+      {
+        "tag": "A",
+        "role": "",
+        "text": "Close story",
+        "visibleFocus": true,
+        "rect": "36x36@1381,22"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "Start the walkthrough\n→",
+        "visibleFocus": true,
+        "rect": "216x51@244,485"
+      },
+      {
+        "tag": "SUMMARY",
+        "role": "",
+        "text": "How this evolved\n· 3 commits\n⌄",
+        "visibleFocus": true,
+        "rect": "818x46@245,561"
+      },
+      {
+        "tag": "SUMMARY",
+        "role": "",
+        "text": "Story health\n· No issues found\n⌄",
+        "visibleFocus": true,
+        "rect": "818x46@245,625"
+      },
+      {
+        "tag": "SUMMARY",
+        "role": "",
+        "text": "Review notes\n⌄",
+        "visibleFocus": true,
+        "rect": "84x28@621,690"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "All files →",
+        "visibleFocus": true,
+        "rect": "53x28@723,690"
+      },
+      {
+        "tag": "BUTTON",
+        "role": "",
+        "text": "Play",
+        "visibleFocus": true,
+        "rect": "86x40@25,834"
+      },
+      {
+        "tag": "BODY",
+        "text": ""
+      },
+      {
+        "tag": "A",
+        "role": "",
+        "text": "Skip to content",
+        "visibleFocus": true,
+        "rect": "123x40@12,12"
+      }
+    ]
+  }
+}

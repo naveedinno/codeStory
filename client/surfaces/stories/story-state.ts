@@ -12,7 +12,7 @@
 //     `freshness: 'unverified'` and zeroes for additions/deletions/comments
 //     because it never rebuilt the diff — presenting that as "Verify scope"
 //     would be the page inventing a finding out of work it declined to do.
-//   - `In review` outranks every freshness state: an open note is a person
+//   - `In review` outranks every freshness state: an open comment is a person
 //     waiting, and it matters more than whether the diff has moved.
 //
 // `Saved` is also the one label with no colour rule of its own; it falls through
@@ -45,7 +45,7 @@ export function storyState(story: StoryRowView, liveEvidence: boolean): StorySta
     return {
       label: "In review",
       tone: "feedback",
-      detail: `${plural(story.openComments, "open note")} waiting`,
+      detail: `${plural(story.openComments, "open comment")} waiting`,
     };
   }
   // A code story's commit never moves; what can move is the code it visits.

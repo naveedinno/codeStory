@@ -84,4 +84,44 @@
     outline: 2px solid Highlight;
     outline-offset: 2px;
   }
+
+  /* System borders survive when the diff tints and inset shadow rails vanish.
+     The existing + / − text remains the primary addition/deletion cue. */
+  .ds-cell-add,
+  .ds-urow.ds-row-add {
+    forced-color-adjust: auto;
+    border-inline-start: 3px solid CanvasText;
+    background: Canvas;
+    color: CanvasText;
+  }
+  .ds-cell-del,
+  .ds-urow.ds-row-del {
+    forced-color-adjust: auto;
+    border-inline-start: 3px double CanvasText;
+    background: Canvas;
+    color: CanvasText;
+  }
+  .ds-badge,
+  .ds-story-state,
+  .ds-untoured-badge,
+  .ds-untoured-tag {
+    forced-color-adjust: auto;
+    border: 1px solid ButtonText;
+    background: ButtonFace;
+    color: ButtonText;
+  }
+  .ds-cell-untoured,
+  .ds-urow.is-untoured {
+    forced-color-adjust: auto;
+    outline: 1px dashed CanvasText;
+    outline-offset: -1px;
+  }
+  .ds-row.is-change-jump,
+  .ds-urow.is-change-jump,
+  .ds-row.is-voice-focus,
+  .ds-urow.is-voice-focus,
+  .ds-fileitem.is-active {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
 }

@@ -116,7 +116,9 @@ const COLOR_ALIASES = [
   ['border-soft', 'line-soft'],
 ];
 
-// shadcn-compatible names, pointed at Signal values.
+// shadcn-compatible names (vendor-only), pointed at Signal values. First-party
+// surfaces must use --color-text, --color-surface, --color-bg and
+// --color-accent; the names below exist only for the vendored beUI tree.
 //
 // The vendored beUI tree (client/vendor/beui) is written against shadcn's
 // variable names. Without these entries `text-foreground`, `bg-card`,
@@ -199,7 +201,7 @@ function themeBlock(dark) {
     push(`--color-${alias}`, `var(--${token})`);
   }
 
-  section('color — shadcn names the vendored beUI tree expects, on Signal values');
+  section('color — shadcn names (vendor-only for the vendored beUI tree) on Signal values; first-party: --color-text, --color-surface, --color-bg, --color-accent');
   for (const [alias, token] of SHADCN_ALIASES) {
     must(dark, token);
     push(`--color-${alias}`, `var(--${token})`);
@@ -271,6 +273,9 @@ export async function buildThemeCss({ quiet = false } = {}) {
 
   const darkRule = extractRule(tokensCss, ':root');
   const lightRule = extractRule(tokensCss, ':root[data-theme="light"]');
+  const contrastRule = tokensCss.includes('@media (prefers-contrast: more)')
+    ? extractRule(tokensCss, '@media (prefers-contrast: more)')
+    : '';
   const dark = parseDeclarations(darkRule);
   const light = parseDeclarations(lightRule);
 
@@ -291,6 +296,7 @@ ${fontFaces.join('\n')}
  *    actually switches with data-theme; everything below only aliases it. */
 ${darkRule}
 ${lightRule}
+${contrastRule}
 
 /* 3. beUI elevation tints. Signal defines a single --shadow per theme; beUI's
  *    scale needs a two-stop tint, so derive one per theme. */

@@ -337,8 +337,10 @@ test('the panel keeps all five of its states', () => {
   assert.ok(!/details open|defaultOpen/.test(panel), 'diagnostics are revealed, never auto-opened');
   // cannot start
   assert.match(state, /export function blockRun/);
-  assert.match(state, /title: "Cannot start"/);
-  assert.match(state, /label: error\.label \|\| "Could not start\."/);
+  assert.match(state, /title: error\.label \|\| "Could not start the run\."/);
+  assert.match(state, /label: error\.label \|\| "Could not start the run\."/);
+
+  assert.match(state, /detail: error\.detail \?\? "Check that Claude or Codex is installed, then try again\."/);
 
   // The milestone pulse freezes once a run lands, in every state.
   assert.match(state, /finished: true/);
@@ -438,12 +440,12 @@ test('the built bundle ships the panel behaviour', (t) => {
     'Writing your review',
     'Review ready',
     'Generation failed',
-    "Couldn't finish",
+    'Could not finish',
     'Stopped',
     'Sent to ChatGPT',
     'Message delivered',
-    'Cannot start',
-    'Could not start.',
+    'Could not start the run.',
+    'Check that Claude or Codex is installed, then try again.',
     'The connection to the agent ended',
     'reopen codeStory and check the technical details',
     'The run failed',

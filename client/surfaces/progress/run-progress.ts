@@ -41,7 +41,7 @@ export async function runProgress(
       } catch {
         reason = null;
       }
-      run.blocked((reason as { label?: string }) || { label: "Could not start." });
+      run.blocked((reason as { label?: string }) || { label: "Could not start the run.", detail: "Check that Claude or Codex is installed, then try again." });
       return;
     }
 

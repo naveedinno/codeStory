@@ -44,9 +44,10 @@ export function Milestones({ state, compact }: { state: ProgressState; compact: 
           <li
             key={milestone.label}
             data-tone={tone}
+            aria-current={tone === "active" ? "step" : undefined}
             className={cn(
               "relative flex min-w-0 flex-1 flex-col items-center gap-1.5 text-center",
-              "font-mono text-xs tracking-[0.05em] uppercase",
+              "font-mono text-xs tracking-[var(--tracking-kicker)] uppercase",
               tone === "done" && "text-[var(--pp-muted)]",
               tone === "active" && "text-[var(--pp-text)]",
               tone === "error" && "text-[var(--pp-err)]",
@@ -59,7 +60,7 @@ export function Milestones({ state, compact }: { state: ProgressState; compact: 
               className={cn(
                 "relative h-[5px] w-full flex-none overflow-hidden rounded-full bg-[var(--pp-line)]",
                 "after:absolute after:inset-0 after:origin-left after:scale-x-0 after:rounded-[inherit] after:content-['']",
-                "after:transition-transform after:duration-500 after:ease-[var(--motion-ease-out)] motion-reduce:after:transition-none",
+                "after:transition-transform after:duration-[var(--motion-duration-progress)] after:ease-[var(--motion-ease-out)] motion-reduce:after:transition-none",
                 (tone === "done" || tone === "active") && "after:scale-x-100 after:bg-[var(--pp-blue)]",
                 tone === "error" && "after:scale-x-100 after:bg-[var(--pp-err)]",
                 tone === "active" &&
@@ -67,7 +68,12 @@ export function Milestones({ state, compact }: { state: ProgressState; compact: 
                   "after:animate-[pp-segment-breathe_1.1s_ease-in-out_infinite] motion-reduce:after:animate-none",
               )}
             />
-            <span>{milestone.label}</span>
+            <span>
+              <span className="sr-only">
+                {tone === "done" ? "Done: " : tone === "active" ? (state.phase === "stopped" ? "Stopped at: " : "In progress: ") : tone === "error" ? "Failed: " : "To do: "}
+              </span>
+              {milestone.label}
+            </span>
           </li>
         );
       })}

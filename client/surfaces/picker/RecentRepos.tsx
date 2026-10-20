@@ -109,9 +109,9 @@ function RepoRow({ row, index, home, now, busy, onOpen, onRemove }: RowProps) {
   const meta: ReactNode[] = [];
   if (row.isGit && row.currentBranch) {
     meta.push(
-      <span key="branch" className="inline-flex items-center gap-1">
-        <GitBranch className="h-[13px] w-[13px] opacity-80" strokeWidth={1.8} />
-        {row.currentBranch}
+      <span key="branch" className="inline-flex min-w-0 max-w-full items-center gap-1">
+        <GitBranch className="h-[13px] w-[13px] flex-none opacity-80" strokeWidth={1.8} aria-hidden="true" />
+        <span className="min-w-0 truncate">{row.currentBranch}</span>
       </span>,
     );
   }
@@ -142,96 +142,91 @@ function RepoRow({ row, index, home, now, busy, onOpen, onRemove }: RowProps) {
               #eef1f5 card in light theme: 1.06:1, unreadable. Ghost carries no
               background and a muted foreground, both of which the classes below
               legitimately override. */}
-          <Button
-            type="button"
-            variant="ghost"
-            data-repo-card
-            pressScale={0.98}
-            whileHover={undefined}
-            onClick={() => onOpen(row.path)}
-            className={cn(
-              "flex h-auto w-full items-center gap-[13px] rounded-[var(--radius-island)] border border-transparent bg-surface-2 px-4 py-3.5 text-start text-text",
-              "transition-[background-color,border-color] duration-[var(--motion-duration-fast)] ease-out",
-              "hover:border-line hover:bg-fill-1",
-              "contrast-more:border-text",
-              "max-[480px]:pe-[54px]",
-            )}
+          <Tooltip
+            content={
+              <span className="flex flex-col gap-1">
+                <span>{row.name}</span>
+                <span className="font-mono">{row.path}</span>
+                {row.currentBranch ? <span className="font-mono">{row.currentBranch}</span> : null}
+              </span>
+            }
+            side="bottom"
+            delay={350}
+            className={TOOLTIP_SURFACE}
+            wrapperClassName="min-w-0 w-full"
           >
-            <span
-              aria-hidden="true"
+            <Button
+              type="button"
+              variant="ghost"
+              data-repo-card
+              pressScale={0.98}
+              whileHover={undefined}
+              disabled={!row.isGit}
+              onClick={() => onOpen(row.path)}
               className={cn(
-                "w-5 flex-none text-right font-mono text-xs font-semibold tracking-[-.01em] max-[480px]:hidden",
-                row.isGit ? "text-[var(--numeral)]" : "text-[var(--text-3)]",
+                "flex h-auto w-full items-center gap-3 rounded-[var(--radius-island)] border border-line-soft bg-surface-2 px-4 py-3.5 text-start text-text",
+                "transition-[background-color,border-color] duration-[var(--motion-duration-fast)] ease-out",
+                "hover:border-line hover:bg-fill-1 disabled:cursor-default disabled:opacity-100",
+                "contrast-more:border-text",
+                "max-[480px]:pe-[54px]",
               )}
             >
-              {String(index + 1).padStart(2, "0")}
-            </span>
-            <span
-              className={cn(
-                "grid h-[38px] w-[38px] flex-none place-items-center rounded-[var(--radius-lg)]",
-                row.isGit ? "bg-accent-soft text-accent" : "bg-fill-3 text-text-2",
-              )}
-            >
-              <Folder className="h-5 w-5" strokeWidth={1.7} />
-            </span>
-            <span className="flex min-w-0 flex-1 flex-col gap-[3px]">
-              <span className="flex items-center gap-2">
-                {/* Same hover-to-reveal contract as the path below: the name
-                    truncates, so the full string lives in the tooltip. */}
-                <Tooltip
-                  content={row.name}
-                  side="bottom"
-                  delay={350}
-                  className={TOOLTIP_SURFACE}
-                  wrapperClassName="min-w-0 max-w-full"
-                >
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "w-5 flex-none text-end font-mono text-xs font-semibold tracking-[-.01em] max-[480px]:hidden",
+                  row.isGit ? "text-[var(--numeral)]" : "text-[var(--text-3)]",
+                )}
+              >
+                {String(index + 1).padStart(2, "0")}
+              </span>
+              <span
+                className={cn(
+                  "grid h-[38px] w-[38px] flex-none place-items-center rounded-[var(--radius-lg)]",
+                  row.isGit ? "bg-accent-soft text-accent" : "bg-fill-3 text-text-2",
+                )}
+              >
+                <Folder className="h-5 w-5" strokeWidth={2} aria-hidden="true" />
+              </span>
+              <span className="flex min-w-0 flex-1 flex-col gap-1">
+                <span className="flex items-center gap-2">
                   <span className="block min-w-0 truncate text-lg font-semibold tracking-[-.012em]">
                     {row.name}
                   </span>
-                </Tooltip>
-                {row.isGit ? null : (
-                  <AnimatedBadge
-                    status="danger"
-                    size="sm"
-                    showIcon={false}
-                    className="h-auto flex-none rounded-[var(--radius-sm)] border-0 bg-del-soft px-2 py-0.5 text-[11px] font-semibold text-diff-del-text"
-                  >
-                    Missing
-                  </AnimatedBadge>
-                )}
-              </span>
-              {/* The `title` this replaces was never in the accessibility tree:
-                  the card's name comes from its text content, so the full path
-                  was always a hover-only affordance. It still is — just legible,
-                  and without the second-long native delay. */}
-              <Tooltip
-                content={row.path}
-                side="bottom"
-                delay={350}
-                className={TOOLTIP_SURFACE}
-                wrapperClassName="min-w-0 max-w-full"
-              >
+                  {row.isGit ? null : (
+                    <AnimatedBadge
+                      status="danger"
+                      size="sm"
+                      showIcon={false}
+                      className="h-auto flex-none rounded-[var(--radius-sm)] border-0 bg-del-soft px-2 py-0.5 text-sm font-semibold text-diff-del-text"
+                    >
+                      Missing
+                    </AnimatedBadge>
+                  )}
+                </span>
                 <span className="block min-w-0 truncate font-mono text-xs text-text-2">
                   {prettyPath(row.path, home)}
                 </span>
-              </Tooltip>
-              <span className="mt-px flex flex-wrap items-center gap-[7px] font-mono text-[11px] text-text-2">
-                {meta.map((node, i) => (
-                  <Fragment key={i}>
-                    {i > 0 ? (
-                      <span className="text-text-3 opacity-60" aria-hidden="true">
-                        ·
-                      </span>
-                    ) : null}
-                    {node}
-                  </Fragment>
-                ))}
+                <span className="mt-px flex min-w-0 max-w-full flex-wrap items-center gap-2 font-mono text-sm text-text-2">
+                  {meta.map((node, i) => (
+                    <Fragment key={i}>
+                      {i > 0 ? (
+                        <span className="text-text-3 opacity-60" aria-hidden="true">
+                          ·
+                        </span>
+                      ) : null}
+                      {node}
+                    </Fragment>
+                  ))}
+                </span>
               </span>
-            </span>
-            <span className="flex flex-none text-text-3 opacity-55" aria-hidden="true">
-              <ChevronRight className="h-4 w-4" strokeWidth={2} />
-            </span>
-          </Button>
+              {row.isGit ? (
+                <span className="flex flex-none text-text-3 opacity-55" aria-hidden="true">
+                  <ChevronRight className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+                </span>
+              ) : null}
+            </Button>
+          </Tooltip>
 
           {/* The tooltip's anchor span becomes the 44px grid cell, so the compact
               overlay geometry moves onto it — the button keeps its own size and
@@ -255,7 +250,7 @@ function RepoRow({ row, index, home, now, busy, onOpen, onRemove }: RowProps) {
                 onRemove(row.path);
               }}
               className={cn(
-                "relative flex h-auto w-full items-center justify-center rounded-[var(--radius-island)] border border-transparent bg-transparent text-text-3",
+                "relative flex h-auto w-full items-center justify-center rounded-[var(--radius-island)] border border-transparent bg-transparent text-danger-text",
                 "transition-colors duration-[var(--motion-duration-fast)] hover:bg-del-soft hover:text-danger-text disabled:opacity-55",
                 "contrast-more:border-text",
                 // Compact layout: the control overlays the card's reserved right
@@ -267,7 +262,7 @@ function RepoRow({ row, index, home, now, busy, onOpen, onRemove }: RowProps) {
               {busy ? (
                 <Loader variant="spinner" size={15} label="" />
               ) : (
-                <Trash2 className="h-[15px] w-[15px]" strokeWidth={1.9} />
+                <Trash2 className="h-[15px] w-[15px]" strokeWidth={2} aria-hidden="true" />
               )}
             </Button>
           </Tooltip>
@@ -278,9 +273,11 @@ function RepoRow({ row, index, home, now, busy, onOpen, onRemove }: RowProps) {
         ariaLabel={`Actions for ${row.name}`}
         className="min-w-52 rounded-[var(--radius-lg)] border-line bg-surface-3 p-1.5 shadow-[var(--shadow)]"
       >
-        <ContextMenuItem className={cn(MENU_ITEM, "text-text")} onSelect={() => onOpen(row.path)}>
-          Open repository
-        </ContextMenuItem>
+        {row.isGit ? (
+          <ContextMenuItem className={cn(MENU_ITEM, "text-text")} onSelect={() => onOpen(row.path)}>
+            Open repository
+          </ContextMenuItem>
+        ) : null}
         <ContextMenuItem
           disabled={busy}
           className={cn(MENU_ITEM, "text-danger-text focus:bg-del-soft")}
@@ -300,10 +297,10 @@ function EmptyRecents() {
       className="rounded-[var(--radius-island)] border border-dashed border-line px-5 py-10 text-center text-text-2"
     >
       <span className="mb-3.5 inline-flex h-[52px] w-[52px] items-center justify-center rounded-[var(--radius-island)] bg-fill-1 text-text-3">
-        <Folder className="h-5 w-5" strokeWidth={1.7} />
+        <Folder className="h-5 w-5" strokeWidth={2} aria-hidden="true" />
       </span>
       <p className="m-0 mb-1.5 font-display text-xl font-bold tracking-[-.02em] text-text">No repositories yet</p>
-      <p className="m-0 mx-auto max-w-[42ch] text-[12.5px] leading-[1.55]">
+      <p className="m-0 mx-auto max-w-[42ch] text-md leading-[1.55]">
         Point codeStory at any local Git repository — it reads the working tree directly, nothing is uploaded.
       </p>
     </div>
@@ -356,7 +353,7 @@ export function RecentRepos({ recents, home, now, removing, onOpen, onRemove }: 
         <details className="group mt-3 border-t border-line-soft pt-2">
           <summary
             className={cn(
-              "flex cursor-pointer list-none items-center gap-2 px-[3px] py-2 text-xs font-semibold text-text-3",
+              "flex cursor-pointer list-none items-center gap-2 px-1 py-2 text-xs font-semibold text-text-3",
               // `list-none` drops the marker in Firefox; WebKit needs the
               // pseudo-element.
               "[&::-webkit-details-marker]:hidden",

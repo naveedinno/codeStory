@@ -397,7 +397,7 @@ export function finishRun(
         ? "Stopped"
         : state.workflow
           ? FAIL[state.workflow]
-          : "Couldn't finish";
+          : "Could not finish";
 
   let next: ProgressState = {
     ...state,
@@ -441,18 +441,18 @@ export function blockRun(state: ProgressState, error: ProgressError = {}): Progr
     ...state,
     open: true,
     phase: "blocked",
-    title: "Cannot start",
+    title: error.label || "Could not start the run.",
     running: false,
     spinning: false,
     showStop: false,
     showClose: true,
     liveTone: "error",
-    liveText: error.label || "Blocked",
+    liveText: error.label || "Could not start the run.",
     liveCount: "",
   };
   return showError(next, {
-    label: error.label || "Could not start.",
-    detail: error.detail ?? "Try again.",
+    label: error.label || "Could not start the run.",
+    detail: error.detail ?? "Check that Claude or Codex is installed, then try again.",
     ...(error.technicalDetail ? { technicalDetail: error.technicalDetail } : {}),
   });
 }
