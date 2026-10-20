@@ -39,7 +39,7 @@ export async function runSpeechDaemon({ port, secret }) {
 }
 `;
 
-function fakeLino({ ready = true } = {}) {
+function fakeLino({ ready = true, session = false } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'cs-lino-'));
   const app = join(root, 'Lino.app');
   const engine = join(app, 'Contents/Resources/ReadAloud/engine');
@@ -49,6 +49,15 @@ function fakeLino({ ready = true } = {}) {
   writeFileSync(join(app, 'Contents/Resources/ReadAloud/package.json'), '{"type":"module"}');
   writeFileSync(join(engine, 'daemon.js'), FAKE_DAEMON);
   writeFileSync(join(engine, 'system-health.js'), `export const kokoroEnvironmentReady = () => ${ready};`);
+  if (session) writeFileSync(join(engine, '../session.mjs'), `
+    import { runSpeechDaemon } from './engine/daemon.js';
+    import { writeFileSync } from 'node:fs';
+    const server = await runSpeechDaemon({ port: 0, secret: 'session-secret' });
+    writeFileSync(new URL('./used-session', import.meta.url), process.argv.slice(2).join(' '));
+    process.stdout.write(JSON.stringify({ port: server.address().port, secret: 'session-secret', ready: true }) + '\\n');
+    process.stdin.on('end', () => { server.close(); server.closeAllConnections(); });
+    process.stdin.resume();
+  `);
   return {
     app,
     port: () => Number(readFileSync(join(engine, 'port'), 'utf8')),
@@ -112,6 +121,16 @@ test('Lino reader explains a missing Lino install', async () => {
     reader.status(),
     (error) => error instanceof AloudUnavailableError && error.fallback === 'browser' && /Narration needs Lino/.test(error.message),
   );
+});
+
+test('Lino reader prefers the supported session entry point when installed', async () => {
+  const lino = fakeLino({ session: true });
+  const reader = createLinoReader({ appPaths: [lino.app] });
+  try {
+    assert.equal((await reader.status()).engine, 'kokoro');
+    assert.equal(readFileSync(join(lino.app, 'Contents/Resources/ReadAloud/used-session'), 'utf8'), '--language en');
+    reader.dispose(); assert.equal(await waitForClosedPort(lino.port()), true);
+  } finally { reader.dispose(); lino.cleanup(); }
 });
 
 test('Lino reader explains missing English voices instead of failing at playback', async () => {

@@ -307,9 +307,12 @@ codeStory. Lino does not need to be open: on the first narration request
 codeStory starts a private copy of Lino's bundled engine on a random loopback
 port behind a one-time secret, and stops it when codeStory exits.
 
-Voices, models, speed, and the per-model narrator choice are shared with Lino.
-Stories are read in English: if Lino last read another language, codeStory
-switches its engine to Kokoro and your Kokoro narrator. Set
+Voices and models come from Lino. With current Lino builds, codeStory uses the
+supported headless session API, starts with your saved narrator and speed, and
+keeps its changes within that session. Stories are read in English; a saved
+model for another language is replaced with a downloaded English model.
+Transport retries reuse a request ID so they cannot restart the same passage.
+Older Lino builds use the embedded launcher for compatibility. Set
 `CODESTORY_LINO_APP=/path/to/Lino.app` to use a build somewhere else.
 
 When Lino or its English voices are missing, or its engine will not start,

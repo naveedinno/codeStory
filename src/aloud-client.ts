@@ -1,4 +1,5 @@
 import { Agent, request as httpRequest } from 'node:http';
+import { randomUUID } from 'node:crypto';
 import type { Socket } from 'node:net';
 
 // The wire protocol is still Aloud's: Lino ships Aloud's speech engine and
@@ -47,15 +48,24 @@ export interface AloudReader {
   control(action: 'pause' | 'resume' | 'stop'): Promise<AloudStatus>;
   /** Releases anything the reader owns, such as a speech engine process. */
   dispose?(): void;
-  prepare(input: AloudSpeechRequest): Promise<void>;
+  prepare(input: AloudSpeechRequest): Promise<AloudPreparation | void>;
   speak(input: AloudSpeechRequest): Promise<AloudStatus>;
   status(): Promise<AloudStatus>;
+}
+
+export interface AloudPreparation {
+  id: string;
+  beats: number;
+  ready: number;
+  state: 'generating' | 'ready' | 'cancelled' | 'error';
+  error?: string;
 }
 
 export interface AloudSpeechRequest {
   batches?: string[];
   prefetch?: number;
   text: string;
+  requestId?: string;
 }
 
 /** Where the engine listens, and the bearer secret it requires. */
@@ -109,11 +119,16 @@ export function createAloudReader(endpoint: string | (() => Promise<AloudEndpoin
       if (!isAloudProtocol(prepared)) {
         throw new AloudUnavailableError('The speech engine returned an incompatible preparation response.');
       }
+      const progress = (prepared as { prepare?: AloudPreparation }).prepare;
+      if (progress && typeof progress.id === 'string') return progress;
     },
     async speak(input) {
       const target = await resolve();
       await verifyAloudDaemon(target);
-      return verifyStatus(await requestJson(target, 'POST', '/speak', input, MUTATE_TIMEOUT_MS));
+      // A lost response may be retried on a fresh socket. Reuse one id for all
+      // attempts so Lino acknowledges the original job without restarting it.
+      const body = { ...input, requestId: input.requestId ?? randomUUID() };
+      return verifyStatus(await requestJson(target, 'POST', '/speak', body, MUTATE_TIMEOUT_MS));
     },
     async control(action) {
       const target = await resolve();

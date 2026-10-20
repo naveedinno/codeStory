@@ -1776,6 +1776,7 @@ export function startReviewEngine(options){
   // How many beats of the step under the cursor to warm ahead of a play. Matches
   // the daemon's own prepare depth; it clamps anything larger.
   var ALOUD_PREPARE_BEATS=4;
+  var aloudPreparationId='';
   // Step selection is also a browsing gesture. Wait until the reviewer has
   // actually settled before asking the speech engine to generate anything in the background.
   var ALOUD_PREPARE_DWELL_MS=1000;
@@ -1818,9 +1819,12 @@ export function startReviewEngine(options){
         if(prepareRequest!==aloudPrepareRequest||aloudIntent!=='off'||aloudActive||speechLoadingLabel)return;
         if(!status||status.service!=='aloud-speech-daemon'||status.protocolVersion!==2)return;
         var preparedKey=aloudPreparationIdentity(status)+'\n'+prepareChunks.join('\n');
-        if(preparedKey===aloudPreparedText)return;
+        if(preparedKey===aloudPreparedText&&(!status.prepare||!status.prepare.state||
+          (status.prepare.id===aloudPreparationId&&(status.prepare.state==='generating'||status.prepare.state==='ready'))))return;
         aloudPreparedText=preparedKey;
-        return aloudFetch('prepare',{text:prepareChunks.join(' '),batches:prepareChunks,prefetch:ALOUD_PREPARE_BEATS}).catch(function(){
+        return aloudFetch('prepare',{text:prepareChunks.join(' '),batches:prepareChunks,prefetch:ALOUD_PREPARE_BEATS}).then(function(receipt){
+          if(aloudPreparedText===preparedKey)aloudPreparationId=receipt&&receipt.prepare?receipt.prepare.id:'';
+        }).catch(function(){
           if(aloudPreparedText===preparedKey)aloudPreparedText='';
         });
       }).catch(function(){

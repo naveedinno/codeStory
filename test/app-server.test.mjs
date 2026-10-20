@@ -59,6 +59,17 @@ async function boot(repo = null, homeOverride = null, aloud) {
   return { server, base: `http://localhost:${port}` };
 }
 
+test('server forwards tracked preparation receipts instead of reporting completion', async () => {
+  const prepare = { id: 'prepare-1', beats: 4, ready: 0, state: 'generating' };
+  const app = await boot(null, null, { async prepare() { return prepare; } });
+  try {
+    const response = await fetch(app.base + '/api/aloud/prepare', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: 'Prepare this.' }),
+    });
+    assert.equal(response.status, 202); assert.deepEqual(await response.json(), { prepare });
+  } finally { app.server.close(); await once(app.server, 'close'); }
+});
+
 test('server exposes a narrow same-origin bridge to the Aloud reader', async () => {
   const calls = [];
   const status = { jobId: 'story-1', ok: true, paused: false, protocolVersion: 2, running: true, service: 'aloud-speech-daemon', state: { status: 'reading' } };

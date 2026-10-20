@@ -3289,7 +3289,9 @@ function runAloudPrepare(res, aloud, body) {
         ...(batches ? { batches } : {}),
         ...(Number.isFinite(prefetch) ? { prefetch } : {}),
     })
-        .then(() => {
+        .then((preparation) => {
+        if (preparation)
+            return sendJson(res, 202, { prepare: preparation });
         res.statusCode = 204;
         res.end();
     })

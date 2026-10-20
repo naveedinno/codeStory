@@ -1,4 +1,5 @@
 import { Agent, request as httpRequest } from 'node:http';
+import { randomUUID } from 'node:crypto';
 // The wire protocol is still Aloud's: Lino ships Aloud's speech engine and
 // codeStory runs that engine itself (see lino-engine.ts). These names describe
 // the protocol, not an app the reviewer has to install.
@@ -60,11 +61,17 @@ export function createAloudReader(endpoint) {
             if (!isAloudProtocol(prepared)) {
                 throw new AloudUnavailableError('The speech engine returned an incompatible preparation response.');
             }
+            const progress = prepared.prepare;
+            if (progress && typeof progress.id === 'string')
+                return progress;
         },
         async speak(input) {
             const target = await resolve();
             await verifyAloudDaemon(target);
-            return verifyStatus(await requestJson(target, 'POST', '/speak', input, MUTATE_TIMEOUT_MS));
+            // A lost response may be retried on a fresh socket. Reuse one id for all
+            // attempts so Lino acknowledges the original job without restarting it.
+            const body = { ...input, requestId: input.requestId ?? randomUUID() };
+            return verifyStatus(await requestJson(target, 'POST', '/speak', body, MUTATE_TIMEOUT_MS));
         },
         async control(action) {
             const target = await resolve();

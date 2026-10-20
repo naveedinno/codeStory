@@ -12,9 +12,9 @@ import {
 
 // Lino owns narration now: it ships Aloud's speech engine, the voice models
 // under ~/Library/Application Support/Aloud, and the setup that downloads them.
-// Lino keeps its own engine private (a random port behind a secret), so
-// codeStory runs a second copy of that same engine from Lino's bundle instead
-// of reaching into the app. Voices, models, and preferences stay shared.
+// Lino keeps its own engine private. The supported session entry point gives
+// codeStory an isolated player, private bearer token, and session-only settings.
+// The embedded launcher below remains a fallback for older Lino installations.
 
 const ENGINE_DIR = 'Contents/Resources/ReadAloud/engine';
 const NODE_PATH = 'Contents/Helpers/node';
@@ -73,6 +73,7 @@ export interface LinoApp {
   engineDir: string;
   node: string;
   path: string;
+  session?: string;
 }
 
 export interface LinoReaderOptions {
@@ -104,7 +105,10 @@ export function findLinoApp(candidates: string[]): LinoApp | null {
   for (const path of candidates) {
     const node = join(path, NODE_PATH);
     const engineDir = join(path, ENGINE_DIR);
-    if (existsSync(node) && existsSync(join(engineDir, 'daemon.js'))) return { engineDir, node, path };
+    if (existsSync(node) && existsSync(join(engineDir, 'daemon.js'))) {
+      const session = join(path, 'Contents/Resources/ReadAloud/session.mjs');
+      return { engineDir, node, path, ...(existsSync(session) ? { session } : {}) };
+    }
   }
   return null;
 }
@@ -149,7 +153,7 @@ async function startEngine(candidates: string[]): Promise<RunningEngine> {
   if (!app) {
     throw new LinoUnavailableError('Narration needs Lino. Install Lino in Applications, then download a voice in Settings → Read Aloud.');
   }
-  const child = spawn(app.node, [
+  const child = spawn(app.node, app.session ? [app.session, '--language', 'en'] : [
     '--input-type=module',
     '-e',
     LAUNCHER,

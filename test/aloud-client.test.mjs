@@ -65,10 +65,13 @@ test('Aloud client verifies the daemon before delegating speech and controls', a
       'POST /pause',
       'GET /status',
     ]);
-    assert.deepEqual(JSON.parse(calls[1].body), {
+    const spoken = JSON.parse(calls[1].body);
+    assert.match(spoken.requestId, /^[a-f0-9-]{36}$/);
+    assert.deepEqual({ ...spoken, requestId: undefined }, {
       batches: ['Review this beat.', 'Then this one.'],
       prefetch: 3,
       text: 'Review this beat. Then this one.',
+      requestId: undefined,
     });
     assert.deepEqual(JSON.parse(calls[3].body), {
       batches: ['Review this beat.'],
@@ -139,11 +142,17 @@ test('Aloud client recovers when the daemon drops a pooled connection', async ()
 
 test('Aloud client retries a dropped connection for speech, not just reads', async () => {
   const seen = [];
+  const requestIds = [];
   const fixture = await fakeAloud((req, res) => {
     seen.push(`${req.method} ${req.url}`);
-    // Fail the POST once, after /health has already been accepted.
-    if (req.url === '/speak' && seen.filter((entry) => entry === 'POST /speak').length === 1) {
-      req.socket.destroy();
+    if (req.url === '/speak') {
+      let body = '';
+      req.on('data', (chunk) => { body += chunk; });
+      req.on('end', () => {
+        requestIds.push(JSON.parse(body).requestId);
+        if (requestIds.length === 1) { req.socket.destroy(); return; }
+        res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(STATUS));
+      });
       return;
     }
     res.setHeader('Content-Type', 'application/json');
@@ -153,10 +162,23 @@ test('Aloud client retries a dropped connection for speech, not just reads', asy
     const status = await createAloudReader(fixture.url).speak({ text: 'Narrate this beat.' });
     assert.equal(status.jobId, 'job-1');
     assert.equal(seen.filter((entry) => entry === 'POST /speak').length, 2);
+    assert.match(requestIds[0], /^[a-f0-9-]{36}$/);
+    assert.equal(requestIds[1], requestIds[0], 'one narration id must survive a transport retry');
   } finally {
     fixture.server.close();
     await once(fixture.server, 'close');
   }
+});
+
+test('Aloud client preserves the preparation receipt for callers that track readiness', async () => {
+  const prepare = { id: 'prepare-1', beats: 4, ready: 0, state: 'generating' };
+  const fixture = await fakeAloud((req, res) => {
+    req.resume(); res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify(req.url === '/prepare' ? { ...HEALTH, accepted: true, prepare } : HEALTH));
+  });
+  try {
+    assert.deepEqual(await createAloudReader(fixture.url).prepare({ text: 'Prepare this.' }), prepare);
+  } finally { fixture.server.close(); await once(fixture.server, 'close'); }
 });
 
 test('Aloud client gives up honestly when every attempt is dropped', async () => {
