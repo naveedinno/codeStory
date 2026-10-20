@@ -30,7 +30,12 @@ export class AloudUnavailableError extends Error {
     transient = false;
     statusCode = 503;
     constructor(message = 'Narration is not available. Install Lino and download a voice in Settings → Read Aloud.') {
-        super(message);
+        // Bundled engines can return Python tracebacks and source-checkout setup
+        // commands. Keep those diagnostics as a cause, outside product copy.
+        const technical = /Traceback \(most recent call last\)|npm run setup:|FileNotFoundError:|ModuleNotFoundError:|ImportError:/.test(message);
+        super(technical
+            ? 'Lino could not generate this narration. Restart codeStory and try again. If it still fails, check the selected voice in Lino → Settings → Read Aloud.'
+            : message, technical ? { cause: new Error(message) } : undefined);
         this.name = 'AloudUnavailableError';
     }
 }

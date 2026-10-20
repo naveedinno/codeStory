@@ -1629,6 +1629,7 @@ body[data-surface="review"] > #root{display:contents}
 .ds-video-export fieldset{border:0;padding:4px 0;margin:12px 0;display:grid;gap:15px}.ds-video-export label{display:grid;gap:5px;font-size:var(--text-base);font-weight:500}.ds-video-export select{width:100%;min-height:40px;padding:8px 12px;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel2);color:var(--text);font:inherit}
 .ds-video-export label.ds-video-export-narration{display:flex;align-items:center;gap:9px;font-weight:400}.ds-video-export input{accent-color:var(--accent)}
 .ds-video-export-detail{font-size:var(--text-md);color:var(--muted)}.ds-video-export-error{color:var(--danger-text);font-size:var(--text-base)}.ds-video-export-error p{margin:8px 0}.ds-video-export-progress{padding:8px 0}.ds-video-export-progress p{margin:8px 0}.ds-video-export progress{display:block;width:100%;height:7px;accent-color:var(--accent)}
+.ds-video-export-eta{font-size:var(--text-base);font-weight:500;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .ds-video-export-actions{display:flex;justify-content:flex-end;align-items:center;gap:12px;margin-top:22px}.ds-video-export-actions>span{font-size:var(--text-md);color:var(--muted);margin-inline-end:auto}.ds-video-export-actions a{display:inline-flex;align-items:center;gap:7px;text-decoration:none}.ds-video-export :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 @media(max-width:700px){.ds-video-export{padding:20px}.ds-video-export-actions{flex-wrap:wrap}}
 

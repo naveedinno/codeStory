@@ -126,6 +126,38 @@ try {
       const exportBounds=await exportDialog.boundingBox();
       assert.ok(exportBounds.x>=0&&exportBounds.y>=0&&exportBounds.x+exportBounds.width<=viewport.width&&exportBounds.y+exportBounds.height<=viewport.height);
       await page.screenshot({path:join(output,`${name}-video-export.png`)});
+      // Exercise progress presentation independently of synthesis speed. Real
+      // measured progress and encoded media are covered by video-smoke.
+      const etaId='23ee1a6c-6b90-4a4b-b9eb-c58f2322d3fd';
+      let etaJob={id:etaId,state:'rendering',completed:0,total:10,message:'Preparing the selected voice…',filename:'story.mp4',stageProgress:0,estimatedRemainingMs:null};
+      const etaRoute=/\/api\/video-export(?:\/23ee1a6c-6b90-4a4b-b9eb-c58f2322d3fd)?\?page=/;
+      await page.route(etaRoute,route=>{
+        if(route.request().method()==='DELETE')etaJob={...etaJob,state:'cancelled',message:'Video export cancelled.',stageProgress:null,estimatedRemainingMs:null};
+        return route.fulfill({json:etaJob});
+      });
+      await page.getByRole('button',{name:'Create video',exact:true}).click();
+      const eta=page.locator('[data-video-export-eta]');
+      await page.getByText('Estimating generation time…',{exact:true}).waitFor();
+      etaJob={...etaJob,completed:3,stageProgress:0.3,estimatedRemainingMs:125000,message:'Generating Lino narration for passage 4 of 10…'};
+      await page.getByText('About 3 min left to generate passages',{exact:true}).waitFor();
+      assert.equal(await eta.evaluate(node=>!!node.closest('[aria-live], [role="status"]')),false,'ETA polling does not repeatedly interrupt screen readers');
+      await eta.scrollIntoViewIfNeeded();
+      await page.screenshot({path:join(output,`${name}-video-eta-generation.png`)});
+      await page.keyboard.press('Escape');
+      await fileMenu.click();await page.getByRole('menuitem',{name:'Video export progress…',exact:true}).click();
+      await eta.waitFor();
+      etaJob={...etaJob,estimatedRemainingMs:7190000};
+      await page.getByText('About 2 hr left to generate passages',{exact:true}).waitFor();
+      etaJob={...etaJob,state:'encoding',completed:10,message:'Encoding MP4…',stageProgress:0,estimatedRemainingMs:null};
+      await page.getByText('Estimating encoding time…',{exact:true}).waitFor();
+      etaJob={...etaJob,stageProgress:0.6,estimatedRemainingMs:24000};
+      await page.getByText('About 30 sec left to encode',{exact:true}).waitFor();
+      assert.equal(await page.getByRole('progressbar',{name:'Video export progress',exact:true}).getAttribute('value'),'0.6');
+      await page.screenshot({path:join(output,`${name}-video-eta-encoding.png`)});
+      await page.getByRole('button',{name:'Cancel export',exact:true}).click();
+      await page.getByText('Video export cancelled.',{exact:true}).waitFor();
+      assert.equal(await eta.count(),0,'terminal exports have no lingering countdown');
+      await page.unroute(etaRoute);
       await page.keyboard.press('Escape');
       assert.equal(await fileMenu.evaluate(node=>document.activeElement===node),true);
       await page.getByRole('button',{name:'Narration settings',exact:true}).click();

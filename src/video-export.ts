@@ -11,9 +11,11 @@ import type { ReviewPayload } from "./payloads.js";
 import type { VideoJob, VideoOptions } from "./video-types.js";
 import type { AloudAudioRequest, AloudReader } from "./aloud-client.js";
 import { findLinoApp, linoAppCandidates } from "./lino-engine.js";
+import { VideoProgressEstimate, videoEncodingProgress } from "./video-progress.js";
 export type { VideoJob, VideoOptions } from "./video-types.js";
 export interface VideoScene { step: number; group?: number; text: string }
 export interface VideoSubtitle { startMs: number; endMs: number; text: string }
+const VIDEO_FPS = 25;
 export interface VideoSnapshot {
   shell: string;
   panels: string[];
@@ -128,12 +130,12 @@ export function videoRequirements(home = homedir()) {
 }
 
 /** No shell, bounded diagnostics, and cancellation that waits for process exit. */
-async function command(bin: string, args: string[], signal: AbortSignal, cwd: string): Promise<string> {
+async function command(bin: string, args: string[], signal: AbortSignal, cwd: string, onOutput?: (chunk: string) => void): Promise<string> {
   signal.throwIfAborted();
   return new Promise((resolve, reject) => {
     const child = spawn(bin, args, { cwd, stdio: ["ignore", "pipe", "pipe"] });
     let output = "", diagnostics = "";
-    child.stdout.on("data", data => { output = (output + data).slice(-12000); });
+    child.stdout.on("data", data => { output = (output + data).slice(-12000); onOutput?.(String(data)); });
     child.stderr.on("data", data => { diagnostics = (diagnostics + data).slice(-4000); });
     const abort = () => child.kill("SIGKILL");
     signal.addEventListener("abort", abort, { once: true });
@@ -155,7 +157,7 @@ interface RenderInput {
   options: VideoOptions;
   directory: string;
   signal: AbortSignal;
-  progress: (completed: number, total: number, message: string, encoding?: boolean) => void;
+  progress: (completed: number, total: number, message: string, encoding?: boolean, encodedFraction?: number) => void;
 }
 
 // Screenshots use the same React reader, lazy panels, focus logic and diagram
@@ -267,13 +269,13 @@ async function renderVideo(input: RenderInput): Promise<void> {
         const measured = Number(await command(capabilities.ffprobe!, ["-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", speech], signal, directory));
         if (!Number.isFinite(measured) || measured <= 0) throw new Error("Could not measure the generated narration.");
         seconds = measured / (linoSettings ? options.speed : 1) + 0.6;
-        seconds = Math.ceil(seconds * 25) / 25;
+        seconds = Math.ceil(seconds * VIDEO_FPS) / VIDEO_FPS;
         // Apply speed after synthesis for every Lino model, including models
         // whose audio API only supports native speed. atempo preserves pitch.
         await command(capabilities.ffmpeg!, ["-nostdin", "-y", "-v", "error", "-i", speech, "-af", linoSettings ? `atempo=${options.speed},apad` : "apad", "-t", String(seconds), "-ar", "24000", "-ac", "1", `audio-${index}.wav`], signal, directory);
         audioList.push(`file audio-${index}.wav`);
       }
-      seconds = Math.ceil(seconds * 25) / 25;
+      seconds = Math.ceil(seconds * VIDEO_FPS) / VIDEO_FPS;
       const endMs = durationMs + Math.round(seconds * 1000);
       subtitles.push({ startMs: durationMs, endMs, text: scene.text });
       durationMs = endMs;
@@ -285,22 +287,30 @@ async function renderVideo(input: RenderInput): Promise<void> {
     await writeFile(join(directory, "audio.txt"), audioList.join("\n") + "\n");
     await writeFile(join(directory, "subtitles.vtt"), videoSubtitles(subtitles));
     progress(scenes.length, scenes.length, "Encoding MP4…", true);
-    const args = ["-nostdin", "-y", "-v", "error", "-f", "concat", "-safe", "1", "-i", "frames.txt"];
+    const args = ["-nostdin", "-y", "-v", "error", "-progress", "pipe:1", "-stats_period", "0.5", "-nostats", "-f", "concat", "-safe", "1", "-i", "frames.txt"];
     if (options.narration) args.push("-f", "concat", "-safe", "1", "-i", "audio.txt");
     args.push("-i", "subtitles.vtt", "-map", "0:v:0");
     if (options.narration) args.push("-map", "1:a:0", "-c:a", "aac", "-b:a", "128k");
     args.push("-map", `${options.narration ? 2 : 1}:s:0`, "-c:s", "mov_text",
       "-metadata:s:s:0", "title=Story subtitles", "-metadata:s:s:0", "handler_name=Story subtitles",
       "-metadata:s:s:0", "language=und", "-disposition:s:0", "0",
-      "-vf", "fps=25", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", "-t", String(durationMs / 1000), "-movflags", "+faststart", "video.mp4");
-    await command(capabilities.ffmpeg!, args, signal, directory);
+      "-vf", `fps=${VIDEO_FPS}`, "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", "-t", String(durationMs / 1000), "-movflags", "+faststart", "video.mp4");
+    await command(capabilities.ffmpeg!, args, signal, directory, videoEncodingProgress(encodedFrames => {
+      progress(scenes.length, scenes.length, "Encoding MP4…", true, encodedFrames / Math.round(durationMs * VIDEO_FPS / 1000));
+    }));
   } finally {
     signal.removeEventListener("abort", abort);
     await browser.close();
   }
 }
 
-interface StoredJob { job: VideoJob; owner: string; directory: string; controller: AbortController; task: Promise<void>; created: number; settled: boolean; expiry?: ReturnType<typeof setTimeout> }
+interface StoredJob { job: VideoJob; estimate: VideoProgressEstimate; owner: string; directory: string; controller: AbortController; task: Promise<void>; created: number; settled: boolean; expiry?: ReturnType<typeof setTimeout> }
+
+function videoJobSnapshot(row: StoredJob): VideoJob {
+  const active = row.job.state === "rendering" || row.job.state === "encoding";
+  return { ...row.job, estimatedRemainingMs: active ? row.estimate.remainingMs() : null,
+    stageProgress: active ? row.estimate.fraction() : null };
+}
 
 /** Per-server jobs. Completed files expire, and partial files never download. */
 export class VideoExports {
@@ -317,8 +327,8 @@ export class VideoExports {
       }
     }
     const controller = new AbortController();
-    const job: VideoJob = { id: randomUUID(), state: "rendering", completed: 0, total: 0, message: "Preparing the video…", filename: videoFilename(title) };
-    const row: StoredJob = { job, owner, controller, directory: "", task: Promise.resolve(), created: Date.now(), settled: false };
+    const job: VideoJob = { id: randomUUID(), state: "rendering", completed: 0, total: 0, message: "Preparing the video…", filename: videoFilename(title), estimatedRemainingMs: null, stageProgress: null };
+    const row: StoredJob = { job, estimate: new VideoProgressEstimate(), owner, controller, directory: "", task: Promise.resolve(), created: Date.now(), settled: false };
     this.jobs.set(job.id, row);
     row.task = (async () => {
       const timeout = setTimeout(() => controller.abort(new Error("Video export exceeded 30 minutes. Try a shorter story.")), 30 * 60 * 1000);
@@ -328,8 +338,11 @@ export class VideoExports {
         row.directory = await mkdtemp(join(tmpdir(), "codestory-video-"));
         controller.signal.throwIfAborted();
         await this.renderer({ snapshot, origin, options, aloud: this.aloud, directory: row.directory, signal: controller.signal,
-          progress: (completed, total, message, encoding) => {
-            if (!controller.signal.aborted) Object.assign(job, { completed, total, message, state: encoding ? "encoding" : "rendering" });
+          progress: (completed, total, message, encoding, encodedFraction) => {
+            if (!controller.signal.aborted) {
+              Object.assign(job, { completed, total, message, state: encoding ? "encoding" : "rendering" });
+              row.estimate.update(job.state, encoding ? encodedFraction ?? 0 : completed, encoding ? 1 : total);
+            }
           } });
         controller.signal.throwIfAborted();
         job.state = "ready"; job.message = "Your video is ready.";
@@ -352,11 +365,11 @@ export class VideoExports {
         row.expiry.unref();
       }
     })();
-    return { ...job };
+    return videoJobSnapshot(row);
   }
   get(id: string, owner: string): VideoJob | undefined {
     const row = this.jobs.get(id);
-    return row?.owner === owner ? { ...row.job } : undefined;
+    return row?.owner === owner ? videoJobSnapshot(row) : undefined;
   }
   file(id: string, owner: string): string | undefined {
     const row = this.jobs.get(id);
@@ -368,7 +381,7 @@ export class VideoExports {
     if (["rendering", "encoding"].includes(row.job.state)) {
       row.job.state = "cancelled"; row.job.message = "Video export cancelled."; row.controller.abort(); await row.task;
     }
-    return { ...row.job };
+    return videoJobSnapshot(row);
   }
   async dispose(): Promise<void> {
     this.disposed = true;

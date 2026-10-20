@@ -139,7 +139,10 @@ async function startEngine(candidates, home) {
         pathToFileURL(join(app.engineDir, 'daemon.js')).href,
         pathToFileURL(join(app.engineDir, 'system-health.js')).href,
     ], {
-        cwd: app.engineDir,
+        // App updates replace and remove the previous bundle while this private
+        // session can remain alive. Python model imports need a live cwd even
+        // though the launcher, assets, and model paths are all absolute.
+        cwd: home,
         env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' },
         stdio: ['pipe', 'pipe', 'pipe'],
     });

@@ -14,4 +14,8 @@ export interface VideoJob {
   total: number;
   message: string;
   filename: string;
+  /** Measured estimate for the active generation or encoding stage. */
+  estimatedRemainingMs: number | null;
+  /** Progress within the active stage, or null while preparing. */
+  stageProgress: number | null;
 }

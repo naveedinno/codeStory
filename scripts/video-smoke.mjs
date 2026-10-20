@@ -20,6 +20,7 @@ const repo=join(scratch,'repo'),home=join(scratch,'home');
 const output=process.env.CODESTORY_VIDEO_SMOKE_OUT||join(scratch,'artifacts');mkdirSync(output,{recursive:true});
 const requirements=videoRequirements();assert.equal(requirements.available,true,requirements.missing.join(' '));
 const withLino=process.env.CODESTORY_VIDEO_SMOKE_LINO==='1';
+const linoModels=process.env.CODESTORY_VIDEO_SMOKE_LINO_MODELS?.split(',').map(value=>value.trim()).filter(Boolean) ?? [undefined];
 if(withLino){
   assert.equal(requirements.lino,true,'Install Lino before running its video smoke check.');
   // Keep codeStory preferences in the temporary home while using the real app.
@@ -62,8 +63,8 @@ try {
   const foreign=await fetch(`${origin}/api/video-export/${cancelled.id}?page=foreign`);assert.equal(foreign.status,404);
   const premature=await fetch(url(`/${cancelled.id}/file`));assert.equal(premature.status,409);
   const stopped=await fetch(url(`/${cancelled.id}`),{method:'DELETE'});assert.equal((await stopped.json()).state,'cancelled');
-  for(const [resolution,narration,theme,narrationEngine] of [['720p',false,'light'],['1080p',requirements.narration,'dark'],...(withLino?[['720p',true,'light','lino']]:[])]) {
-    const variant=narrationEngine==='lino'?`${resolution}-lino`:resolution;
+  for(const [resolution,narration,theme,narrationEngine,linoModel] of [['720p',false,'light'],['1080p',requirements.narration,'dark'],...(withLino?linoModels.map(model=>['720p',true,'light','lino',model]):[])]) {
+    const variant=narrationEngine==='lino'?`${resolution}-lino${linoModel?`-${linoModel}`:''}`:resolution;
     let job;
     if(resolution==='720p') {
       await page.getByRole('button',{name:'File menu',exact:true}).click();
@@ -75,8 +76,10 @@ try {
       if(narrationEngine==='lino'){
         await page.getByRole('combobox',{name:'Voice model',exact:true}).waitFor();
         const catalog=await(await fetch(`${origin}/api/aloud/settings`)).json();
-        const model=catalog.models.find(model=>model.ready&&model.languages.includes('en')&&model.id!==catalog.status.engine)
-          ?? catalog.models.find(model=>model.ready&&model.languages.includes('en'));
+        const model=linoModel ? catalog.models.find(model=>model.id===linoModel&&model.ready&&model.languages.includes('en'))
+          : catalog.models.find(model=>model.ready&&model.languages.includes('en')&&model.id!==catalog.status.engine)
+            ?? catalog.models.find(model=>model.ready&&model.languages.includes('en'));
+        assert.ok(model,`Requested English voice model is ready: ${linoModel??'any downloaded model'}`);
         const voice=model.voices.at(-1).id;
         await page.getByRole('combobox',{name:'Voice model',exact:true}).selectOption(model.id);
         await page.getByRole('combobox',{name:'Voice',exact:true}).selectOption(voice);
@@ -96,13 +99,19 @@ try {
       await page.getByRole('button',{name:'File menu',exact:true}).click();
       await page.getByRole('menuitem',{name:'Video export progress…',exact:true}).click();
     } else job=await create({resolution,narration,narrationEngine,speed:1.5,theme});
-    const deadline=Date.now()+180000;let state;
+    const deadline=Date.now()+180000;let state;const progressSamples=[];
     do {
       state=await(await fetch(url(`/${job.id}`))).json();
+      progressSamples.push({state:state.state,stageProgress:state.stageProgress,estimatedRemainingMs:state.estimatedRemainingMs});
+      if(state.estimatedRemainingMs!==null)assert.ok(Number.isFinite(state.estimatedRemainingMs)&&state.estimatedRemainingMs>0);
+      if(state.stageProgress!==null)assert.ok(state.stageProgress>=0&&state.stageProgress<=1);
       if(!['rendering','encoding'].includes(state.state))break;
       await delay(500);
     } while(Date.now()<deadline);
     assert.equal(state.state,'ready',JSON.stringify(state));
+    assert.equal(state.estimatedRemainingMs,null);
+    writeFileSync(join(output,`${variant}-progress.json`),JSON.stringify(progressSamples,null,2));
+    assert.ok(progressSamples.some(sample=>sample.state==='rendering'&&sample.estimatedRemainingMs>0),'real passage generation exposes a measured ETA');
     const response=await fetch(url(`/${job.id}/file`));assert.equal(response.status,200);assert.equal(response.headers.get('content-type'),'video/mp4');
     const file=join(output,`${variant}-${narration?'narrated':'subtitles'}.mp4`);
     if(resolution==='720p') {

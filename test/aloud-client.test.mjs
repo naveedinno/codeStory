@@ -41,6 +41,28 @@ const AUDIO_INPUT = {text:'Follow the budget.',engine:'pocket',voice:'alba'};
 const audioStatus = state => ({apiVersion:1,id:AUDIO_ID,state});
 const audioHealth = {...HEALTH,capabilities:[...HEALTH.capabilities,'audio-jobs']};
 
+for (const detail of [
+  'Kokoro is unavailable. Run: npm run setup:aloud. Kokoro is not installed.',
+  'VoxCPM2 is unavailable. Run: npm run setup:voxcpm. Traceback (most recent call last): File "/Users/example/voice.py" FileNotFoundError: [Errno 2] No such file or directory',
+]) for (const failure of ['job','http']) test(`Lino ${failure} failures show recovery guidance instead of ${detail.startsWith('Kokoro')?'Kokoro setup commands':'VoxCPM tracebacks'}`, async () => {
+  const fixture=await fakeAloud((req,res)=>{
+    req.resume();res.setHeader('Content-Type','application/json');
+    if(req.url==='/health')return res.end(JSON.stringify(audioHealth));
+    if(req.method==='DELETE')return res.end(JSON.stringify(audioStatus('cancelled')));
+    if(failure==='http'){res.statusCode=503;return res.end(JSON.stringify({error:{message:detail}}));}
+    res.end(JSON.stringify({...audioStatus('error'),error:detail}));
+  });
+  try {
+    await assert.rejects(createAloudReader(fixture.url).generateAudio(AUDIO_INPUT,'unused.wav',new AbortController().signal),error=>{
+      assert.match(error.message,/Restart codeStory/);
+      assert.match(error.message,/Lino → Settings → Read Aloud/);
+      assert.doesNotMatch(error.message,/Traceback|npm run|\/Users\/|FileNotFoundError/);
+      assert.equal(error.cause?.message,detail,'diagnostics remain available outside product copy');
+      return true;
+    });
+  } finally {fixture.server.close();await once(fixture.server,'close');}
+});
+
 test('Lino audio generation uses one idempotency key, authenticated downloads and explicit voice without touching playback', async () => {
   const directory=await mkdtemp(join(tmpdir(),'cs-audio-')),file=join(directory,'speech.wav');
   const posts=[],keys=[],calls=[];let polls=0;

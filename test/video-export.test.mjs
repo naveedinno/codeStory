@@ -100,6 +100,35 @@ test('video jobs enforce owner isolation, one active render, and artifact readin
   assert.throws(()=>exports.start('owner','Other','http://localhost',options,snapshot),/shutting down/);
 });
 
+test('video job polling exposes stage estimates and clears them on completion', async () => {
+  let input, begin, finish;
+  const began=new Promise(resolve=>{begin=resolve;});
+  const gate=new Promise(resolve=>{finish=resolve;});
+  const exports=new VideoExports(async renderer=>{input=renderer;begin();await gate;await writeFile(join(input.directory,'video.mp4'),'video');});
+  try {
+    const job=exports.start('owner','Story','http://localhost',options,snapshot);
+    assert.equal(job.estimatedRemainingMs,null);
+    await began;
+    input.progress(0,1000,'Opening renderer');
+    await delay(10);
+    input.progress(1,1000,'Generating narration');
+    let progress=exports.get(job.id,'owner');
+    assert.equal(progress.stageProgress,0.001);
+    assert.ok(progress.estimatedRemainingMs>0);
+    input.progress(1000,1000,'Encoding',true);
+    assert.equal(exports.get(job.id,'owner').estimatedRemainingMs,null);
+    await delay(10);
+    input.progress(1000,1000,'Encoding',true,0.001);
+    progress=exports.get(job.id,'owner');
+    assert.equal(progress.stageProgress,0.001);
+    assert.ok(progress.estimatedRemainingMs>0);
+    finish();
+    const ready=await finished(exports,job.id);
+    assert.equal(ready.estimatedRemainingMs,null);
+    assert.equal(ready.stageProgress,null);
+  } finally {finish();await exports.dispose();}
+});
+
 test('cancelling waits for rendering to stop and removes partial video data', async () => {
   let began, directory;
   const started=new Promise(resolve=>{began=resolve;});
@@ -112,7 +141,9 @@ test('cancelling waits for rendering to stop and removes partial video data', as
     const job=exports.start('owner','Story','http://localhost',options,snapshot);
     await started;
     assert.equal(await exports.cancel(job.id,'wrong-owner'),undefined);
-    assert.equal((await exports.cancel(job.id,'owner')).state,'cancelled');
+    const cancelled=await exports.cancel(job.id,'owner');
+    assert.equal(cancelled.state,'cancelled');
+    assert.equal(cancelled.estimatedRemainingMs,null);
     assert.equal(exports.file(job.id,'owner'),undefined);
     assert.equal(existsSync(directory),false);
   } finally {await exports.dispose();}
@@ -125,6 +156,7 @@ test('failed snapshot or encoding never exposes a download and cleans source dat
     const job=exports.start('owner','Story','http://localhost',options,snapshot);
     const result=await finished(exports,job.id);
     assert.equal(result.state,'error');assert.equal(result.message,'Source moved');
+    assert.equal(result.estimatedRemainingMs,null);
     assert.equal(exports.file(job.id,'owner'),undefined);
     // The terminal error is visible immediately; asynchronous file cleanup
     // must still complete promptly even when the full suite is busy.

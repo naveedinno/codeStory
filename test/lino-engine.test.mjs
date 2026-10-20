@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { connect } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -14,6 +14,7 @@ import { loadNarrationPreferences } from '../dist/narration-preferences.js';
 // port so the test can probe it from outside.
 const FAKE_DAEMON = `
 import { createServer } from 'node:http';
+import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 export async function runSpeechDaemon({ port, secret }) {
   let engine = 'pocket-farsi';
@@ -31,13 +32,26 @@ export async function runSpeechDaemon({ port, secret }) {
     req.on('end', () => {
       res.setHeader('Content-Type', 'application/json');
       if (req.url === '/health') {
-        return res.end(JSON.stringify({ ...base, capabilities: ['explicit-batches', 'prepare-speech', 'model-catalog'] }));
+        return res.end(JSON.stringify({ ...base, capabilities: ['explicit-batches', 'prepare-speech', 'model-catalog', 'audio-jobs'] }));
       }
       if (req.headers.authorization !== 'Bearer ' + secret) {
         res.statusCode = 401;
         return res.end(JSON.stringify({ ok: false, error: 'A valid daemon authorization token is required.' }));
       }
       if (req.url === '/api/v1/models') return res.end(JSON.stringify({apiVersion:1,models}));
+      if (req.url === '/api/v1/audio/jobs') {
+        // A newly spawned model worker needs a live working directory. Node's
+        // cwd probe reproduces the same missing-directory failure as Python
+        // imports after an app update removes the engine's launch directory.
+        let error;
+        try { execFileSync(process.execPath, ['-e', 'process.stdout.write(process.cwd())'], {stdio:'pipe'}); }
+        catch { error = 'Model worker lost its working directory.'; }
+        return res.end(JSON.stringify({apiVersion:1,id:'23ee1a6c-6b90-4a4b-b9eb-c58f2322d3fd',state:error?'error':'ready',error}));
+      }
+      if (req.url === '/api/v1/audio/jobs/23ee1a6c-6b90-4a4b-b9eb-c58f2322d3fd/file') {
+        res.setHeader('Content-Type','audio/wav');
+        return res.end('RIFF generated after app update');
+      }
       if (req.url === '/settings') {
         const input=JSON.parse(body);
         if (input.engine) {engine=input.engine; voice=models.find(model=>model.id===engine).voices[0].id;}
@@ -146,6 +160,26 @@ test('Lino reader prefers the supported session entry point when installed', asy
     assert.equal(readFileSync(join(lino.app, 'Contents/Resources/ReadAloud/used-session'), 'utf8'), '--language en');
     reader.dispose(); assert.equal(await waitForClosedPort(lino.port()), true);
   } finally { reader.dispose(); lino.cleanup(); }
+});
+
+for (const session of [false, true]) test(`Lino ${session ? 'session' : 'legacy'} audio workers survive replacement of the installed bundle`, async () => {
+  const lino = fakeLino({ session });
+  const reader = createLinoReader({ appPaths: [lino.app], home: lino.home });
+  let port;
+  try {
+    await reader.models();
+    port = lino.port();
+    const previous = join(lino.home, 'previous-lino.app');
+    renameSync(lino.app, previous);
+    rmSync(previous, { recursive: true });
+    const file = join(lino.home, 'narration.wav');
+    await reader.generateAudio({engine:'kokoro',voice:'af_heart',text:'Narrate after the Lino update.'},file,new AbortController().signal);
+    assert.equal(readFileSync(file,'utf8'),'RIFF generated after app update');
+  } finally {
+    reader.dispose();
+    if (port) await waitForClosedPort(port);
+    lino.cleanup();
+  }
 });
 
 test('Lino reader explains missing English voices instead of failing at playback', async () => {

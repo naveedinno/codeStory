@@ -6,6 +6,20 @@ import { ApiError, failureMessage, requestJson } from "../../shared/api";
 
 interface Requirements { available: boolean; narration: boolean; lino: boolean; missing: string[] }
 
+function timeRemaining(job: VideoJob): string {
+  const encoding = job.state === "encoding";
+  if (job.stageProgress === 1) return "Finishing this stage…";
+  if (job.estimatedRemainingMs == null) return job.stageProgress
+    ? "Updating time estimate…"
+    : `Estimating ${encoding ? "encoding" : "generation"} time…`;
+  const seconds = Math.max(10, Math.ceil(job.estimatedRemainingMs / 10000) * 10);
+  const minutes = Math.ceil(seconds / 60);
+  const duration = seconds < 60 ? `${seconds} sec` : seconds < 3600
+    ? `${minutes} min`
+    : `${Math.floor(minutes / 60)} hr${minutes % 60 ? ` ${minutes % 60} min` : ""}`;
+  return `About ${duration} left to ${encoding ? "encode" : "generate passages"}`;
+}
+
 /** A separate React island; exporting never drives the user's live reader. */
 export function VideoExport({ pageToken }: { pageToken: string }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -200,9 +214,12 @@ export function VideoExport({ pageToken }: { pageToken: string }) {
       <p className="ds-video-export-detail">MP4 · Subtitle track included · Uses the current theme. Toggle subtitles in your player’s subtitle menu. Online resources in concept pages are omitted. Code and explanations shown here will be included in the file.</p>
       {!requirements && !error ? <p role="status">Checking video tools…</p> : null}
       {requirements?.missing.length ? <div className="ds-video-export-error" role="status">{requirements.missing.map(item => <p key={item}>{item}</p>)}</div> : null}
-      {job ? <div className="ds-video-export-progress" role="status" aria-live="polite">
-        <p>{job.message}</p>
-        {active ? <progress max={Math.max(1, job.total)} value={job.state === "encoding" ? undefined : job.completed} aria-label="Video export progress" /> : null}
+      {job ? <div className="ds-video-export-progress">
+        <p role="status">{job.message}</p>
+        {active ? <>
+          <progress max={1} value={job.stageProgress ?? undefined} aria-label="Video export progress" />
+          <p className="ds-video-export-eta" data-video-export-eta>{timeRemaining(job)}</p>
+        </> : null}
       </div> : null}
       {error ? <p role="alert" className="ds-video-export-error">{error}</p> : null}
       <div className="ds-video-export-actions">
