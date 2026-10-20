@@ -336,7 +336,9 @@ speech engine instead of shipping voice models of its own. Install Lino in
 **Settings → Read Aloud**, then use **Play story** or a step's play button in
 codeStory. Lino does not need to be open: on the first narration request
 codeStory starts a private copy of Lino's bundled engine on a random loopback
-port behind a one-time secret, and stops it when codeStory exits.
+port behind a one-time secret, and stops it when codeStory exits. The private
+engine uses downloaded models offline, so loading a voice does not wait for
+Hugging Face. Manage model downloads in Lino.
 
 Choose **Voice** beside Play to select the narration model, voice, and playback
 speed directly in codeStory. The picker lists Lino's real local models and

@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { once } from 'node:events';
+import { createServer } from 'node:http';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
@@ -20,6 +21,8 @@ const repo=join(scratch,'repo'),home=join(scratch,'home');
 const output=process.env.CODESTORY_VIDEO_SMOKE_OUT||join(scratch,'artifacts');mkdirSync(output,{recursive:true});
 const requirements=videoRequirements();assert.equal(requirements.available,true,requirements.missing.join(' '));
 const withLino=process.env.CODESTORY_VIDEO_SMOKE_LINO==='1';
+const offline=process.env.CODESTORY_VIDEO_SMOKE_OFFLINE==='1';
+if(offline)assert.equal(withLino,true,'Offline speech verification requires CODESTORY_VIDEO_SMOKE_LINO=1.');
 const linoModels=process.env.CODESTORY_VIDEO_SMOKE_LINO_MODELS?.split(',').map(value=>value.trim()).filter(Boolean) ?? [undefined];
 if(withLino){
   assert.equal(requirements.lino,true,'Install Lino before running its video smoke check.');
@@ -34,6 +37,8 @@ const code=story.steps.find(step=>step.id==='s2');code.order=3;code.title='Check
 delete code.calls;delete code.returnsTo;
 code.beats=code.beats.slice(0,2);code.beats[0].text='Read the remaining budget.';code.beats[1].text='The amount < remaining check also rejects equality.';
 story.version=4;story.title='Spending limits';story.summary='Follow the budget check.';delete story.evolution;delete story.hotspots;
+// A new passage forces actual synthesis rather than reusing a previous WAV.
+if(offline)story.summary+=` Offline check ${Date.now()}.`;
 story.steps=[
   {id:'primer',order:1,kind:'concept',title:'Request flow',body:'The request reaches the shared policy.',diagram:{type:'mermaid',source:'flowchart LR\n Request --> Policy',caption:'A shared budget gate.'},preparesFor:['s2']},
   {id:'page',order:2,kind:'concept',title:'Budget model',narration:'Accepted orders consume the remaining budget.',page:'<!doctype html><html><body style="margin:0;display:grid;place-items:center;height:100vh;background:#16392e;color:#fff;font:36px sans-serif"><div id="ready">Budget → Check → Order</div><script>document.body.dataset.ready="yes"</script></body></html>',preparesFor:['s2']},
@@ -45,7 +50,19 @@ const comments=readFileSync(join(repo,'.codestory/comments.json'),'utf8');
 const server=serve({repo,homeOverride:home,port:0,open:false});await once(server,'listening');
 const origin=`http://localhost:${server.address().port}`;
 const browser=await chromium.launch({executablePath:tools.browser,headless:true});
+let hubProxy,hubRequests=0;const hubSockets=new Set();
 try {
+  if(offline){
+    // An unreachable Hub must not delay an already downloaded voice. Leave
+    // requests unanswered so accidental metadata checks fail the real export.
+    hubProxy=createServer(()=>{hubRequests++;});
+    hubProxy.on('connect',()=>{hubRequests++;});
+    hubProxy.on('connection',socket=>{hubSockets.add(socket);socket.on('close',()=>hubSockets.delete(socket));});
+    hubProxy.listen(0,'127.0.0.1');await once(hubProxy,'listening');
+    const proxy=`http://127.0.0.1:${hubProxy.address().port}`;
+    Object.assign(process.env,{HTTPS_PROXY:proxy,HTTP_PROXY:proxy,ALL_PROXY:proxy,
+      NO_PROXY:'localhost,127.0.0.1',HF_HUB_ETAG_TIMEOUT:'60',HF_HUB_OFFLINE:'0'});
+  }
   const context=await browser.newContext({viewport:{width:1280,height:800},colorScheme:'light'});
   const page=await context.newPage();page.setDefaultTimeout(180000);
   await page.goto(`${origin}/repo/${basename(repo)}/review?story=story.json`);
@@ -150,5 +167,6 @@ try {
   }
   assert.equal(readFileSync(join(repo,'.codestory/comments.json'),'utf8'),comments);
   assert.equal(readFileSync(storyPath,'utf8'),JSON.stringify(story,null,2));
+  if(offline){assert.equal(hubRequests,0,'Downloaded models must not contact the Hub.');console.log('PASS offline speech: zero Hub requests with a stalled network proxy');}
   console.log(`Video evidence: ${output}`);
-} finally {await browser.close();await new Promise(resolve=>server.close(resolve));rmSync(repo,{recursive:true,force:true});rmSync(home,{recursive:true,force:true});}
+} finally {await browser.close();await new Promise(resolve=>server.close(resolve));for(const socket of hubSockets)socket.destroy();if(hubProxy)await new Promise(resolve=>hubProxy.close(resolve));rmSync(repo,{recursive:true,force:true});rmSync(home,{recursive:true,force:true});}

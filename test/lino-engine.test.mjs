@@ -67,7 +67,7 @@ export async function runSpeechDaemon({ port, secret }) {
 }
 `;
 
-function fakeLino({ ready = true, session = false } = {}) {
+function fakeLino({ ready = true, session = false, offlineOnly = false } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'cs-lino-'));
   const app = join(root, 'Lino.app');
   const engine = join(app, 'Contents/Resources/ReadAloud/engine');
@@ -75,7 +75,8 @@ function fakeLino({ ready = true, session = false } = {}) {
   mkdirSync(engine, { recursive: true });
   symlinkSync(process.execPath, join(app, 'Contents/Helpers/node'));
   writeFileSync(join(app, 'Contents/Resources/ReadAloud/package.json'), '{"type":"module"}');
-  writeFileSync(join(engine, 'daemon.js'), FAKE_DAEMON);
+  writeFileSync(join(engine, 'daemon.js'), FAKE_DAEMON.replace('let error;',
+    `let error = ${offlineOnly} && process.env.HF_HUB_OFFLINE !== '1' ? 'Kokoro speech generation timed out.' : undefined;`));
   writeFileSync(join(engine, 'system-health.js'), `export const kokoroEnvironmentReady = () => ${ready};`);
   if (session) writeFileSync(join(engine, '../session.mjs'), `
     import { runSpeechDaemon } from './engine/daemon.js';
@@ -160,6 +161,26 @@ test('Lino reader prefers the supported session entry point when installed', asy
     assert.equal(readFileSync(join(lino.app, 'Contents/Resources/ReadAloud/used-session'), 'utf8'), '--language en');
     reader.dispose(); assert.equal(await waitForClosedPort(lino.port()), true);
   } finally { reader.dispose(); lino.cleanup(); }
+});
+
+for (const session of [false, true]) test(`Lino ${session ? 'session' : 'legacy'} narration uses downloaded models even when the Hub is unreachable`, async () => {
+  const lino = fakeLino({ session, offlineOnly: true });
+  const reader = createLinoReader({ appPaths: [lino.app], home: lino.home });
+  const previous = process.env.HF_HUB_OFFLINE;
+  // A shell's online preference must not make local narration wait on metadata.
+  process.env.HF_HUB_OFFLINE = '0';
+  try {
+    const file = join(lino.home, 'offline.wav');
+    await reader.generateAudio({engine:'kokoro',voice:'af_heart',text:'Use the downloaded voice.'},file,new AbortController().signal);
+    assert.equal(readFileSync(file,'utf8'),'RIFF generated after app update');
+    assert.equal(process.env.HF_HUB_OFFLINE, '0', 'only the private engine uses offline mode');
+  } finally {
+    if (previous === undefined) delete process.env.HF_HUB_OFFLINE;
+    else process.env.HF_HUB_OFFLINE = previous;
+    reader.dispose();
+    await waitForClosedPort(lino.port());
+    lino.cleanup();
+  }
 });
 
 for (const session of [false, true]) test(`Lino ${session ? 'session' : 'legacy'} audio workers survive replacement of the installed bundle`, async () => {

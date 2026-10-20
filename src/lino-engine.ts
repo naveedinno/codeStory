@@ -184,7 +184,10 @@ async function startEngine(candidates: string[], home: string): Promise<RunningE
     // session can remain alive. Python model imports need a live cwd even
     // though the launcher, assets, and model paths are all absolute.
     cwd: home,
-    env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' },
+    // Lino owns model downloads. Even cached hf_hub_download calls otherwise
+    // check remote metadata on cold start; a stalled connection can consume
+    // Kokoro's entire synthesis deadline before it reads the local weights.
+    env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1', HF_HUB_OFFLINE: '1' },
     stdio: ['pipe', 'pipe', 'pipe'],
   });
   let handshake: Handshake;

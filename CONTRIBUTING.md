@@ -32,6 +32,13 @@ npm run release:check
 you change `src/`. GitHub installs of this project depend on the checked-in
 build output.
 
+With Lino installed, verify real video narration against an unreachable model
+host. Set the model list to the English models downloaded in Lino:
+
+```sh
+CODESTORY_VIDEO_SMOKE_LINO=1 CODESTORY_VIDEO_SMOKE_OFFLINE=1 CODESTORY_VIDEO_SMOKE_LINO_MODELS=kokoro,pocket,voxcpm npm run test:video
+```
+
 ## Development Notes
 
 - Keep `.codestory/` local. Do not commit review sessions, comments, or generated
