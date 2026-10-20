@@ -38,6 +38,7 @@ import { initVerification } from "./engine/verification";
 import { FilesView, ReviewPage } from "./ReviewView";
 import { Sidebar } from "./Sidebar";
 import { StoryView } from "./StoryView";
+import { VideoExport } from "./VideoExport";
 import { plural } from "./format";
 
 const ICONS = {
@@ -529,6 +530,7 @@ export function ReviewApp({ payload }: { payload: ReviewPayload }) {
                 </span>
               </button>
             </div>
+            {!storyless && payload.steps.length > 0 ? <VideoExport pageToken={payload.pageToken} /> : null}
             <EditorMenu compact />
             <ThemeMenu />
             <div className="ds-actions">

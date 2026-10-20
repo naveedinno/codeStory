@@ -1,0 +1,15 @@
+// Shared wire types; keep Node and Playwright out of the client type graph.
+export interface VideoOptions {
+  resolution: "720p" | "1080p";
+  narration: boolean;
+  speed: number;
+  theme: "light" | "dark";
+}
+export interface VideoJob {
+  id: string;
+  state: "rendering" | "encoding" | "ready" | "cancelled" | "error";
+  completed: number;
+  total: number;
+  message: string;
+  filename: string;
+}

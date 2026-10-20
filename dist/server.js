@@ -4,6 +4,7 @@
 // mode) and switch repos at runtime via /api/repo/open.
 import { createServer, } from "node:http";
 import { spawn } from "node:child_process";
+import { VideoExports, parseVideoOptions, videoRequirements } from "./video-export.js";
 import { codeScopeIssues, isCodeStory, loadTour, orderedSteps, validateGeneratedConceptSteps, validateGeneratedTour, validateNewGeneratedStory, } from "./tour.js";
 import { changedSinceCommit, codeStoryDrift, codeStoryOutputPath, codeStorySlug, pathExistsAtCommit, verifyCodeStoryEvidence, } from "./code-story.js";
 import { isGitRepo, resolveBase, getDiff, getFileDiff, reviewFileIndex, reviewChangeIndexSnapshot, describeBase, describeCommit, readFileRange, readWholeFile, listBranchRefs, listRecentCommits, currentBranch, isDirtyExceptHistory, hasParentCommit, emptyTree, resolveCommit, noiseFiles, excludedReviewFiles, reviewChangeFingerprint, reviewSourceMetadataFingerprint, stagedWorktreeDivergentFiles, numstat, assertSafeRepoPath, commitEvolutionManifest, blameReviewLine, } from "./git.js";
@@ -76,16 +77,18 @@ export function serve(opts) {
         leaseActive: (token) => !!getReviewPageLease(session, token),
     });
     const aloud = opts.aloud ?? createLinoReader({ home });
+    const videos = new VideoExports();
     const openEditor = opts.openEditor ?? ((target, editor) => opts.openExternal && editor === "vscode"
         ? openVSCodeTargetWithUrls(target, opts.openExternal)
         : openEditorTarget(target, editor));
-    const server = createServer((req, res) => handle(req, res, session, home, liveHub, aloud, openEditor));
+    const server = createServer((req, res) => handle(req, res, session, home, liveHub, aloud, openEditor, videos));
     // Dispose the hub when close is REQUESTED, not on the 'close' event: the
     // server cannot finish closing while the hub still holds SSE responses open.
     const requestClose = server.close.bind(server);
     server.close = ((callback) => {
         liveHub.dispose();
         aloud.dispose?.();
+        void videos.dispose();
         return requestClose(callback);
     });
     server.on("close", () => liveHub.dispose());
@@ -281,7 +284,7 @@ function setLocalResponseHeaders(res) {
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("X-Frame-Options", "DENY");
 }
-function handle(req, res, session, home, liveHub, aloud, openEditor) {
+function handle(req, res, session, home, liveHub, aloud, openEditor, videos) {
     const url = new URL(req.url ?? "/", "http://localhost");
     const method = req.method ?? "GET";
     setLocalResponseHeaders(res);
@@ -293,6 +296,62 @@ function handle(req, res, session, home, liveHub, aloud, openEditor) {
     try {
         if (method === "GET" && url.pathname === "/api/health") {
             return sendJson(res, 200, { app: "codeStory", ready: true });
+        }
+        if (method === "GET" && url.pathname === "/api/video-export/capabilities") {
+            return sendJson(res, 200, videoRequirements());
+        }
+        if (method === "POST" && url.pathname === "/api/video-export") {
+            return readBody(req, res, body => {
+                const page = validateReviewPageLease(session, url.searchParams.get("page"));
+                if (!page.ok)
+                    return sendReviewPageConflict(res, page.error);
+                if (page.storyless || !page.tour.steps.length)
+                    return sendJson(res, 400, { error: "Open a guided story before exporting a video." });
+                let options;
+                try {
+                    options = parseVideoOptions(JSON.parse(body));
+                }
+                catch (error) {
+                    return sendJson(res, 400, { error: error.message });
+                }
+                const requirements = videoRequirements();
+                if (!requirements.available || (options.narration && !requirements.narration))
+                    return sendJson(res, 503, {
+                        error: requirements.missing.join(" ") || "System narration is available on macOS. Choose captions only on this device.",
+                    });
+                try {
+                    const job = videos.start(page.lease.token, narrativeText(page.tour.title), `http://${req.headers.host}`, options, () => captureVideoSnapshot(session, page.lease.token, options));
+                    return sendJson(res, 202, job);
+                }
+                catch (error) {
+                    return sendJson(res, 409, { error: error.message });
+                }
+            });
+        }
+        const videoMatch = url.pathname.match(/^\/api\/video-export\/([a-f0-9-]+)(\/file)?$/);
+        if (videoMatch && ["GET", "DELETE"].includes(method)) {
+            const owner = url.searchParams.get("page") ?? "";
+            const job = videos.get(videoMatch[1], owner);
+            if (!job)
+                return sendJson(res, 404, { error: "This video export is no longer available." });
+            if (method === "DELETE" && !videoMatch[2]) {
+                void videos.cancel(job.id, owner).then(result => sendJson(res, 200, result));
+                return;
+            }
+            if (method !== "GET")
+                return sendJson(res, 405, { error: "Method not allowed." });
+            if (!videoMatch[2])
+                return sendJson(res, 200, job);
+            const file = videos.file(job.id, owner);
+            if (!file)
+                return sendJson(res, 409, { error: "The video is not ready to download." });
+            res.writeHead(200, { "Content-Type": "video/mp4", "Content-Length": statSync(file).size,
+                "Content-Disposition": `attachment; filename="${job.filename}"`, "Cache-Control": "no-store" });
+            const stream = createReadStream(file);
+            stream.on("error", () => res.destroy());
+            res.once("close", () => stream.destroy());
+            stream.pipe(res);
+            return;
         }
         if (method === "GET" && url.pathname === "/api/aloud/status") {
             return runAloudStatus(res, aloud);
@@ -2078,6 +2137,35 @@ function renderStoryStepResponse(page, rawIndex) {
         baseRef: page.base,
     });
     return renderStoryStepPanel(repo, model, commentsForStory(loadComments(repo), leaseStoryId(page.lease)), index - 1);
+}
+/** Capture source and explanation together; rendering never reads live code. */
+function captureVideoSnapshot(session, token, options) {
+    const page = validateReviewPageLease(session, token);
+    if (!page.ok)
+        throw new Error(`${page.error} Reload the review before exporting.`);
+    const files = storyReviewFiles(page.tour).map(file => materializePageFile(page, file)).filter((file) => !!file);
+    const model = buildReviewModel(page.repo, page.tour, files, page.head, {
+        baseRef: page.base, detailedFilePaths: new Set(), includeTrustRows: false,
+    });
+    const panels = model.steps.map((_, index) => renderStoryStepPanel(page.repo, model, [], index));
+    const concepts = {};
+    orderedSteps(page.tour).forEach((step, index) => {
+        if (isPageConcept(step))
+            concepts[index + 1] = conceptPageDocument(step.page, options.theme);
+    });
+    const shell = renderReviewShell({ repo: page.repo, repoName: basename(page.repo), tour: page.tour, files: [],
+        fileIndex: boundedReviewIndex(page.fileIndex), baseLabel: describeBase(page.repo, page.base), headRef: page.head,
+        comments: [], reviewPageToken: token, storyKey: page.lease.storyIdentity, storyFreshness: "unverified",
+        storyDrift: page.tour.storySnapshot ? storyDriftView(inspectStoryDrift({ repo: page.repo,
+            snapshot: page.tour.storySnapshot, expected: storyDriftBinding(page.base, page.head, page.tour),
+        })) : undefined,
+    });
+    const data = shell.match(/<script[^>]*id="__CODESTORY_DATA__"[^>]*>([\s\S]*?)<\/script>/)?.[1];
+    if (!data)
+        throw new Error("Could not prepare the story renderer.");
+    if (reviewPageRaceSignature(page.lease) !== page.raceSignature)
+        throw new Error("The story or source changed while preparing the video. Reload the review and try again.");
+    return { shell, panels, concepts, payload: JSON.parse(data) };
 }
 function renderTrustResponse(page) {
     const diff = getDiff(page.repo, page.base, page.head);

@@ -41,11 +41,22 @@ jobs:
       - run: npm ci
       - run: npx --no-install playwright-core install --with-deps chromium
       - run: npm run test:browser
+      - name: Install video encoder
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Export and decode story videos
+        run: node scripts/video-smoke.mjs
+        env:
+          CODESTORY_VIDEO_SMOKE_OUT: artifacts/video-smoke
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: browser-smoke
           path: artifacts/browser-smoke
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: video-smoke
+          path: artifacts/video-smoke
 
   zed-extension:
     runs-on: ubuntu-latest

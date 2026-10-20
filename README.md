@@ -169,6 +169,32 @@ codeStory keeps long reviews oriented and makes comments portable:
   beat to move the highlight to the exact lines it explains. Read-aloud follows
   the same camera path automatically.
 
+## Video Export
+
+Open a story and choose **Export video** in the top bar. Choose 1080p or 720p,
+set the reading speed, and select **Create video**. The MP4 follows the overview,
+concept pages, and every code spotlight, with an attached, selectable subtitle
+track. Enable or disable subtitles in your player’s subtitle menu.
+The video uses a slightly wider view and leaves out app navigation and playback
+controls to give the story more room. On macOS you
+can include narration using the system voice; this is separate from the voice
+selected for interactive read-aloud. The export uses the current theme.
+
+Export runs locally and requires Google Chrome or a Playwright Chromium install,
+plus FFmpeg and ffprobe. On macOS, install the encoder with `brew install ffmpeg`.
+Chromium can be installed with `npx playwright-core install chromium`. The dialog
+shows any missing tools before starting. Custom executable paths can be set with
+`CODESTORY_VIDEO_BROWSER`, `CODESTORY_FFMPEG`, and `CODESTORY_FFPROBE`.
+
+The video captures the story and reviewed source together before rendering;
+later edits do not change an export in progress. Review position and queued
+comments stay untouched. Online resources in concept pages are omitted. You can
+close the dialog while it exports and reopen it to download the MP4, or cancel
+an active export. Keep the app running until the download finishes. Temporary
+files are removed on cancellation, failure, or app shutdown; finished downloads
+remain available for an hour. The exported file includes the code and
+explanations displayed in the walkthrough.
+
 ## Agent Setup
 
 The installer copies the bundled codeStory skills into the common agent skills

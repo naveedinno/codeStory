@@ -62,6 +62,16 @@ try {
     try {
       await page.goto(`${origin}/repo/${encodeURIComponent(basename(repo))}/review?story=story.json`);
       await page.locator('.ds-intro-start').waitFor();
+      await page.getByRole('button',{name:'Export video',exact:true}).click();
+      const exportDialog=page.getByRole('dialog',{name:'Export video',exact:true});
+      await exportDialog.waitFor();
+      await page.getByRole('combobox',{name:'Resolution',exact:true}).selectOption('720p');
+      await page.getByRole('combobox',{name:'Reading speed',exact:true}).selectOption('1.25');
+      const exportBounds=await exportDialog.boundingBox();
+      assert.ok(exportBounds.x>=0&&exportBounds.y>=0&&exportBounds.x+exportBounds.width<=viewport.width&&exportBounds.y+exportBounds.height<=viewport.height);
+      await page.screenshot({path:join(output,`${name}-video-export.png`)});
+      await page.keyboard.press('Escape');
+      assert.equal(await page.getByRole('button',{name:'Export video',exact:true}).evaluate(node=>document.activeElement===node),true);
       await page.getByRole('button',{name:'Narration settings',exact:true}).click();
       const narrationModel=page.getByRole('combobox',{name:'Narration model',exact:true});
       const narrationVoice=page.getByRole('combobox',{name:'Narration voice',exact:true});
