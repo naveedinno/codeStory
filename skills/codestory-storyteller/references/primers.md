@@ -45,7 +45,7 @@ Pages may open the story, close it, or sit back to back.
   SVG, canvas, and system fonts so the page works with no network at all.
   The reviewer sees a Network badge on pages that opted in.
 - `narration` is what you would say while pointing at the page. Plain text,
-  no tags. Aloud reads it and screen readers announce it, so it must make
+  no tags. The narrator reads it and screen readers announce it, so it must make
   sense without seeing the page.
 - A concept page must teach its model in a still frame: no fact may live only
   in motion, hover, or a transient state, and the page must read equivalently

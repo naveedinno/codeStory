@@ -1311,12 +1311,14 @@ test("the engine is one module with one entry point and two seams", () => {
   assert.equal((engineRaw.match(/^export function /gm) || []).length, 1);
   assert.match(engineRaw, /export function startReviewEngine\(options\)\{/);
   const imports = engineRaw.match(/^import [\s\S]*?from '[^']+';/gm) || [];
-  // Two seams, neither of them interaction handling: the progress panel, and
-  // the pure Mermaid-error parsers (no DOM, imported by node tests too). A
-  // third import — a per-component handler split — still fails this test.
-  assert.equal(imports.length, 2);
+  // Three seams, none of them interaction handling: the progress panel, the
+  // pure Mermaid-error parsers, and the backup browser narrator (both DOM-free
+  // and imported by node tests too). Any other import — a per-component handler
+  // split — still fails this test.
+  assert.equal(imports.length, 3);
   assert.ok(imports.some((i) => /\.\/progress-host/.test(i)));
   assert.ok(imports.some((i) => /\.\/diagram-errors/.test(i)));
+  assert.ok(imports.some((i) => /\.\/browser-speech/.test(i)));
   // The other seam: it runs when React has committed, not on DOMContentLoaded.
   assert.doesNotMatch(engine, /DOMContentLoaded/);
   assert.match(reviewApp, /startReviewEngine\(\{/);

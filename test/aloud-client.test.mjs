@@ -88,7 +88,7 @@ test('Aloud client refuses an unrelated listener on the daemon port', async () =
   try {
     await assert.rejects(
       createAloudReader(fixture.url).speak({ text: 'Do not send this.' }),
-      (error) => error instanceof AloudUnavailableError && /compatible Aloud/.test(error.message),
+      (error) => error instanceof AloudUnavailableError && /compatible Lino reader/.test(error.message),
     );
   } finally {
     fixture.server.close();
@@ -96,7 +96,7 @@ test('Aloud client refuses an unrelated listener on the daemon port', async () =
   }
 });
 
-test('Aloud client explains when Services predate explicit narration batches', async () => {
+test('Aloud client explains when the engine predates explicit narration batches', async () => {
   const fixture = await fakeAloud((_req, res) => {
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify({ ok: true, protocolVersion: 2, service: 'aloud-speech-daemon' }));
@@ -104,7 +104,7 @@ test('Aloud client explains when Services predate explicit narration batches', a
   try {
     await assert.rejects(
       createAloudReader(fixture.url).speak({ text: 'Queue this narration.' }),
-      (error) => error instanceof AloudUnavailableError && /Reinstall Aloud Services/.test(error.message),
+      (error) => error instanceof AloudUnavailableError && /Update Lino/.test(error.message),
     );
   } finally {
     fixture.server.close();
@@ -202,6 +202,34 @@ test('Aloud client uses the authoritative control response without an extra stat
     assert.equal(status.paused, true);
     assert.equal(status.state.status, 'generating');
     assert.deepEqual(calls, ['GET /health', 'POST /pause']);
+  } finally {
+    fixture.server.close();
+    await once(fixture.server, 'close');
+  }
+});
+
+test('Aloud client presents the engine secret on every request', async () => {
+  const seen = [];
+  const fixture = await fakeAloud((req, res) => {
+    seen.push(`${req.url} ${req.headers.authorization ?? '-'}`);
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify(req.url === '/health' ? HEALTH : STATUS));
+  });
+  try {
+    let resolved = 0;
+    const aloud = createAloudReader(async () => {
+      resolved += 1;
+      return { url: fixture.url, secret: 'engine-secret' };
+    });
+    await aloud.status();
+    await aloud.speak({ text: 'Review this beat.' });
+    assert.deepEqual(seen, [
+      '/status Bearer engine-secret',
+      '/health Bearer engine-secret',
+      '/speak Bearer engine-secret',
+    ]);
+    // Resolved per operation, so a restarted engine's new port is picked up.
+    assert.equal(resolved, 2);
   } finally {
     fixture.server.close();
     await once(fixture.server, 'close');

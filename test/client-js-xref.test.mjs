@@ -35,6 +35,7 @@ const ENGINE_IMPORTS = [
   "progressSecondaryActionClass",
   "diagramErrorLine",
   "diagramErrorSummary",
+  "createBrowserSpeech",
 ];
 const GLOBALS = new Set([
   ...ENGINE_IMPORTS,

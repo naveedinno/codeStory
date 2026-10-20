@@ -383,7 +383,7 @@ export interface PageConceptTourStep extends TourStepBase {
   kind: 'concept';
   /** A complete HTML document. Any markup and inline script; CDN resources need `network`. */
   page: string;
-  /** Plain text Aloud speaks and screen readers announce for the page. */
+  /** Plain text the narrator speaks and screen readers announce for the page. */
   narration: string;
   /**
    * Opt into network access for this page (CDN libraries, fonts, fetches).

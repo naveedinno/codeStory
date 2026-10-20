@@ -1,11 +1,11 @@
 // Project an authored narrative field (step titles, `why` prose, concept bodies,
 // beat text) into the three forms the app consumes: sanitized HTML for the page,
-// plain text for attributes and word counts, and a speech stream for Aloud.
+// plain text for attributes and word counts, and a speech stream for the narrator.
 //
 // The field is authored as a small, fixed subset of HTML. This module is the only
 // place that subset is defined: one tokenizer, one tree builder, one serializer.
 // Every consumer projects from the same parse, so what the page shows, what an
-// aria-label says, and what Aloud reads can never drift apart.
+// aria-label says, and what the narrator reads can never drift apart.
 //
 // The security property is structural rather than a filter: no byte of the input
 // reaches the output except as escaped text or an escaped attribute value. Every
@@ -824,7 +824,7 @@ function speakElement(el, sink) {
     if (SPEECH_SENTENCES.has(el.tag)) {
         // Whatever was running ends here, then this element's own words are a
         // sentence. A list nested inside an `li` flushes the outer item on its way
-        // past, so Aloud says things in the order the author wrote them.
+        // past, so the narrator says things in the order the author wrote them.
         flushPending(sink);
         speakNodes(el.children, sink);
         flushPending(sink);
@@ -871,7 +871,7 @@ function speakDefinitionList(el, sink) {
         pushSentence(sink, term);
 }
 /**
- * The speech stream for Aloud.
+ * The speech stream for the narrator.
  *
  * Every block that carries prose becomes its own sentence, so the narrator
  * pauses where the reader's eye would. Code blocks are skipped and tables come

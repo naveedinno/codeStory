@@ -6,7 +6,7 @@
 // render boundary. Authored prose does not. Every narrative field is parsed here,
 // exactly once (narrative.ts), and carried as a Narrative — `.html` for template
 // interpolation, `.text` for attributes, labels, and truncation, `.speech` for
-// Aloud. The renderer places those projections; it never escapes, truncates,
+// the narrator. The renderer places those projections; it never escapes, truncates,
 // re-parses, or markdown-renders story prose itself, which is what removes the
 // sanitize-then-reparse gap mXSS lives in.
 //
@@ -273,7 +273,7 @@ export interface ConceptStepView extends StepViewBase {
   hasPage: boolean;
   /** True when the page opted into network access; offline pages omit the badge. */
   network: boolean;
-  /** Plain-text narration for a page concept, spoken by Aloud. Page concepts only. */
+  /** Plain-text narration for a page concept, spoken by the narrator. Page concepts only. */
   narration?: Narrative;
   preparesFor: Array<{ id: string; order: number; title: Narrative }>;
 }

@@ -4,6 +4,16 @@ All notable changes to codeStory are tracked here.
 
 ## Unreleased
 
+- Narration now uses Lino's speech engine; the Aloud app is no longer needed.
+  codeStory starts a private copy of the engine bundled in `Lino.app` on the
+  first play (random loopback port, one-time secret) and stops it on exit, so
+  Lino itself does not have to be open. Voices and the per-model narrator are
+  shared with Lino; if Lino last read another language, narration switches to
+  Kokoro. `CODESTORY_LINO_APP` points at a Lino build outside `/Applications`
+  and `~/Applications`.
+- When Lino is unavailable, narration falls back to the browser's built-in
+  voice, with a one-time note on the first play.
+
 - Renamed diffStory to codeStory, now that the app explains code with no diff
   too: the npm package is `@naveedinno/codestory`, the Claude Code plugin is
   `codestory@codestory`, the skill is `codestory-storyteller`, the Zed extension

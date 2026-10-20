@@ -44,6 +44,7 @@ import {
   progressSecondaryActionClass,
 } from './progress-host';
 import { diagramErrorLine, diagramErrorSummary } from './diagram-errors';
+import { createBrowserSpeech } from './browser-speech';
 
 /**
  * Start the review page's engine against the DOM React has just committed.
@@ -1478,7 +1479,7 @@ export function startReviewEngine(options){
     aloudRequestAbort=null;
     // speechLoadingLabel belongs in this guard: aborting our own fetch does not
     // un-send the POST, and the daemon starts the job whether or not we are still
-    // listening. Without it, giving up mid-start left Aloud reading a story the
+    // listening. Without it, giving up mid-start left the speech engine reading a story the
     // page had already forgotten, with every control hidden or idle.
     if(stopPlayback!==false&&(aloudActive||aloudJobId||speechLoadingLabel))aloudControl('stop',true);
     aloudActive=false;aloudPaused=false;aloudResumeDirty=false;aloudJobId='';aloudPhase='idle';aloudSequence=[];aloudSequenceIndex=-1;speechLoadingLabel='';
@@ -1572,7 +1573,7 @@ export function startReviewEngine(options){
   var ALOUD_FIRST_CHUNK_CHARS=170,ALOUD_CHUNK_CHARS=480,ALOUD_MIN_TAIL_CHARS=60;
   // Only split where punctuation is followed by whitespace or the end of the text,
   // so "1.5 seconds" and "app.ts" stay intact. Splitting on any period would both
-  // mangle them and break the batches-rejoin-to-text contract Aloud checks.
+  // mangle them and break the batches-rejoin-to-text contract the speech engine checks.
   function splitSpeechSentences(text){
     var boundary=/[.!?]+(?:["')\]]+)?(?=\s+|$)/g,out=[],start=0,match;
     while((match=boundary.exec(text))!==null){
@@ -1735,6 +1736,7 @@ export function startReviewEngine(options){
     return r.json().then(function(j){
       var err=new Error((j&&j.error)||msg);
       if(j&&j.transient)err.transient=true;
+      if(j&&j.fallback)err.fallback=j.fallback;
       throw err;
     },function(){
       var err=new Error(msg);
@@ -1745,16 +1747,37 @@ export function startReviewEngine(options){
   function isAbortError(err){
     return err&&(err.name==='AbortError'||/aborted|cancelled/i.test(String(err.message||err)));
   }
+  // Backup narrator. Set once the server reports that Lino is missing or would
+  // not start, and kept for the rest of this page: from then on every request
+  // goes to the browser's own voice, which answers in the same shape.
+  var browserSpeech=null,browserSpeechAnnounced=false;
+  function useBrowserSpeech(){
+    if(!browserSpeech)browserSpeech=createBrowserSpeech(window.speechSynthesis,window.SpeechSynthesisUtterance);
+    return !!browserSpeech;
+  }
+  function browserSpeechRequest(path,body){
+    // Said on the first play, not on the background status check that usually
+    // discovers the fallback while the reviewer is only browsing.
+    if(path==='speak'&&!browserSpeechAnnounced){
+      browserSpeechAnnounced=true;
+      toast('Lino is not available, so narration uses your browser\u2019s voice.');
+    }
+    return browserSpeech.request(path,body);
+  }
   function aloudFetch(path,body,signal){
+    if(browserSpeech)return browserSpeechRequest(path,body);
     var init={method:body==null?'GET':'POST',headers:body==null?undefined:{'Content-Type':'application/json'},signal:signal};
     if(body!=null)init.body=JSON.stringify(body);
-    return fetch('/api/aloud/'+path,init).then(function(r){return readJsonOrError(r,'Aloud is unavailable.');});
+    return fetch('/api/aloud/'+path,init).then(function(r){return readJsonOrError(r,'Narration is unavailable.');}).catch(function(err){
+      if(err&&err.fallback==='browser'&&useBrowserSpeech())return browserSpeechRequest(path,body);
+      throw err;
+    });
   }
   // How many beats of the step under the cursor to warm ahead of a play. Matches
   // the daemon's own prepare depth; it clamps anything larger.
   var ALOUD_PREPARE_BEATS=4;
   // Step selection is also a browsing gesture. Wait until the reviewer has
-  // actually settled before asking Aloud to generate anything in the background.
+  // actually settled before asking the speech engine to generate anything in the background.
   var ALOUD_PREPARE_DWELL_MS=1000;
   // Long enough that a normal pause/resume always answers first, short enough
   // that a wedged one hands the control back while the reviewer is still looking
@@ -1789,7 +1812,7 @@ export function startReviewEngine(options){
       var prepareChunks=chunks.slice(0,ALOUD_PREPARE_BEATS);
       if(!prepareChunks.length)return;
       // A text-only key reused audio prepared for the previous engine, voice,
-      // speed, or mode. Ask Aloud for the settings it will actually use before
+      // speed, or mode. Ask the speech engine for the settings it will actually use before
       // deciding this step is warm.
       aloudFetch('status').then(function(status){
         if(prepareRequest!==aloudPrepareRequest||aloudIntent!=='off'||aloudActive||speechLoadingLabel)return;
@@ -1806,7 +1829,7 @@ export function startReviewEngine(options){
     },ALOUD_PREPARE_DWELL_MS);
   }
   function aloudControl(action,silent){
-    return aloudFetch('control',{action:action}).catch(function(err){if(!silent)toast(err.message||'Aloud is unavailable.','error');});
+    return aloudFetch('control',{action:action}).catch(function(err){if(!silent)toast(err.message||'Narration is unavailable.','error');});
   }
   function applyAloudStatus(status){
     if(!status)return;
@@ -1818,12 +1841,12 @@ export function startReviewEngine(options){
     if(typeof status.rate==='number'&&isFinite(status.rate)&&status.rate>0)aloudRate=status.rate;
     var state=status.state||{},phase=String(state.status||'');
     aloudPhase=aloudPaused?'paused':(phase==='starting'||phase==='generating'||phase==='reading'?phase:(aloudActive?'starting':'idle'));
-    // Aloud reports exactly which chunk it is preparing. Keep it so the control
+    // The speech engine reports exactly which chunk it is preparing. Keep it so the control
     // can say what is happening instead of spinning silently.
     aloudStateMessage=typeof state.message==='string'?state.message:'';
-    // Aloud has its own menu bar and a global shortcut, so it can be paused from
-    // outside this page. Adopt that rather than insisting on an intent the
-    // reviewer can plainly hear is wrong — but only while a job really exists,
+    // Another tab of this review can pause the same engine. Adopt that rather
+    // than insisting on an intent the reviewer can plainly hear is wrong — but
+    // only while a job really exists,
     // so a story we paused and whose job we cancelled stays paused.
     if(aloudActive&&aloudIntent!=='off')setAloudIntent(aloudPaused?'paused':'playing');
   }
@@ -1867,7 +1890,7 @@ export function startReviewEngine(options){
     if(!opts.manual)setAloudIntent('off');
     var btn=$('[data-readaloud]');if(btn)btn.classList.remove('is-speaking');
     updateReadAloudButton();
-    // Giving up on our side does not silence Aloud. Without this the reviewer
+    // Giving up on our side does not silence the speech engine. Without this the reviewer
     // gets an error toast and a reset button while the narration keeps talking.
     // A jobId handover passes no message, so it never stops the incoming job.
     //
@@ -1875,12 +1898,12 @@ export function startReviewEngine(options){
     // false on precisely the path that needs the stop most: a /speak that the
     // daemon accepted and started before the reply failed on our side. There the
     // browser had cleared aloudActive on the way in, so the compensating stop was
-    // skipped and Aloud read the whole story to a page showing an idle button.
+    // skipped and the speech engine read the whole story to a page showing an idle button.
     if(message)aloudControl('stop',true);
     if(message)toast(message,'error');
     if(completed&&typeof opts.onDone==='function')opts.onDone();
   }
-  // A cold start can run half a minute: Aloud unloads its speech model after two
+  // A cold start can run half a minute: the speech engine unloads its speech model after two
   // idle minutes, so the first play after reading a while pays to reload it. Say
   // that out loud instead of leaving the reviewer with a silent spinner.
   function noticeSlowNarration(){
@@ -1889,11 +1912,11 @@ export function startReviewEngine(options){
     if(Date.now()-aloudStartedAt<8000)return;
     aloudSlowNotice=true;
     toast(aloudStateMessage
-      ?'Aloud is still generating audio — '+aloudStateMessage.charAt(0).toLowerCase()+aloudStateMessage.slice(1)+'.'
-      :'Aloud is still generating audio. The first play after a pause can take a moment.');
+      ?'Lino is still generating audio — '+aloudStateMessage.charAt(0).toLowerCase()+aloudStateMessage.slice(1)+'.'
+      :'Lino is still generating audio. The first play after a pause can take a moment.');
   }
   // This loop runs hundreds of times per playback. Tight beat highlighting only
-  // needs a fast poll while Aloud is actually reading; while it generates, a
+  // needs a fast poll while the speech engine is actually reading; while it generates, a
   // slower poll tracks progress just as well with far fewer round trips. After a
   // failure, back off rather than hammering a reader that is already struggling.
   function aloudPollDelay(){
@@ -1907,7 +1930,7 @@ export function startReviewEngine(options){
       aloudFetch('status').then(function(status){
         if(token!==aloudRequestToken)return;
         if(!status||status.service!=='aloud-speech-daemon'||status.protocolVersion!==2){
-          finishAloudSpeech(token,opts,false,'Aloud returned an incompatible status.');return;
+          finishAloudSpeech(token,opts,false,'The speech engine returned an incompatible status.');return;
         }
         if(aloudJobId&&status.jobId!==aloudJobId){
           finishAloudSpeech(token,opts,false);return;
@@ -1917,16 +1940,16 @@ export function startReviewEngine(options){
         noticeSlowNarration();
         if(status.running){pollAloudSpeech(token,opts);return;}
         var state=status.state&&status.state.status;
-        finishAloudSpeech(token,opts,state==='done',state==='error'?(status.state.message||'Aloud could not finish playback.'):'');
+        finishAloudSpeech(token,opts,state==='done',state==='error'?(status.state.message||'Lino could not finish playback.'):'');
       }).catch(function(err){
         if(token!==aloudRequestToken)return;
-        // One dropped poll is not a failed narration: Aloud keeps reading while
+        // One dropped poll is not a failed narration: the speech engine keeps reading while
         // a timeout or a restarting server briefly hides it from us. Ride out a
         // short run of failures on a backoff before admitting defeat, otherwise
         // a single blip silently kills playback that is still audible.
         aloudPollFails++;
         if(aloudPollFails<=6){pollAloudSpeech(token,opts);return;}
-        finishAloudSpeech(token,opts,false,err.message||'Aloud is unavailable.');
+        finishAloudSpeech(token,opts,false,err.message||'Narration is unavailable.');
       });
     },aloudPollDelay());
   }
@@ -1937,7 +1960,7 @@ export function startReviewEngine(options){
     if(aloudPollTimer){clearTimeout(aloudPollTimer);aloudPollTimer=0;}
     if(aloudRequestAbort){try{aloudRequestAbort.abort();}catch(e){}}
     var ctrl=typeof AbortController!=='undefined'?new AbortController():null;
-    aloudRequestAbort=ctrl;aloudActive=false;aloudPaused=false;aloudJobId='';aloudPhase='starting';speechLoadingLabel='Starting Aloud';
+    aloudRequestAbort=ctrl;aloudActive=false;aloudPaused=false;aloudJobId='';aloudPhase='starting';speechLoadingLabel=browserSpeech?'Starting narration':'Starting Lino';
     aloudPollFails=0;aloudStateMessage='';aloudSlowNotice=false;aloudStartedAt=Date.now();aloudEverStarted=true;
     aloudSequence=opts.sequence||[];aloudSequenceIndex=-1;
     if(aloudSequence.length)focusAloudSequenceUnit(0);
@@ -1948,14 +1971,14 @@ export function startReviewEngine(options){
       if(token!==aloudRequestToken)return;
       if(aloudSequence.length&&(!status.state||status.state.total!==aloudSequence.length)){
         aloudControl('stop',true);
-        throw new Error('Aloud needs an update before it can prefetch codeStory narration. Reinstall Aloud Services, then try again.');
+        throw new Error('Lino needs an update before it can prefetch codeStory narration. Update Lino, then try again.');
       }
       aloudRequestAbort=null;speechLoadingLabel='';aloudJobId=status.jobId||'';applyAloudStatus(status);
       applyAloudSequenceProgress(status);updateReadAloudButton();pollAloudSpeech(token,opts);
     }).catch(function(err){
       if(token!==aloudRequestToken||isAbortError(err))return;
       aloudRequestAbort=null;setAloudIntent('off');
-      finishAloudSpeech(token,opts,false,err.message||'Open Aloud and install its Services to enable narration.');
+      finishAloudSpeech(token,opts,false,err.message||'Install Lino and download a voice in Settings → Read Aloud to enable narration.');
     });
     return true;
   }
@@ -1971,8 +1994,8 @@ export function startReviewEngine(options){
     var loading=!!speechLoadingLabel||(speaking&&aloudActive&&(aloudPhase==='starting'||aloudPhase==='generating'));
     var playing=aloudIntent!=='off'||!!speechLoadingLabel;
     var action=paused?'Resume':(speechLoadingLabel?'Starting':(speaking?'Pause':'Play'));
-    var buttonLabel=paused?'Resume narration':(speaking?'Pause narration':(speechLoadingLabel?'Starting narration':'Play story with Aloud'));
-    // While Aloud is still generating, its own progress is more useful than a
+    var buttonLabel=paused?'Resume narration':(speaking?'Pause narration':(speechLoadingLabel?'Starting narration':(browserSpeech?'Play story with the browser voice':'Play story with Lino')));
+    // While the speech engine is still generating, its own progress is more useful than a
     // static label — a 30s cold start should never look like a hung button.
     if(loading&&aloudStateMessage)buttonLabel=buttonLabel+' — '+aloudStateMessage;
     btn.classList.toggle('is-active',playing);
@@ -4335,7 +4358,7 @@ export function startReviewEngine(options){
     revealResumeReview();
     refreshComments();
     startLiveEvents();
-    // Reloading or closing the tab must not leave Aloud reading to a page that
+    // Reloading or closing the tab must not leave the speech engine reading to a page that
     // no longer exists. The fresh page starts idle, so it hides the stop button
     // and every control refers to a job it has never heard of — there was no way
     // left in codeStory to silence a voice the reviewer could still hear.

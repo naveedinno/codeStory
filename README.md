@@ -284,7 +284,7 @@ The app opens at `http://localhost:7777/`. If the browser does not open
 automatically, open the printed URL yourself.
 
 That is the whole core setup. You do not need Python, Homebrew, Claude, or Codex
-just to open the app and review diffs. Narration uses the separate Aloud app.
+just to open the app and review diffs. Narration uses voices from the separate Lino app.
 
 Useful development commands:
 
@@ -297,17 +297,27 @@ Useful development commands:
 | `npm test` | Build and run the test suite. |
 | `npm run check:zed` | Test and compile the Zed extension to WebAssembly. |
 
-## Narration With Aloud
+## Narration With Lino
 
-codeStory delegates narration to Aloud instead of loading voice models or
-managing audio itself. Install Aloud's Services, choose your voice, model,
-speed, and playback mode in Aloud, then use **Play story** or a step's play
-button in codeStory. Playback stays in Aloud's shared reader and menu-bar
-session.
+codeStory narrates with [Lino](https://github.com/naveedinno/Lino)'s local
+speech engine instead of shipping voice models of its own. Install Lino in
+`/Applications` or `~/Applications`, download the English voices in Lino's
+**Settings → Read Aloud**, then use **Play story** or a step's play button in
+codeStory. Lino does not need to be open: on the first narration request
+codeStory starts a private copy of Lino's bundled engine on a random loopback
+port behind a one-time secret, and stops it when codeStory exits.
 
-When Aloud is unavailable, codeStory leaves the review usable and shows how to
-enable narration. No Aloud model, cache, or voice preference is stored by
-codeStory.
+Voices, models, speed, and the per-model narrator choice are shared with Lino.
+Stories are read in English: if Lino last read another language, codeStory
+switches its engine to Kokoro and your Kokoro narrator. Set
+`CODESTORY_LINO_APP=/path/to/Lino.app` to use a build somewhere else.
+
+When Lino or its English voices are missing, or its engine will not start,
+codeStory falls back to the browser's built-in voice (Web Speech) and says so
+once, on the first play. Playback, pause, and beat highlighting work the same
+way; pause replays the current beat from its start on resume. If the browser
+has no speech synthesis either, codeStory says what to install. No model,
+cache, or voice preference is stored by codeStory.
 
 ## Troubleshooting
 

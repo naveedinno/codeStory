@@ -1,21 +1,22 @@
 import { Agent, request as httpRequest } from 'node:http';
-const DEFAULT_ALOUD_URL = 'http://127.0.0.1:17878';
+// The wire protocol is still Aloud's: Lino ships Aloud's speech engine and
+// codeStory runs that engine itself (see lino-engine.ts). These names describe
+// the protocol, not an app the reviewer has to install.
 const ALOUD_SERVICE = 'aloud-speech-daemon';
 const ALOUD_PROTOCOL = 2;
 const ALOUD_BATCH_CAPABILITY = 'explicit-batches';
 const ALOUD_PREPARE_CAPABILITY = 'prepare-speech';
 const MAX_RESPONSE_BYTES = 256 * 1024;
-// Aloud acknowledges every endpoint in single-digit milliseconds: synthesis and
-// playback run on a background job it never makes us wait for. So these budgets
-// exist to absorb *our own* event-loop stalls — rendering a 300-step story
-// blocks this process for seconds — not audio generation. The previous flat 3s
-// fired while Aloud was healthy and answering /status in 3ms, which is what
-// surfaced as "Aloud did not respond in time."
+// The engine acknowledges every endpoint in single-digit milliseconds: synthesis
+// and playback run on a background job it never makes us wait for. So these
+// budgets exist to absorb *our own* event-loop stalls — rendering a 300-step
+// story blocks this process for seconds — not audio generation. The previous
+// flat 3s fired while the engine was healthy and answering /status in 3ms.
 const READ_TIMEOUT_MS = 10_000;
 const MUTATE_TIMEOUT_MS = 20_000;
-// Aloud's HTTP server uses Node's default 5s keep-alive close. Retire pooled
-// sockets before that so we rarely write into a socket it has already dropped;
-// `isRetryable` covers the race that remains.
+// The engine's HTTP server uses Node's default 5s keep-alive close. Retire
+// pooled sockets before that so we rarely write into a socket it has already
+// dropped; `isRetryable` covers the race that remains.
 const FREE_SOCKET_IDLE_MS = 3_000;
 const RETRY_DELAY_MS = 120;
 const MAX_ATTEMPTS = 3;
@@ -23,7 +24,7 @@ export class AloudUnavailableError extends Error {
     /** Transient failures are worth retrying; the reader is not necessarily gone. */
     transient = false;
     statusCode = 503;
-    constructor(message = 'Aloud is not available. Open Aloud and install its Services to enable narration.') {
+    constructor(message = 'Narration is not available. Install Lino and download a voice in Settings → Read Aloud.') {
         super(message);
         this.name = 'AloudUnavailableError';
     }
@@ -36,32 +37,42 @@ export class AloudUnavailableError extends Error {
 export class AloudTimeoutError extends AloudUnavailableError {
     transient = true;
     statusCode = 504;
-    constructor(message = 'Aloud did not respond in time.') {
+    constructor(message = 'The speech engine did not respond in time.') {
         super(message);
         this.name = 'AloudTimeoutError';
     }
 }
-export function createAloudReader(baseUrl = DEFAULT_ALOUD_URL) {
-    const status = async () => verifyStatus(await requestJson(baseUrl, 'GET', '/status', undefined, READ_TIMEOUT_MS));
+/**
+ * `endpoint` is either a fixed URL or a resolver. The resolver runs before
+ * every request, so a reader can follow an engine process that it restarts.
+ */
+export function createAloudReader(endpoint) {
+    const resolve = typeof endpoint === 'string'
+        ? async () => ({ url: endpoint })
+        : endpoint;
+    const status = async () => verifyStatus(await requestJson(await resolve(), 'GET', '/status', undefined, READ_TIMEOUT_MS));
     return {
         status,
         async prepare(input) {
-            await verifyAloudDaemon(baseUrl, ALOUD_PREPARE_CAPABILITY);
-            const prepared = await requestJson(baseUrl, 'POST', '/prepare', input, MUTATE_TIMEOUT_MS);
+            const target = await resolve();
+            await verifyAloudDaemon(target, ALOUD_PREPARE_CAPABILITY);
+            const prepared = await requestJson(target, 'POST', '/prepare', input, MUTATE_TIMEOUT_MS);
             if (!isAloudProtocol(prepared)) {
-                throw new AloudUnavailableError('Aloud returned an incompatible preparation response.');
+                throw new AloudUnavailableError('The speech engine returned an incompatible preparation response.');
             }
         },
         async speak(input) {
-            await verifyAloudDaemon(baseUrl);
-            return verifyStatus(await requestJson(baseUrl, 'POST', '/speak', input, MUTATE_TIMEOUT_MS));
+            const target = await resolve();
+            await verifyAloudDaemon(target);
+            return verifyStatus(await requestJson(target, 'POST', '/speak', input, MUTATE_TIMEOUT_MS));
         },
         async control(action) {
-            await verifyAloudDaemon(baseUrl);
-            const controlled = await requestJson(baseUrl, 'POST', `/${action}`, {}, MUTATE_TIMEOUT_MS);
-            // Newer Aloud builds return the complete post-control state, avoiding a
-            // second round trip. Keep the status fallback for installed v2 Services
-            // that still return only a small acknowledgement.
+            const target = await resolve();
+            await verifyAloudDaemon(target);
+            const controlled = await requestJson(target, 'POST', `/${action}`, {}, MUTATE_TIMEOUT_MS);
+            // Current engines return the complete post-control state, avoiding a
+            // second round trip. Keep the status fallback for engines that still
+            // return only a small acknowledgement.
             return isCompleteStatus(controlled) ? verifyStatus(controlled) : status();
         },
     };
@@ -69,28 +80,29 @@ export function createAloudReader(baseUrl = DEFAULT_ALOUD_URL) {
 /**
  * Confirmed before every mutation, deliberately uncached: this is what keeps
  * narration text from being POSTed to whatever unrelated process happens to hold
- * port 17878. On loopback the check costs ~2ms, which is not worth trading away.
+ * the engine's port. On loopback the check costs ~2ms, which is not worth
+ * trading away.
  */
-async function verifyAloudDaemon(baseUrl, capability = ALOUD_BATCH_CAPABILITY) {
-    const health = await requestJson(baseUrl, 'GET', '/health', undefined, READ_TIMEOUT_MS);
+async function verifyAloudDaemon(target, capability = ALOUD_BATCH_CAPABILITY) {
+    const health = await requestJson(target, 'GET', '/health', undefined, READ_TIMEOUT_MS);
     if (!isAloudProtocol(health)) {
-        throw new AloudUnavailableError('The local reader on port 17878 is not a compatible Aloud service.');
+        throw new AloudUnavailableError('The local speech engine is not a compatible Lino reader.');
     }
     const capabilities = health.capabilities;
     if (!Array.isArray(capabilities) || !capabilities.includes(capability)) {
         if (capability === ALOUD_PREPARE_CAPABILITY) {
-            throw new AloudUnavailableError('Aloud needs an update before codeStory can prepare narration in the background.');
+            throw new AloudUnavailableError('Lino needs an update before codeStory can prepare narration in the background.');
         }
-        throw new AloudUnavailableError('Aloud needs an update before it can prefetch codeStory narration. Reinstall Aloud Services, then try again.');
+        throw new AloudUnavailableError('Lino needs an update before it can prefetch codeStory narration. Update Lino, then try again.');
     }
 }
 function verifyStatus(value) {
     if (!isAloudProtocol(value) || typeof value !== 'object' || value === null) {
-        throw new AloudUnavailableError('Aloud returned an incompatible reader status.');
+        throw new AloudUnavailableError('The speech engine returned an incompatible reader status.');
     }
     const status = value;
     if (typeof status.running !== 'boolean' || typeof status.paused !== 'boolean' || typeof status.state !== 'object') {
-        throw new AloudUnavailableError('Aloud returned an incomplete reader status.');
+        throw new AloudUnavailableError('The speech engine returned an incomplete reader status.');
     }
     return status;
 }
@@ -113,9 +125,10 @@ function isAloudProtocol(value) {
 const agent = new Agent({ keepAlive: true, maxSockets: 8, maxFreeSockets: 4 });
 const LAST_USED = Symbol('aloudSocketLastUsed');
 /**
- * Drop a socket once it has sat idle longer than Aloud's own keep-alive window.
- * Checks that the socket is still *free* before destroying it, so a socket the
- * poll loop picked back up is never torn out from under an in-flight request.
+ * Drop a socket once it has sat idle longer than the engine's own keep-alive
+ * window. Checks that the socket is still *free* before destroying it, so a
+ * socket the poll loop picked back up is never torn out from under an in-flight
+ * request.
  */
 function retirePooledSocket(socket) {
     if (!socket)
@@ -132,10 +145,10 @@ function retirePooledSocket(socket) {
     timer.unref?.();
 }
 /**
- * Worth another attempt on a fresh socket. Covers the two ways a healthy Aloud
+ * Worth another attempt on a fresh socket. Covers the two ways a healthy engine
  * still looks broken from here: a reused keep-alive socket it already closed,
  * and a timeout our own blocked event loop caused. ECONNREFUSED is excluded on
- * purpose — that means Aloud really is not listening, so fail fast and say so.
+ * purpose — that means the engine really is not listening, so fail fast and say so.
  */
 function isRetryable(error) {
     if (error instanceof AloudTimeoutError)
@@ -148,15 +161,15 @@ function isRetryable(error) {
 // attempts and leave the narration promise hanging forever.
 const delay = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
 /**
- * Every Aloud operation is idempotent in effect — reads are reads, /speak
+ * Every engine operation is idempotent in effect — reads are reads, /speak
  * replaces the current job, /prepare warms a cache, and pause/resume/stop
  * assert a state — so a retry can only ever converge on the intended outcome.
  */
-async function requestJson(baseUrl, method, path, body, timeoutMs) {
+async function requestJson(target, method, path, body, timeoutMs) {
     let lastError;
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
         try {
-            return await attemptJson(baseUrl, method, path, body, timeoutMs);
+            return await attemptJson(target, method, path, body, timeoutMs);
         }
         catch (error) {
             lastError = error;
@@ -167,16 +180,20 @@ async function requestJson(baseUrl, method, path, body, timeoutMs) {
     }
     throw lastError;
 }
-function attemptJson(baseUrl, method, path, body, timeoutMs) {
+function attemptJson(target, method, path, body, timeoutMs) {
     return new Promise((resolve, reject) => {
         const payload = body === undefined ? undefined : JSON.stringify(body);
-        const req = httpRequest(new URL(path, baseUrl), {
+        const headers = {};
+        if (target.secret)
+            headers['Authorization'] = `Bearer ${target.secret}`;
+        if (payload !== undefined) {
+            headers['Content-Type'] = 'application/json';
+            headers['Content-Length'] = Buffer.byteLength(payload);
+        }
+        const req = httpRequest(new URL(path, target.url), {
             agent,
             method,
-            headers: payload === undefined ? undefined : {
-                'Content-Type': 'application/json',
-                'Content-Length': Buffer.byteLength(payload),
-            },
+            headers,
             timeout: timeoutMs,
         }, (res) => {
             const chunks = [];
@@ -185,7 +202,7 @@ function attemptJson(baseUrl, method, path, body, timeoutMs) {
                 const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk));
                 bytes += buffer.length;
                 if (bytes > MAX_RESPONSE_BYTES) {
-                    req.destroy(new AloudUnavailableError('Aloud returned an unexpectedly large response.'));
+                    req.destroy(new AloudUnavailableError('The speech engine returned an unexpectedly large response.'));
                     return;
                 }
                 chunks.push(buffer);
@@ -197,12 +214,12 @@ function attemptJson(baseUrl, method, path, body, timeoutMs) {
                     parsed = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
                 }
                 catch {
-                    reject(new AloudUnavailableError('Aloud returned an invalid response.'));
+                    reject(new AloudUnavailableError('The speech engine returned an invalid response.'));
                     return;
                 }
                 if ((res.statusCode ?? 500) >= 400) {
                     const message = parsed?.error;
-                    reject(new AloudUnavailableError(typeof message === 'string' ? message : 'Aloud rejected the request.'));
+                    reject(new AloudUnavailableError(typeof message === 'string' ? message : 'The speech engine rejected the request.'));
                     return;
                 }
                 resolve(parsed);
@@ -215,7 +232,7 @@ function attemptJson(baseUrl, method, path, body, timeoutMs) {
                 return;
             }
             // Preserve the errno so isRetryable can tell a stale pooled socket
-            // (ECONNRESET) apart from Aloud genuinely not listening (ECONNREFUSED).
+            // (ECONNRESET) apart from the engine genuinely not listening (ECONNREFUSED).
             const code = error.code;
             if (code === 'ECONNRESET' || code === 'EPIPE' || code === 'ETIMEDOUT') {
                 reject(error);

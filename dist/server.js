@@ -42,7 +42,7 @@ import { planStoryRefresh, validateStoryRefresh, storyRefreshPrompt } from "./st
 import { runStoryCheck, reportReady } from "./story-check.js";
 import { captureVerification, canRunVerification, loadVerificationReceipts, verificationWorkspace } from "./verification.js";
 import { createReadStream, existsSync, readFileSync, statSync, unlinkSync, } from "node:fs";
-import { createAloudReader } from "./aloud-client.js";
+import { createLinoReader } from "./lino-engine.js";
 import { listCodexStoryModels } from "./codex-tasks.js";
 import { LiveEventHub, storyFileFingerprint } from "./live.js";
 import { isHistoryStoryId, listStoryHistory, liveStoryIdForSnapshot, restoreStoryVersion, snapshotStoryIfChanged, } from "./story-history.js";
@@ -75,7 +75,7 @@ export function serve(opts) {
     const liveHub = new LiveEventHub({
         leaseActive: (token) => !!getReviewPageLease(session, token),
     });
-    const aloud = opts.aloud ?? createAloudReader();
+    const aloud = opts.aloud ?? createLinoReader({ home });
     const openEditor = opts.openEditor ?? ((target, editor) => opts.openExternal && editor === "vscode"
         ? openVSCodeTargetWithUrls(target, opts.openExternal)
         : openEditorTarget(target, editor));
@@ -85,6 +85,7 @@ export function serve(opts) {
     const requestClose = server.close.bind(server);
     server.close = ((callback) => {
         liveHub.dispose();
+        aloud.dispose?.();
         return requestClose(callback);
     });
     server.on("close", () => liveHub.dispose());
@@ -3280,7 +3281,7 @@ function runAloudPrepare(res, aloud, body) {
         });
     }
     // Forwarded, not dropped: this is how far ahead the page wants warmed, and
-    // without it Aloud falls back to its own default depth.
+    // without it the engine falls back to its own default depth.
     const prefetch = Number(input.prefetch);
     aloud
         .prepare({
@@ -3301,7 +3302,7 @@ function runAloudControl(res, aloud, body) {
         if (input.action !== "pause" &&
             input.action !== "resume" &&
             input.action !== "stop") {
-            return sendJson(res, 400, { error: "Unknown Aloud playback action." });
+            return sendJson(res, 400, { error: "Unknown narration playback action." });
         }
         action = input.action;
     }
@@ -3319,9 +3320,13 @@ function sendAloudError(res, error) {
     // socket) so the narration loop can retry instead of tearing playback down and
     // telling the reviewer narration is unavailable.
     const transient = error?.transient === true;
+    // Lino itself is missing or would not start: the page can read with the
+    // browser's voice instead.
+    const fallback = error?.fallback;
     sendJson(res, Number.isInteger(status) && status >= 400 && status <= 599 ? status : 503, {
-        error: error instanceof Error ? error.message : "Aloud is unavailable.",
+        error: error instanceof Error ? error.message : "Narration is unavailable.",
         ...(transient ? { transient: true } : {}),
+        ...(fallback === "browser" ? { fallback } : {}),
     });
 }
 const MERMAID_BROWSER_ASSET = new URL("./mermaid.esm.min.mjs", import.meta.url);

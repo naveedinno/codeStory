@@ -21,6 +21,8 @@ import { execFileSync } from 'node:child_process';
 import { once } from 'node:events';
 import { request } from 'node:http';
 import { serve } from '../dist/server.js';
+import { createLinoReader } from '../dist/lino-engine.js';
+import { AloudUnavailableError } from '../dist/aloud-client.js';
 import { getDiff } from '../dist/git.js';
 import { parseUnifiedDiff } from '../dist/diff.js';
 import { diffFingerprint } from '../dist/stories.js';
@@ -113,6 +115,37 @@ test('server exposes a narrow same-origin bridge to the Aloud reader', async () 
   } finally {
     app.server.close();
     await once(app.server, 'close');
+  }
+});
+
+test('narration tells the page to use the browser voice only when Lino itself is unavailable', async () => {
+  const missing = createLinoReader({ appPaths: [join(tmpdir(), 'no-such-dir', 'Lino.app')] });
+  const app = await boot(null, null, missing);
+  try {
+    const res = await fetch(`${app.base}/api/aloud/status`);
+    assert.equal(res.status, 503);
+    const body = await res.json();
+    assert.equal(body.fallback, 'browser');
+    assert.match(body.error, /Narration needs Lino/);
+  } finally {
+    app.server.close();
+    await once(app.server, 'close');
+  }
+
+  // A failure from a running engine is not a reason to swap voices mid-story.
+  const broken = {
+    async status() { throw new AloudUnavailableError('The speech engine returned an incomplete reader status.'); },
+    async prepare() {},
+    async speak() { throw new Error('unused'); },
+    async control() { throw new Error('unused'); },
+  };
+  const other = await boot(null, null, broken);
+  try {
+    const body = await (await fetch(`${other.base}/api/aloud/status`)).json();
+    assert.equal(body.fallback, undefined);
+  } finally {
+    other.server.close();
+    await once(other.server, 'close');
   }
 });
 
