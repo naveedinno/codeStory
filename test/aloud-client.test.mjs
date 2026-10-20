@@ -31,6 +31,28 @@ async function fakeAloud(handler) {
   };
 }
 
+test('Aloud client discovers real model options and sends authenticated session settings', async () => {
+  const models=[{id:'kokoro',name:'Kokoro',ready:true,languages:['en'],voices:[{id:'af_heart',label:'Heart'}]}];
+  let configured;
+  const fixture=await fakeAloud((req,res)=>{
+    req.on('error',()=>{});
+    let body='';req.on('data',chunk=>{body+=chunk;});
+    req.on('end',()=>{
+      assert.equal(req.headers.authorization,'Bearer private');res.setHeader('Content-Type','application/json');
+      if(req.url==='/health')return res.end(JSON.stringify({...HEALTH,capabilities:[...HEALTH.capabilities,'model-catalog']}));
+      if(req.url==='/api/v1/models')return res.end(JSON.stringify({apiVersion:1,models}));
+      if(req.url==='/settings')configured=JSON.parse(body);
+      res.end(JSON.stringify({...STATUS,voice:'af_heart'}));
+    });
+  });
+  try {
+    const reader=createAloudReader(async()=>({url:fixture.url,secret:'private'}));
+    assert.deepEqual(await reader.models(),models);
+    await reader.configure({engine:'kokoro',voice:'af_heart',rate:1.25});
+    assert.deepEqual(configured,{engine:'kokoro',voice:'af_heart',rate:1.25});
+  } finally {fixture.server.close();await once(fixture.server,'close');}
+});
+
 test('Aloud client verifies the daemon before delegating speech and controls', async () => {
   const calls = [];
   const fixture = await fakeAloud((req, res) => {

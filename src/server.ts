@@ -205,7 +205,7 @@ import {
   statSync,
   unlinkSync,
 } from "node:fs";
-import { type AloudReader } from "./aloud-client.js";
+import { type AloudReader, type AloudSettingsPatch } from "./aloud-client.js";
 import { createLinoReader } from "./lino-engine.js";
 import { listCodexStoryModels } from "./codex-tasks.js";
 import { LiveEventHub, storyFileFingerprint } from "./live.js";
@@ -575,6 +575,16 @@ function handle(
     }
     if (method === "GET" && url.pathname === "/api/aloud/status") {
       return runAloudStatus(res, aloud);
+    }
+    if (method === "GET" && url.pathname === "/api/aloud/settings") {
+      if (!aloud.models) return sendJson(res, 503, { error: "Update Lino to choose the narration model and voice in codeStory." });
+      void Promise.all([aloud.models(), aloud.status()])
+        .then(([models, status]) => sendJson(res, 200, { models, status }))
+        .catch((error) => sendAloudError(res, error));
+      return;
+    }
+    if (method === "PUT" && url.pathname === "/api/aloud/settings") {
+      return readBody(req, res, (body) => runAloudSettings(res, aloud, body));
     }
     if (method === "POST" && url.pathname === "/api/aloud/speak") {
       return readBody(req, res, (body) => runAloudSpeak(res, aloud, body));
@@ -4363,6 +4373,22 @@ function runAloudPrepare(
       res.end();
     })
     .catch((error) => sendAloudError(res, error));
+}
+
+function runAloudSettings(res: ServerResponse, aloud: AloudReader, body: string): void {
+  if (!aloud.configure) return sendJson(res, 503, { error: "Update Lino to choose the narration model and voice in codeStory." });
+  let settings: AloudSettingsPatch;
+  try {
+    const input = JSON.parse(body) as unknown;
+    if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error();
+    const fields = Object.keys(input);
+    if (!fields.length || fields.some((field) => !["engine", "voice", "rate"].includes(field))) throw new Error();
+    settings = input as AloudSettingsPatch;
+    if ((settings.engine !== undefined && typeof settings.engine !== "string")
+      || (settings.voice !== undefined && typeof settings.voice !== "string")
+      || (settings.rate !== undefined && (typeof settings.rate !== "number" || !Number.isFinite(settings.rate)))) throw new Error();
+  } catch { return sendJson(res, 400, { error: "Supply a model, voice, or playback speed." }); }
+  void aloud.configure(settings).then((status) => sendJson(res, 200, { status })).catch((error) => sendAloudError(res, error));
 }
 
 function runAloudControl(

@@ -43,6 +43,12 @@ export class AloudTimeoutError extends AloudUnavailableError {
         this.name = 'AloudTimeoutError';
     }
 }
+export class AloudControlsUnavailableError extends AloudUnavailableError {
+    constructor() {
+        super('Update Lino to choose the narration model and voice in codeStory.');
+        this.name = 'AloudControlsUnavailableError';
+    }
+}
 /**
  * `endpoint` is either a fixed URL or a resolver. The resolver runs before
  * every request, so a reader can follow an engine process that it restarts.
@@ -54,6 +60,20 @@ export function createAloudReader(endpoint) {
     const status = async () => verifyStatus(await requestJson(await resolve(), 'GET', '/status', undefined, READ_TIMEOUT_MS));
     return {
         status,
+        async models() {
+            const target = await resolve();
+            await verifyAloudDaemon(target, 'model-catalog');
+            const response = await requestJson(target, 'GET', '/api/v1/models', undefined, READ_TIMEOUT_MS);
+            if (response.apiVersion !== 1 || !Array.isArray(response.models) || !response.models.every(isAloudModel)) {
+                throw new AloudUnavailableError('Lino returned an incomplete voice catalog.');
+            }
+            return response.models;
+        },
+        async configure(settings) {
+            const target = await resolve();
+            await verifyAloudDaemon(target, 'model-catalog');
+            return verifyStatus(await requestJson(target, 'POST', '/settings', settings, MUTATE_TIMEOUT_MS));
+        },
         async prepare(input) {
             const target = await resolve();
             await verifyAloudDaemon(target, ALOUD_PREPARE_CAPABILITY);
@@ -97,11 +117,22 @@ async function verifyAloudDaemon(target, capability = ALOUD_BATCH_CAPABILITY) {
     }
     const capabilities = health.capabilities;
     if (!Array.isArray(capabilities) || !capabilities.includes(capability)) {
+        if (capability === 'model-catalog')
+            throw new AloudControlsUnavailableError();
         if (capability === ALOUD_PREPARE_CAPABILITY) {
             throw new AloudUnavailableError('Lino needs an update before codeStory can prepare narration in the background.');
         }
         throw new AloudUnavailableError('Lino needs an update before it can prefetch codeStory narration. Update Lino, then try again.');
     }
+}
+function isAloudModel(value) {
+    if (!value || typeof value !== 'object')
+        return false;
+    const model = value;
+    return typeof model.id === 'string' && typeof model.name === 'string' && typeof model.ready === 'boolean'
+        && Array.isArray(model.languages) && model.languages.every((language) => typeof language === 'string')
+        && Array.isArray(model.voices) && model.voices.length > 0
+        && model.voices.every((voice) => voice && typeof voice.id === 'string' && typeof voice.label === 'string');
 }
 function verifyStatus(value) {
     if (!isAloudProtocol(value) || typeof value !== 'object' || value === null) {

@@ -6,6 +6,8 @@
 // server-rendered string — and React re-rendering on top of that would give a
 // single attribute two writers. So there is no state here, no effects beyond
 // the two below, and no props that change.
+// NarrationSettings is a self-contained React island; it owns only its popover
+// and signals the engine after a setting changes, without writing transport DOM.
 //
 // The two effects:
 //

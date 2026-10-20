@@ -307,10 +307,14 @@ codeStory. Lino does not need to be open: on the first narration request
 codeStory starts a private copy of Lino's bundled engine on a random loopback
 port behind a one-time secret, and stops it when codeStory exits.
 
-Voices and models come from Lino. With current Lino builds, codeStory uses the
-supported headless session API, starts with your saved narrator and speed, and
-keeps its changes within that session. Stories are read in English; a saved
-model for another language is replaced with a downloaded English model.
+Choose **Voice** beside Play to select the narration model, voice, and playback
+speed directly in codeStory. The picker lists Lino's real local models and
+voices; models that need downloading or do not support English are disabled.
+Changing settings stops the current passage and clears its prepared audio.
+codeStory remembers your last voice for each model and restores your choices
+after restarting, in `~/.codestory/narration.json`. Lino provides the speech
+engine and model downloads; codeStory owns its narration settings and leaves
+Lino's preferences untouched. Stories are read in English.
 Transport retries reuse a request ID so they cannot restart the same passage.
 Older Lino builds use the embedded launcher for compatibility. Set
 `CODESTORY_LINO_APP=/path/to/Lino.app` to use a build somewhere else.

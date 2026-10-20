@@ -1,6 +1,8 @@
 import { Agent, request as httpRequest } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import type { Socket } from 'node:net';
+import type { AloudModel, AloudSettingsPatch, AloudStatus } from './narration-types.js';
+export type { AloudModel, AloudSettingsPatch, AloudStatus } from './narration-types.js';
 
 // The wire protocol is still Aloud's: Lino ships Aloud's speech engine and
 // codeStory runs that engine itself (see lino-engine.ts). These names describe
@@ -26,24 +28,6 @@ const FREE_SOCKET_IDLE_MS = 3_000;
 const RETRY_DELAY_MS = 120;
 const MAX_ATTEMPTS = 3;
 
-export interface AloudStatus {
-  engine?: string;
-  jobId?: string;
-  ok: true;
-  paused: boolean;
-  protocolVersion: number;
-  rate?: number;
-  running: boolean;
-  service: string;
-  state: {
-    current?: number;
-    message?: string;
-    status?: 'starting' | 'generating' | 'reading' | 'done' | 'stopped' | 'error';
-    total?: number;
-  };
-  [key: string]: unknown;
-}
-
 export interface AloudReader {
   control(action: 'pause' | 'resume' | 'stop'): Promise<AloudStatus>;
   /** Releases anything the reader owns, such as a speech engine process. */
@@ -51,6 +35,13 @@ export interface AloudReader {
   prepare(input: AloudSpeechRequest): Promise<AloudPreparation | void>;
   speak(input: AloudSpeechRequest): Promise<AloudStatus>;
   status(): Promise<AloudStatus>;
+  models?(): Promise<AloudModel[]>;
+  configure?(settings: AloudSettingsPatch): Promise<AloudStatus>;
+}
+
+export interface ConfigurableAloudReader extends AloudReader {
+  models(): Promise<AloudModel[]>;
+  configure(settings: AloudSettingsPatch): Promise<AloudStatus>;
 }
 
 export interface AloudPreparation {
@@ -100,11 +91,18 @@ export class AloudTimeoutError extends AloudUnavailableError {
   }
 }
 
+export class AloudControlsUnavailableError extends AloudUnavailableError {
+  constructor() {
+    super('Update Lino to choose the narration model and voice in codeStory.');
+    this.name = 'AloudControlsUnavailableError';
+  }
+}
+
 /**
  * `endpoint` is either a fixed URL or a resolver. The resolver runs before
  * every request, so a reader can follow an engine process that it restarts.
  */
-export function createAloudReader(endpoint: string | (() => Promise<AloudEndpoint>)): AloudReader {
+export function createAloudReader(endpoint: string | (() => Promise<AloudEndpoint>)): ConfigurableAloudReader {
   const resolve = typeof endpoint === 'string'
     ? async (): Promise<AloudEndpoint> => ({ url: endpoint })
     : endpoint;
@@ -112,6 +110,20 @@ export function createAloudReader(endpoint: string | (() => Promise<AloudEndpoin
     verifyStatus(await requestJson(await resolve(), 'GET', '/status', undefined, READ_TIMEOUT_MS));
   return {
     status,
+    async models() {
+      const target = await resolve();
+      await verifyAloudDaemon(target, 'model-catalog');
+      const response = await requestJson(target, 'GET', '/api/v1/models', undefined, READ_TIMEOUT_MS) as { apiVersion?: number; models?: unknown };
+      if (response.apiVersion !== 1 || !Array.isArray(response.models) || !response.models.every(isAloudModel)) {
+        throw new AloudUnavailableError('Lino returned an incomplete voice catalog.');
+      }
+      return response.models;
+    },
+    async configure(settings) {
+      const target = await resolve();
+      await verifyAloudDaemon(target, 'model-catalog');
+      return verifyStatus(await requestJson(target, 'POST', '/settings', settings, MUTATE_TIMEOUT_MS));
+    },
     async prepare(input) {
       const target = await resolve();
       await verifyAloudDaemon(target, ALOUD_PREPARE_CAPABILITY);
@@ -155,11 +167,21 @@ async function verifyAloudDaemon(target: AloudEndpoint, capability = ALOUD_BATCH
   }
   const capabilities = (health as { capabilities?: unknown }).capabilities;
   if (!Array.isArray(capabilities) || !capabilities.includes(capability)) {
+    if (capability === 'model-catalog') throw new AloudControlsUnavailableError();
     if (capability === ALOUD_PREPARE_CAPABILITY) {
       throw new AloudUnavailableError('Lino needs an update before codeStory can prepare narration in the background.');
     }
     throw new AloudUnavailableError('Lino needs an update before it can prefetch codeStory narration. Update Lino, then try again.');
   }
+}
+
+function isAloudModel(value: unknown): value is AloudModel {
+  if (!value || typeof value !== 'object') return false;
+  const model = value as AloudModel;
+  return typeof model.id === 'string' && typeof model.name === 'string' && typeof model.ready === 'boolean'
+    && Array.isArray(model.languages) && model.languages.every((language) => typeof language === 'string')
+    && Array.isArray(model.voices) && model.voices.length > 0
+    && model.voices.every((voice) => voice && typeof voice.id === 'string' && typeof voice.label === 'string');
 }
 
 function verifyStatus(value: unknown): AloudStatus {

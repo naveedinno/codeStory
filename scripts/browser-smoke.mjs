@@ -42,7 +42,16 @@ try {
     delete story.head; delete story.evolution;
     story.storySnapshot = captureStorySnapshot({repo,base:'main',storyScope:{includedFiles:[...new Set(story.steps.filter(s=>s.kind!=='concept').map(s=>s.file))]}});
     writeFileSync(storyPath, JSON.stringify(story, null, 2)+'\n');
-    const server = serve({repo,homeOverride:home,port:0,open:false,openEditor:()=>true,aloud:{async status(){return {service:'aloud-speech-daemon',protocolVersion:2,running:false};},async prepare(){},async speak(){return {running:false};},async control(){return {running:false};}}});
+    const voiceModels=[
+      {id:'kokoro',name:'Kokoro',detail:'Quick, clear English narration',ready:true,languages:['en'],voices:[{id:'af_heart',label:'Heart'},{id:'af_nicole',label:'Nicole'}]},
+      {id:'pocket',name:'Pocket TTS',detail:'Conversational English voices',ready:true,languages:['en'],voices:[{id:'alba',label:'Alba'},{id:'marius',label:'Marius'}]},
+      {id:'pocket-farsi',name:'Pocket TTS Farsi',ready:true,languages:['fa'],voices:[{id:'farsi_narrator',label:'Farsi narrator'}]},
+    ];
+    let narrator={ok:true,service:'aloud-speech-daemon',protocolVersion:2,engine:'kokoro',voice:'af_heart',rate:1,running:false,paused:false,state:{}};
+    const server = serve({repo,homeOverride:home,port:0,open:false,openEditor:()=>true,aloud:{
+      async status(){return narrator;},async models(){return voiceModels;},
+      async configure(patch){narrator={...narrator,...patch,voice:patch.voice??(patch.engine?voiceModels.find(model=>model.id===patch.engine).voices[0].id:narrator.voice)};return narrator;},
+      async prepare(){},async speak(){return {running:false};},async control(){return {running:false};}}});
     await once(server,'listening');
     const origin=`http://localhost:${server.address().port}`;
     const context=await browser.newContext({viewport,reducedMotion,colorScheme:'light'});
@@ -53,6 +62,32 @@ try {
     try {
       await page.goto(`${origin}/repo/${encodeURIComponent(basename(repo))}/review?story=story.json`);
       await page.locator('.ds-intro-start').waitFor();
+      await page.getByRole('button',{name:'Narration settings',exact:true}).click();
+      const narrationModel=page.getByRole('combobox',{name:'Narration model',exact:true});
+      const narrationVoice=page.getByRole('combobox',{name:'Narration voice',exact:true});
+      await narrationModel.waitFor();
+      assert.equal(await narrationModel.locator('option[value="pocket-farsi"]').evaluate(option=>option.disabled),true);
+      const chooseNarrator=async(control,value)=>{
+        await Promise.all([page.waitForResponse(response=>response.url().endsWith('/api/aloud/settings')&&response.request().method()==='PUT'),control.selectOption(value)]);
+        await page.waitForFunction(()=>!document.querySelector('select[aria-label="Narration model"]').matches(':disabled'));
+      };
+      await chooseNarrator(narrationModel,'pocket');
+      await chooseNarrator(narrationVoice,'marius');
+      await chooseNarrator(page.getByRole('combobox',{name:'Narration playback speed',exact:true}),'1.25');
+      assert.equal(narrator.engine,'pocket');assert.equal(narrator.voice,'marius');assert.equal(narrator.rate,1.25);
+      const narratorBounds=await page.getByRole('dialog',{name:'Narration',exact:true}).boundingBox();
+      assert.ok(narratorBounds.x>=0&&narratorBounds.y>=0&&narratorBounds.x+narratorBounds.width<=viewport.width&&narratorBounds.y+narratorBounds.height<=viewport.height);
+      await page.screenshot({path:join(output,`${name}-narration.png`)});
+      await page.keyboard.press('Escape');
+      assert.equal(await page.getByRole('button',{name:'Narration settings',exact:true}).evaluate(node=>document.activeElement===node),true);
+      if(name==='desktop'){
+        // A desktop rail preference must not make the hidden Story sidebar
+        // inert the narration controls when the window is narrowed.
+        await page.setViewportSize({width:390,height:844});
+        await page.getByRole('button',{name:'Narration settings',exact:true}).click();
+        await narrationModel.waitFor();await page.keyboard.press('Escape');
+        await page.setViewportSize(viewport);
+      }
       assert.match(await page.locator('[data-story-health] > summary').innerText(),/No issues found/);
       assert.equal(await page.locator('[data-story-health]').getAttribute('open'),null);
       await page.locator('.ds-intro-notes > summary').click();

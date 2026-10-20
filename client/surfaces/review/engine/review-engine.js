@@ -786,7 +786,7 @@ export function startReviewEngine(options){
     var canvas=panel&&$('.ds-concept-document',panel);if(canvas)conceptFitObserver.observe(canvas);
   }
   function syncSidebarOverlay(collapsed){
-    var open=compactScreen()&&!collapsed,main=$('.ds-main'),chrome=$('.ds-reviewchrome-main'),actions=$('.ds-reviewchrome-island.is-actions'),scrim=$('[data-sidebar-scrim]');
+    var open=compactScreen()&&!collapsed&&currentView()==='files',main=$('.ds-main'),chrome=$('.ds-reviewchrome-main'),actions=$('.ds-reviewchrome-island.is-actions'),scrim=$('[data-sidebar-scrim]');
     if(main){if(open)main.setAttribute('inert','');else main.removeAttribute('inert');}
     [chrome,actions].forEach(function(island){if(!island)return;if(open)island.setAttribute('inert','');else island.removeAttribute('inert');});
     if(scrim){scrim.tabIndex=open?0:-1;scrim.setAttribute('aria-hidden',open?'false':'true');}
@@ -1748,7 +1748,7 @@ export function startReviewEngine(options){
     return err&&(err.name==='AbortError'||/aborted|cancelled/i.test(String(err.message||err)));
   }
   // Backup narrator. Set once the server reports that Lino is missing or would
-  // not start, and kept for the rest of this page: from then on every request
+  // not start, and kept until a local narrator is explicitly selected: every request
   // goes to the browser's own voice, which answers in the same shape.
   var browserSpeech=null,browserSpeechAnnounced=false;
   function useBrowserSpeech(){
@@ -1777,6 +1777,14 @@ export function startReviewEngine(options){
   // the daemon's own prepare depth; it clamps anything larger.
   var ALOUD_PREPARE_BEATS=4;
   var aloudPreparationId='';
+  document.addEventListener('codestory:narration-settings',function(event){
+    if(browserSpeech){browserSpeech.request('control',{action:'stop'}).catch(function(){});browserSpeech=null;browserSpeechAnnounced=false;}
+    setAloudIntent('off');cancelSpeech(false);
+    aloudPrepareRequest++;aloudPreparedText='';aloudPreparationId='';
+    if(aloudPrepareTimer){clearTimeout(aloudPrepareTimer);aloudPrepareTimer=0;}
+    if(event.detail&&typeof event.detail.rate==='number')aloudRate=event.detail.rate;
+    updateReadAloudButton();prepareStepNarration(active);
+  });
   // Step selection is also a browsing gesture. Wait until the reviewer has
   // actually settled before asking the speech engine to generate anything in the background.
   var ALOUD_PREPARE_DWELL_MS=1000;
@@ -4341,7 +4349,7 @@ export function startReviewEngine(options){
     var liveReload=$('[data-live-reload]');if(liveReload)liveReload.addEventListener('click',function(){location.reload();});
     var liveDismiss=$('[data-live-dismiss]');if(liveDismiss)liveDismiss.addEventListener('click',function(){var kind=livePriority();if(kind){liveDismissed[kind]=liveGenerations[kind];renderLiveBanner();}});
     var storyReloadCancel=$('[data-story-reload-cancel]');if(storyReloadCancel)storyReloadCancel.addEventListener('click',cancelStoryReload);
-    window.addEventListener('resize',function(){setSidebarWidth(currentSidebarWidth(),false);syncSidebarOverlay(document.body.classList.contains('ds-rail-collapsed'));applyResponsiveStoryMode(stepPanels&&stepPanels[active]);syncDriftLayout();$all('.ds-filepanel,.ds-diff').forEach(updateChangeNav);syncSplitPaneLayouts();updateStickyMetrics();syncFilmProgress();syncActiveAnnotations();scheduleConceptTypographyFit(stepPanels&&stepPanels[active]);if(filmTooltipTarget)showFilmTooltip(filmTooltipTarget);});
+    window.addEventListener('resize',function(){if(compactScreen()&&currentView()!=='files')setSidebarCollapsed(true,false);setSidebarWidth(currentSidebarWidth(),false);syncSidebarOverlay(document.body.classList.contains('ds-rail-collapsed'));applyResponsiveStoryMode(stepPanels&&stepPanels[active]);syncDriftLayout();$all('.ds-filepanel,.ds-diff').forEach(updateChangeNav);syncSplitPaneLayouts();updateStickyMetrics();syncFilmProgress();syncActiveAnnotations();scheduleConceptTypographyFit(stepPanels&&stepPanels[active]);if(filmTooltipTarget)showFilmTooltip(filmTooltipTarget);});
     try{var rw=parseFloat(localStorage.getItem('ds-sidebar-width')||'');if(rw)setSidebarWidth(rw,false);else updateSidebarHandle(currentSidebarWidth());}catch(e){updateSidebarHandle(currentSidebarWidth());}
     try{var sv=localStorage.getItem('ds-split');if(sv)$all('.ds-filepanel,.ds-diff').forEach(function(holder){holder.style.setProperty('--ds-split',sv);});}catch(e){}
     loadLineWrap();

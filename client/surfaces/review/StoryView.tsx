@@ -21,6 +21,7 @@ import type { ReviewPayload, ReviewStepView } from "../../../src/payloads";
 import { ExcludedScopeNotice, StoryMark } from "./Sidebar";
 import { fileExtension, html, numeral, plural, refLabel, withBreaks } from "./format";
 import { StoryHealthRow } from "./StoryHealth";
+import { NarrationSettings } from "./NarrationSettings";
 
 /** The invisible narration index inside a lazy stub. */
 function SpeechCache({ step }: { step: ReviewStepView }) {
@@ -781,6 +782,7 @@ function FilmstripThread({ steps }: { steps: ReviewStepView[] }) {
             >
               <span aria-hidden="true" />
             </button>
+            <NarrationSettings />
           </div>
         </div>
         <div className="ds-dock-stage" data-dock-slot>

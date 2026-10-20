@@ -59,6 +59,26 @@ async function boot(repo = null, homeOverride = null, aloud) {
   return { server, base: `http://localhost:${port}` };
 }
 
+test('narration settings expose the local catalog and validate same-origin settings updates', async () => {
+  const models = [{id:'kokoro',name:'Kokoro',ready:true,languages:['en'],voices:[{id:'af_heart',label:'Heart'}]}];
+  let status = {engine:'kokoro',voice:'af_heart',rate:1,ok:true,paused:false,running:false,service:'aloud-speech-daemon',protocolVersion:2,state:{}};
+  const changes = [];
+  const app = await boot(null,null,{ async models(){return models;}, async status(){return status;},
+    async configure(patch){changes.push(patch);status={...status,...patch};return status;} });
+  try {
+    const response = await fetch(app.base+'/api/aloud/settings');
+    assert.equal(response.status,200); assert.deepEqual(await response.json(),{models,status});
+    const update = await fetch(app.base+'/api/aloud/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({rate:1.25})});
+    assert.equal(update.status,200); assert.equal((await update.json()).status.rate,1.25);
+    for(const body of ['null','[]','{}','{"engine":5}','{"rate":"fast"}','{"command":"shutdown"}']) {
+      const invalid=await fetch(app.base+'/api/aloud/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body});
+      assert.equal(invalid.status,400);
+    }
+    const crossSite=await fetch(app.base+'/api/aloud/settings',{method:'PUT',headers:{'Content-Type':'application/json',Origin:'https://example.com'},body:'{"rate":1}'});
+    assert.equal(crossSite.status,403); assert.deepEqual(changes,[{rate:1.25}]);
+  } finally {app.server.close();await once(app.server,'close');}
+});
+
 test('server forwards tracked preparation receipts instead of reporting completion', async () => {
   const prepare = { id: 'prepare-1', beats: 4, ready: 0, state: 'generating' };
   const app = await boot(null, null, { async prepare() { return prepare; } });

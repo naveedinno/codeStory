@@ -3,7 +3,8 @@ import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { AloudUnavailableError, createAloudReader, } from './aloud-client.js';
+import { AloudUnavailableError, AloudControlsUnavailableError, createAloudReader, } from './aloud-client.js';
+import { loadNarrationPreferences, resolveNarrationSettings, saveNarrationPreferences } from './narration-preferences.js';
 // Lino owns narration now: it ships Aloud's speech engine, the voice models
 // under ~/Library/Application Support/Aloud, and the setup that downloads them.
 // Lino keeps its own engine private. The supported session entry point gives
@@ -83,13 +84,14 @@ export function findLinoApp(candidates) {
  */
 export function createLinoReader(options = {}) {
     const candidates = options.appPaths ?? linoAppCandidates(options.home);
+    const home = options.home ?? homedir();
     let engine = null;
     let disposed = false;
     const endpoint = async () => {
         if (disposed)
             throw new AloudUnavailableError('Narration has stopped because codeStory is closing.');
         if (!engine) {
-            const starting = startEngine(candidates);
+            const starting = startEngine(candidates, home);
             engine = starting;
             starting.then(({ child }) => child.once('exit', () => { if (engine === starting)
                 engine = null; }), () => { if (engine === starting)
@@ -98,8 +100,25 @@ export function createLinoReader(options = {}) {
         return (await engine).endpoint;
     };
     const reader = createAloudReader(endpoint);
+    let settingsTail = Promise.resolve();
     return {
         ...reader,
+        async status() { await settingsTail; return reader.status(); },
+        async speak(input) { await settingsTail; return reader.speak(input); },
+        async prepare(input) { await settingsTail; return reader.prepare(input); },
+        configure(patch) {
+            const operation = settingsTail.then(async () => {
+                const [models, current] = await Promise.all([reader.models(), reader.status()]);
+                const settings = resolveNarrationSettings(models, patch, current, loadNarrationPreferences(home));
+                // Validate before stopping, so an unavailable model never interrupts a passage.
+                await reader.control('stop');
+                const status = await reader.configure(settings);
+                saveNarrationPreferences(home, settings);
+                return status;
+            });
+            settingsTail = operation.catch(() => { });
+            return operation;
+        },
         dispose() {
             disposed = true;
             const current = engine;
@@ -108,7 +127,7 @@ export function createLinoReader(options = {}) {
         },
     };
 }
-async function startEngine(candidates) {
+async function startEngine(candidates, home) {
     const app = findLinoApp(candidates);
     if (!app) {
         throw new LinoUnavailableError('Narration needs Lino. Install Lino in Applications, then download a voice in Settings → Read Aloud.');
@@ -145,6 +164,28 @@ async function startEngine(candidates) {
     const endpoint = { secret: handshake.secret, url: `http://127.0.0.1:${handshake.port}` };
     try {
         await preferEnglishEngine(endpoint);
+        if (app.session) {
+            const reader = createAloudReader(async () => endpoint);
+            try {
+                const models = await reader.models();
+                const preferences = loadNarrationPreferences(home);
+                const model = models.find((model) => model.id === preferences.engine && model.ready && model.languages.includes('en'))
+                    ?? models.find((model) => model.ready && model.languages.includes('en'));
+                if (model) {
+                    const voice = model.voices.some((voice) => voice.id === preferences.voice) ? preferences.voice
+                        : preferences.voicesByEngine[model.id];
+                    const current = await reader.status();
+                    const settings = resolveNarrationSettings(models, { engine: model.id, rate: preferences.rate,
+                        ...(voice && model.voices.some((choice) => choice.id === voice) ? { voice } : {}) }, current, preferences);
+                    await reader.configure(settings);
+                }
+            }
+            catch (error) {
+                // Older bundles still narrate; their UI explains that controls need an update.
+                if (!(error instanceof AloudControlsUnavailableError))
+                    throw error;
+            }
+        }
     }
     catch (error) {
         stopEngine(child);
