@@ -171,7 +171,8 @@ codeStory keeps long reviews oriented and makes comments portable:
 
 ## Video Export
 
-Open a story and choose **File → Export Video…** (⇧⌘E on macOS). Choose 1080p or 720p,
+Choose **Export video** beside a saved story in Review history, or open a story
+and choose **File → Export Video…** (⇧⌘E on macOS). Choose 1080p or 720p,
 set the reading speed, and select **Create video**. The MP4 follows the overview,
 concept pages, and every code spotlight, with an attached, selectable subtitle
 track. Enable or disable subtitles in your player’s subtitle menu.

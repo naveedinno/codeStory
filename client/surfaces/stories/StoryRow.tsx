@@ -305,7 +305,13 @@ export function StoryRow({ story, index, routeBase, now, liveEvidence, busy, onR
 
       {/* Sibling of the anchor, like the delete control: a disclosure inside
           the row link would nest interactive content. */}
-      <StoryHistory storyId={story.id} routeBase={routeBase} now={now} onRestored={onRestored} />
+      <StoryHistory
+        storyId={story.id}
+        routeBase={routeBase}
+        now={now}
+        videoExport={story.valid && story.steps > 0 ? { href: `${href}&export=video`, title } : undefined}
+        onRestored={onRestored}
+      />
     </article>
   );
 }

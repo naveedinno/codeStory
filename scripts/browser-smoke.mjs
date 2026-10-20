@@ -42,6 +42,10 @@ try {
     delete story.head; delete story.evolution;
     story.storySnapshot = captureStorySnapshot({repo,base:'main',storyScope:{includedFiles:[...new Set(story.steps.filter(s=>s.kind!=='concept').map(s=>s.file))]}});
     writeFileSync(storyPath, JSON.stringify(story, null, 2)+'\n');
+    const secondStoryId='stories/export second.json';
+    mkdirSync(join(repo,'.codestory/stories'),{recursive:true});
+    writeFileSync(join(repo,'.codestory',secondStoryId),JSON.stringify({...story,title:'Second export story'}));
+    writeFileSync(join(repo,'.codestory/stories/unreadable.json'),'{invalid');
     const voiceModels=[
       {id:'kokoro',name:'Kokoro',detail:'Quick, clear English narration',ready:true,languages:['en'],voices:[{id:'af_heart',label:'Heart'},{id:'af_nicole',label:'Nicole'}]},
       {id:'pocket',name:'Pocket TTS',detail:'Conversational English voices',ready:true,languages:['en'],voices:[{id:'alba',label:'Alba'},{id:'marius',label:'Marius'}]},
@@ -60,6 +64,37 @@ try {
     // Capture clipboard writes in memory without depending on host permissions.
     await page.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async(text)=>{window.__smokeClipboard=text;}}}));
     try {
+      // The list action must bind the selected story, acquire its real review
+      // lease, and open settings without starting an export automatically.
+      let exportStarts=0;
+      page.on('request',request=>{if(request.method()==='POST'&&new URL(request.url()).pathname==='/api/video-export')exportStarts++;});
+      const historyUrl=`${origin}/repo/${encodeURIComponent(basename(repo))}/stories`;
+      await page.goto(historyUrl);
+      const listExport=page.getByRole('link',{name:'Export video for Second export story',exact:true});
+      await listExport.waitFor();
+      assert.equal(await page.locator('.story-row').filter({hasText:'unreadable.json'}).getByRole('link',{name:/Export video/}).count(),0,'unreadable stories cannot export');
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'history export actions wrap without overflow');
+      await page.screenshot({path:join(output,`${name}-history-video-export.png`)});
+      await listExport.focus();await page.keyboard.press('Enter');
+      const listDialog=page.getByRole('dialog',{name:'Export video',exact:true});
+      await listDialog.waitFor();
+      assert.equal(new URL(page.url()).searchParams.get('story'),secondStoryId,'list action opens the chosen story');
+      assert.equal(new URL(page.url()).searchParams.has('export'),false,'export intent is consumed once');
+      assert.equal(exportStarts,0,'opening settings never starts rendering');
+      await page.keyboard.press('Escape');
+      await page.reload();
+      await page.locator('.ds-intro-start').waitFor();
+      assert.equal(await listDialog.isVisible(),false,'reloading does not reopen dismissed settings');
+      await page.goBack();
+      await listExport.waitFor();
+      // The same entry point must work when the desktop shell hides the web File menu.
+      await page.addInitScript(()=>{if(new URLSearchParams(location.search).get('export')==='video')window.__TAURI_INTERNALS__={};});
+      await listExport.click();
+      await listDialog.waitFor();
+      assert.equal(await page.getByRole('button',{name:'File menu',exact:true}).count(),0);
+      await page.keyboard.press('Escape');
+      assert.equal(await page.locator('[data-close-story]').evaluate(node=>document.activeElement===node),true,'desktop list entry restores focus to Close story');
+      assert.equal(exportStarts,0);
       await page.goto(`${origin}/repo/${encodeURIComponent(basename(repo))}/review?story=story.json`);
       await page.locator('.ds-intro-start').waitFor();
       assert.equal(await page.getByRole('button',{name:'Export video',exact:true}).count(),0);

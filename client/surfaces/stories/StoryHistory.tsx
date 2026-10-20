@@ -11,7 +11,7 @@
 // navigation to review?story=<history-id>, which renders read-only.
 
 import { useCallback, useId, useState } from "react";
-import { History } from "lucide-react";
+import { Film, History } from "lucide-react";
 import { Tooltip } from "../../vendor/beui/motion/tooltip";
 import type { StoryHistoryDiff, StoryHistoryEntry } from "../../../src/types";
 import type { StoryRowView } from "../../../src/payloads";
@@ -23,6 +23,7 @@ export interface StoryHistoryProps {
   storyId: string;
   routeBase: string;
   now: number;
+  videoExport?: { href: string; title: string };
   onRestored: (patch: Partial<StoryRowView>) => void;
 }
 
@@ -37,7 +38,7 @@ function diffSummary(entry: StoryHistoryEntry): string | null {
   return parts.join(" · ");
 }
 
-export function StoryHistory({ storyId, routeBase, now, onRestored }: StoryHistoryProps) {
+export function StoryHistory({ storyId, routeBase, now, videoExport, onRestored }: StoryHistoryProps) {
   const [open, setOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -114,7 +115,17 @@ export function StoryHistory({ storyId, routeBase, now, onRestored }: StoryHisto
 
   return (
     <div className="border-t border-line-soft px-5 py-2">
-      <div className="flex flex-wrap items-center gap-x-5">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+        {videoExport ? (
+          <a
+            href={videoExport.href}
+            aria-label={`Export video for ${videoExport.title}`}
+            className="inline-flex min-h-[44px] items-center gap-2 rounded-[var(--radius-sm)] px-3 font-mono text-sm font-medium text-accent-text no-underline hover:bg-accent-soft focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus-inset)]"
+          >
+            <Film className="h-4 w-4 flex-none" strokeWidth={2} aria-hidden="true" />
+            Export video
+          </a>
+        ) : null}
         <button
           type="button"
           onClick={toggle}

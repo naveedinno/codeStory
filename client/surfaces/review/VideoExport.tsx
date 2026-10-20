@@ -40,6 +40,16 @@ export function VideoExport({ pageToken }: { pageToken: string }) {
   };
 
   useEffect(() => {
+    // A list action must navigate through the real review route to acquire
+    // this story's page lease. Consume the intent once so reload and the
+    // reader's position updates do not reopen a dismissed export dialog.
+    const location = new URL(window.location.href);
+    if (location.searchParams.get("export") === "video") {
+      returnFocus.current = trigger.current ?? document.querySelector<HTMLElement>("[data-close-story]");
+      setOpen(true);
+      location.searchParams.delete("export");
+      window.history.replaceState(window.history.state, "", location);
+    }
     const nativeOpen = () => {
       returnFocus.current = document.activeElement as HTMLElement;
       setOpen(true);
