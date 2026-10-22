@@ -21,6 +21,7 @@
     "README.md"
   ],
   "scripts": {
+    "prepare": "npm run build",
     "build": "tsc && npm run build:browser-assets && npm run build:client && npm run build:skill-checker",
     "build:browser-assets": "node scripts/build-browser-assets.mjs",
     "build:client": "node scripts/build-client.mjs",

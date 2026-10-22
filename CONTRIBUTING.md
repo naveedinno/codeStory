@@ -7,7 +7,7 @@ Thanks for helping make diff review calmer and more useful.
 ```sh
 git clone https://github.com/naveedinno/codeStory.git
 cd codeStory
-npm install
+npm ci --include=dev
 npm run dev
 ```
 
@@ -28,9 +28,11 @@ For release/package changes, also run:
 npm run release:check
 ```
 
-`npm run check` rebuilds `dist/`, so commit generated `dist/` changes whenever
-you change `src/`. GitHub installs of this project depend on the checked-in
-build output.
+`dist/` is generated and gitignored. `npm install` and `npm ci` build it through
+the `prepare` hook; include dev dependencies when installing from source because
+they contain the build tools. `npm run check` also rebuilds it before testing.
+Commit source changes only. npm packages include the compiled output, and Git
+installs build it before packaging.
 
 With Lino installed, verify real video narration against an unreachable model
 host. Set the model list to the English models downloaded in Lino:

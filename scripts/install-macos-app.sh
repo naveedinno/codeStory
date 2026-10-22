@@ -31,12 +31,14 @@ LEGACY_APP_ID="local.diffstory.desktop"
 trap '/bin/rm -rf "$BUILD_DIR"' EXIT
 
 cd "$PROJECT_DIR"
-npm run build
+# Include the build tools even when NODE_ENV=production. npm's prepare hook
+# rebuilds dist/ from this checkout before the native app is installed.
+npm ci --include=dev
 
 mkdir -p "$BUILD_APP/Contents/MacOS" "$BUILD_APP/Contents/Resources"
 /usr/bin/ditto "$SOURCE_DIR/Info.plist" "$BUILD_APP/Contents/Info.plist"
 CARGO_TARGET_DIR="$CARGO_TARGET_DIR" cargo build \
-  --offline \
+  --locked \
   --release \
   --manifest-path "$SOURCE_DIR/Cargo.toml"
 /usr/bin/ditto "$CARGO_TARGET_DIR/release/codestory-macos" "$BUILD_APP/Contents/MacOS/codeStory"

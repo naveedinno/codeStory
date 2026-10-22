@@ -2,6 +2,11 @@
 
 Use this guide for public npm releases.
 
+`dist/` is gitignored. Install source dependencies with `npm ci --include=dev`;
+the `prepare` hook builds the server and browser assets. `npm pack` and
+`npm publish` also run that hook so packages include the current compiled
+output without committing it. Keep `dist` in the package's `files` allowlist.
+
 ## Preflight
 
 ```sh

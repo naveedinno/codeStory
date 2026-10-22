@@ -39,9 +39,13 @@ Install the macOS app from a source checkout:
 ```sh
 git clone https://github.com/naveedinno/codeStory.git
 cd codeStory
-npm install
 ./scripts/install-macos-app.sh
 ```
+
+The installer installs locked Node dependencies, builds the server and browser
+assets, and builds the native app. The first install needs network access to
+download Node and Rust dependencies. Keep the source checkout in place: the app
+runs its local server from that checkout.
 
 Then open **codeStory** from Spotlight, Finder, or Launchpad. There is no
 codeStory CLI and no terminal review workflow.
@@ -55,7 +59,7 @@ Try a realistic throwaway review without touching your own repos:
 ```sh
 git clone https://github.com/naveedinno/codeStory.git
 cd codeStory
-npm install
+npm ci --include=dev
 npm run demo
 ```
 
@@ -307,12 +311,18 @@ Use this when you are developing codeStory itself:
 ```sh
 git clone https://github.com/naveedinno/codeStory.git
 cd codeStory
-npm install
+npm ci --include=dev
 npm run dev
 ```
 
 The app opens at `http://localhost:7777/`. If the browser does not open
 automatically, open the printed URL yourself.
+
+`npm install` and `npm ci` build `dist/` automatically through npm's `prepare`
+hook. Include dev dependencies for source installs; they supply the compiler and
+bundlers. Generated `dist/` files stay local. npm packages still ship the built
+files, and installs directly from Git build them before packaging. If you disable
+install scripts, run `npm run build` before starting the app.
 
 That is the whole core setup. You do not need Python, Homebrew, Claude, or Codex
 just to open the app and review diffs. Narration uses voices from the separate Lino app.

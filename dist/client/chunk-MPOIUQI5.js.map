@@ -1,7 +1,0 @@
-{
-  "version": 3,
-  "sources": ["../../client/shared/motion.ts"],
-  "sourcesContent": ["// Shared Signal motion curves for the React client.\n//\n// Each export mirrors a `--motion-*` token in `sharedTokens()`\n// (`src/theme.ts`), the canonical source of truth. Prefer these over\n// hand-typed beziers so the client and the server-rendered surfaces stay in\n// sync; if a token value changes, update both places.\n\n/** Signal entrance/exit curve; mirrors `--motion-ease-out`. */\nexport const EASE_SIGNAL_OUT = [0.23, 1, 0.32, 1] as const;\n\n/** Signal drawer curve; mirrors `--motion-ease-drawer`. */\nexport const EASE_SIGNAL_DRAWER = [0.32, 0.72, 0, 1] as const;\n\n/** CSS form of `EASE_SIGNAL_OUT`; mirrors `--motion-ease-out`. */\nexport const EASE_SIGNAL_OUT_CSS = \"cubic-bezier(.23,1,.32,1)\";\n"],
-  "mappings": "AAQO,IAAMA,EAAkB,CAAC,IAAM,EAAG,IAAM,CAAC,EAGnCC,EAAqB,CAAC,IAAM,IAAM,EAAG,CAAC",
-  "names": ["EASE_SIGNAL_OUT", "EASE_SIGNAL_DRAWER"]
-}

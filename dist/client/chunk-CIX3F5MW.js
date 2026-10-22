@@ -1,2 +1,0 @@
-var r="@keyframes beui-text-shimmer{from{background-position:200% 0}to{background-position:-200% 0}}",t="bg-[length:200%_100%] bg-clip-text text-transparent bg-[linear-gradient(110deg,var(--muted-foreground)_30%,var(--foreground)_50%,var(--muted-foreground)_70%)]";function o(e){return{animation:`beui-text-shimmer ${e}s linear infinite`}}export{r as a,t as b,o as c};
-//# sourceMappingURL=chunk-CIX3F5MW.js.map

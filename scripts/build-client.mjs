@@ -41,7 +41,7 @@ async function bundleSurfaces() {
   }
 
   // Chunk filenames carry a content hash, so yesterday's chunks would otherwise
-  // pile up in dist/ forever — and dist/ is committed.
+  // pile up in local builds and npm packages.
   for (const file of await readdir(outdir).catch(() => [])) {
     if (file.startsWith('chunk-')) await rm(resolve(outdir, file), { force: true });
   }

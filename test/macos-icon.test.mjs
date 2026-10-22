@@ -58,6 +58,15 @@ function solidPng(size) {
   ]);
 }
 
+test('macOS installer installs build dependencies before compiling the native app', () => {
+  const installer = fs.readFileSync('scripts/install-macos-app.sh', 'utf8');
+  const install = installer.indexOf('npm ci --include=dev');
+  const compile = installer.indexOf('cargo build');
+  assert.ok(install > 0 && compile > install, 'prepare must build the server before the native app');
+  assert.match(installer, /cargo build \\\r?\n\s+--locked/);
+  assert.doesNotMatch(installer, /--offline/, 'a fresh machine may need to download Rust dependencies');
+});
+
 test('macOS updater closes and relaunches an already-running installed app', () => {
   const installer = fs.readFileSync('scripts/install-macos-app.sh', 'utf8');
   assert.match(installer, /pgrep -f -x "\$INSTALLED_EXECUTABLE"/);

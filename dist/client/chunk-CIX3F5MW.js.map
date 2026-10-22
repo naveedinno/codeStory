@@ -1,7 +1,0 @@
-{
-  "version": 3,
-  "sources": ["../../client/vendor/beui/lib/text-shimmer.ts"],
-  "sourcesContent": ["// Vendored from starc007/ui-components \u2014 lib/text-shimmer.ts (MIT)\nimport type { CSSProperties } from \"react\";\n\nexport const TEXT_SHIMMER_KEYFRAMES =\n  \"@keyframes beui-text-shimmer{from{background-position:200% 0}to{background-position:-200% 0}}\";\n\nexport const TEXT_SHIMMER_CLASS_NAME =\n  \"bg-[length:200%_100%] bg-clip-text text-transparent bg-[linear-gradient(110deg,var(--muted-foreground)_30%,var(--foreground)_50%,var(--muted-foreground)_70%)]\";\n\nexport function textShimmerStyle(duration: number): CSSProperties {\n  return {\n    animation: `beui-text-shimmer ${duration}s linear infinite`,\n  };\n}\n"],
-  "mappings": "AAGO,IAAMA,EACX,gGAEWC,EACX,iKAEK,SAASC,EAAiBC,EAAiC,CAChE,MAAO,CACL,UAAW,qBAAqBA,CAAQ,mBAC1C,CACF",
-  "names": ["TEXT_SHIMMER_KEYFRAMES", "TEXT_SHIMMER_CLASS_NAME", "textShimmerStyle", "duration"]
-}
