@@ -157,6 +157,27 @@ test('video job polling exposes stage estimates and clears them on completion', 
   } finally {finish();await exports.dispose();}
 });
 
+test('frame rendering starts a fresh estimate after slower speech generation', async () => {
+  let input, begin, release;
+  const started=new Promise(resolve=>{begin=resolve;});
+  const gate=new Promise(resolve=>{release=resolve;});
+  const exports=new VideoExports(async renderer=>{input=renderer;begin();await gate;await writeFile(join(input.directory,'video.mp4'),'video');});
+  try {
+    const job=exports.start('owner','Story','http://localhost',options,snapshot);
+    await started;
+    input.progress(0,2,'Generating speech',false,undefined,'narration');
+    await delay(10);
+    input.progress(1,2,'Generating speech',false,undefined,'narration');
+    assert.ok(exports.get(job.id,'owner').estimatedRemainingMs>0);
+    input.progress(0,2,'Rendering frames',false,undefined,'frames');
+    assert.equal(exports.get(job.id,'owner').estimatedRemainingMs,null);
+    assert.equal(exports.get(job.id,'owner').stageProgress,0);
+    await delay(10);
+    input.progress(1,2,'Rendering frames',false,undefined,'frames');
+    assert.ok(exports.get(job.id,'owner').estimatedRemainingMs>0);
+  } finally {release();await exports.dispose();}
+});
+
 test('cancelling waits for rendering to stop and removes partial video data', async () => {
   let began, directory;
   const started=new Promise(resolve=>{began=resolve;});

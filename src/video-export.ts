@@ -12,10 +12,10 @@ import type { VideoJob, VideoOptions } from "./video-types.js";
 import type { AloudAudioRequest, AloudReader } from "./aloud-client.js";
 import { findLinoApp, linoAppCandidates } from "./lino-engine.js";
 import { VideoProgressEstimate, videoEncodingProgress } from "./video-progress.js";
+import { VIDEO_FPS, videoNarrationBatches, videoNarrationTimings } from "./video-narration.js";
 export type { VideoJob, VideoOptions } from "./video-types.js";
 export interface VideoScene { step: number; group?: number; text: string }
 export interface VideoSubtitle { startMs: number; endMs: number; text: string }
-const VIDEO_FPS = 25;
 export interface VideoSnapshot {
   shell: string;
   panels: string[];
@@ -62,7 +62,7 @@ export function videoFilename(title: string): string {
 }
 
 // Keep subtitle passages readable, preserving every word (even a long
-// identifier) and the corresponding code focus and narration boundary.
+// identifier) and the corresponding code focus. Speech batches are separate.
 export function videoScenes(payload: Pick<ReviewPayload, "story" | "steps">): VideoScene[] {
   const scenes: VideoScene[] = [];
   const add = (step: number, text: string, group?: number) => {
@@ -157,7 +157,7 @@ interface RenderInput {
   options: VideoOptions;
   directory: string;
   signal: AbortSignal;
-  progress: (completed: number, total: number, message: string, encoding?: boolean, encodedFraction?: number) => void;
+  progress: (completed: number, total: number, message: string, encoding?: boolean, encodedFraction?: number, stage?: "narration" | "frames") => void;
 }
 
 // Screenshots use the same React reader, lazy panels, focus logic and diagram
@@ -178,7 +178,48 @@ async function renderVideo(input: RenderInput): Promise<void> {
   const snapshot = input.snapshot();
   const scenes = videoScenes(snapshot.payload);
   if (!scenes.length || scenes.length > 5000) throw new Error("Export a story with between 1 and 5,000 subtitle passages.");
-  progress(0, scenes.length, "Opening the story renderer…");
+  const batches = options.narration ? videoNarrationBatches(scenes) : [];
+  const narrationEnds: number[] = [];
+  if (options.narration) {
+    const audioList = ["ffconcat version 1.0"], batchSeconds: number[] = [];
+    let sourceSeconds = 0;
+    const measure = async (file: string) => {
+      const seconds = Number(await command(capabilities.ffprobe!, ["-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", file], signal, directory));
+      if (!Number.isFinite(seconds) || seconds <= 0) throw new Error("Could not measure the generated narration.");
+      return seconds;
+    };
+    for (const [index, batch] of batches.entries()) {
+      signal.throwIfAborted();
+      progress(index, batches.length, `Generating ${linoSettings ? "Lino " : ""}narration batch ${index + 1} of ${batches.length}…`, false, undefined, "narration");
+      const speech = linoSettings ? "speech.wav" : "speech.aiff";
+      if (linoSettings) {
+        await rm(join(directory, speech), { force: true });
+        await input.aloud!.generateAudio!({ ...linoSettings, text: batch.text }, join(directory, speech), signal);
+      } else {
+        await writeFile(join(directory, "speech.txt"), batch.text);
+        await command("/usr/bin/say", ["-r", "175", "-f", "speech.txt", "-o", speech], signal, directory);
+      }
+      const audio = `audio-${index}.wav`;
+      // Normalize without padding, trimming, speed changes, or frame rounding.
+      // Caption transitions must never truncate or interrupt spoken words.
+      await command(capabilities.ffmpeg!, ["-nostdin", "-y", "-v", "error", "-i", speech, "-ar", "24000", "-ac", "1", audio], signal, directory);
+      const seconds = await measure(audio);
+      batchSeconds.push(seconds);
+      sourceSeconds += seconds;
+      if (sourceSeconds / options.speed + 0.6 > 7200) {
+        throw new Error("This video exceeds two hours. Export a shorter story or use a faster reading speed.");
+      }
+      audioList.push(`file ${audio}`);
+    }
+    progress(batches.length, batches.length, "Joining the narration…", false, undefined, "narration");
+    await writeFile(join(directory, "audio.txt"), audioList.join("\n") + "\n");
+    // Apply speed once to the continuous track, including system narration.
+    // Running atempo separately per caption loses context at every boundary.
+    await command(capabilities.ffmpeg!, ["-nostdin", "-y", "-v", "error", "-f", "concat", "-safe", "1", "-i", "audio.txt",
+      "-af", `atempo=${options.speed}`, "narration.wav"], signal, directory);
+    narrationEnds.push(...videoNarrationTimings(scenes, batches, batchSeconds, await measure("narration.wav")));
+  }
+  progress(0, scenes.length, "Opening the story renderer…", false, undefined, "frames");
   signal.throwIfAborted();
   const browser = await chromium.launch({ executablePath: capabilities.browser, headless: true, timeout: 30000 });
   const abort = () => { void browser.close().catch(() => {}); };
@@ -218,13 +259,13 @@ async function renderVideo(input: RenderInput): Promise<void> {
       body{gap:0!important}.ds-layout{gap:0!important}.ds-main{width:100%!important}
       #ds-view-tour{gap:0!important}
     ` });
-    const videoList = ["ffconcat version 1.0"], audioList = ["ffconcat version 1.0"];
+    const videoList = ["ffconcat version 1.0"];
     const subtitles: VideoSubtitle[] = [];
     let durationMs = 0, activeStep = -1;
     for (let index = 0; index < scenes.length; index++) {
       signal.throwIfAborted();
       const scene = scenes[index];
-      progress(index, scenes.length, `Rendering passage ${index + 1} of ${scenes.length}…`);
+      progress(index, scenes.length, `Rendering passage ${index + 1} of ${scenes.length}…`, false, undefined, "frames");
       if (scene.step !== activeStep) {
         // Compact stories hide their numeral thread. Drive the same delegated
         // navigation even when that optional control is visually collapsed.
@@ -255,42 +296,21 @@ async function renderVideo(input: RenderInput): Promise<void> {
       await page.evaluate(async () => { await document.fonts.ready; await new Promise(requestAnimationFrame); await new Promise(requestAnimationFrame); });
       const image = `frame-${index}.png`;
       await page.screenshot({ path: join(directory, image), animations: "disabled" });
-      let seconds = Math.max(2.4, scene.text.split(/\s+/).length / (175 * options.speed) * 60 + 0.8);
-      if (options.narration) {
-        const speech = linoSettings ? "speech.wav" : "speech.aiff";
-        if (linoSettings) {
-          progress(index, scenes.length, `Generating Lino narration for passage ${index + 1} of ${scenes.length}…`);
-          await rm(join(directory, speech), { force: true });
-          await input.aloud!.generateAudio!({ ...linoSettings, text: scene.text }, join(directory, speech), signal);
-        } else {
-          await writeFile(join(directory, "speech.txt"), scene.text);
-          await command("/usr/bin/say", ["-r", String(Math.round(175 * options.speed)), "-f", "speech.txt", "-o", speech], signal, directory);
-        }
-        const measured = Number(await command(capabilities.ffprobe!, ["-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", speech], signal, directory));
-        if (!Number.isFinite(measured) || measured <= 0) throw new Error("Could not measure the generated narration.");
-        seconds = measured / (linoSettings ? options.speed : 1) + 0.6;
-        seconds = Math.ceil(seconds * VIDEO_FPS) / VIDEO_FPS;
-        // Apply speed after synthesis for every Lino model, including models
-        // whose audio API only supports native speed. atempo preserves pitch.
-        await command(capabilities.ffmpeg!, ["-nostdin", "-y", "-v", "error", "-i", speech, "-af", linoSettings ? `atempo=${options.speed},apad` : "apad", "-t", String(seconds), "-ar", "24000", "-ac", "1", `audio-${index}.wav`], signal, directory);
-        audioList.push(`file audio-${index}.wav`);
-      }
-      seconds = Math.ceil(seconds * VIDEO_FPS) / VIDEO_FPS;
-      const endMs = durationMs + Math.round(seconds * 1000);
+      const seconds = Math.ceil(Math.max(2.4, scene.text.split(/\s+/).length / (175 * options.speed) * 60 + 0.8) * VIDEO_FPS) / VIDEO_FPS;
+      const endMs = options.narration ? narrationEnds[index] : durationMs + Math.round(seconds * 1000);
       subtitles.push({ startMs: durationMs, endMs, text: scene.text });
+      videoList.push(`file ${image}`, `duration ${(endMs - durationMs) / 1000}`);
       durationMs = endMs;
       if (durationMs > 7200000) throw new Error("This video exceeds two hours. Export a shorter story or use a faster reading speed.");
-      videoList.push(`file ${image}`, `duration ${seconds}`);
     }
     videoList.push(`file frame-${scenes.length - 1}.png`);
     await writeFile(join(directory, "frames.txt"), videoList.join("\n") + "\n");
-    await writeFile(join(directory, "audio.txt"), audioList.join("\n") + "\n");
     await writeFile(join(directory, "subtitles.vtt"), videoSubtitles(subtitles));
     progress(scenes.length, scenes.length, "Encoding MP4…", true);
     const args = ["-nostdin", "-y", "-v", "error", "-progress", "pipe:1", "-stats_period", "0.5", "-nostats", "-f", "concat", "-safe", "1", "-i", "frames.txt"];
-    if (options.narration) args.push("-f", "concat", "-safe", "1", "-i", "audio.txt");
+    if (options.narration) args.push("-i", "narration.wav");
     args.push("-i", "subtitles.vtt", "-map", "0:v:0");
-    if (options.narration) args.push("-map", "1:a:0", "-c:a", "aac", "-b:a", "128k");
+    if (options.narration) args.push("-map", "1:a:0", "-af", "apad", "-c:a", "aac", "-b:a", "128k");
     args.push("-map", `${options.narration ? 2 : 1}:s:0`, "-c:s", "mov_text",
       "-metadata:s:s:0", "title=Story subtitles", "-metadata:s:s:0", "handler_name=Story subtitles",
       "-metadata:s:s:0", "language=und", "-disposition:s:0", "0",
@@ -338,10 +358,10 @@ export class VideoExports {
         row.directory = await mkdtemp(join(tmpdir(), "codestory-video-"));
         controller.signal.throwIfAborted();
         await this.renderer({ snapshot, origin, options, aloud: this.aloud, directory: row.directory, signal: controller.signal,
-          progress: (completed, total, message, encoding, encodedFraction) => {
+          progress: (completed, total, message, encoding, encodedFraction, stage) => {
             if (!controller.signal.aborted) {
               Object.assign(job, { completed, total, message, state: encoding ? "encoding" : "rendering" });
-              row.estimate.update(job.state, encoding ? encodedFraction ?? 0 : completed, encoding ? 1 : total);
+              row.estimate.update(stage ?? job.state, encoding ? encodedFraction ?? 0 : completed, encoding ? 1 : total);
             }
           } });
         controller.signal.throwIfAborted();
