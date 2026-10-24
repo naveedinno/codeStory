@@ -94,7 +94,8 @@ try {
     });
     assert.ok(sourceFocus.visible, `changed explanation reveals active source: ${JSON.stringify(sourceFocus)}`);
     await key('ArrowLeft', 'route'); await key('Home', 'root');
-    assert.ok(await headVisible('root'), 'Home is immediately visible even after interrupted growth');
+    await page.waitForTimeout(450);
+    assert.ok(await headVisible('root'), 'Home settles on its heading after interruptible camera travel');
     await map.hover({ position: { x: 5, y: 5 } });
     const zoomBefore = (await camera())[2]; await page.keyboard.down('Control'); await page.mouse.wheel(0, -100); await page.keyboard.up('Control'); await page.waitForTimeout(100);
     assert.ok((await camera())[2] > zoomBefore, 'pointer-centred wheel zoom works');

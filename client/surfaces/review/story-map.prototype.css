@@ -184,6 +184,10 @@ body[data-read-view="tour"] .sm-prototype{display:flex;flex-direction:column}
 .sm-canvas-chapter[data-reading="false"] .sm-map-order{display:grid;place-items:center;min-width:44px;height:44px;border-radius:50%;background:var(--accent-blue);color:var(--bg);font:600 24px/1 var(--sans);margin-bottom:12px}
 .sm-canvas-chapter[data-reading="false"] .sm-expand,.sm-canvas-root[data-reading="false"] .sm-expand{position:absolute;right:16px;top:16px}
 .sm-canvas-detail[data-reading="false"] .sm-prose{display:block;-webkit-line-clamp:unset;overflow:visible}
+.sm-canvas-detail .sm-card-head{border-bottom:1px solid var(--line-soft);margin-bottom:18px}
+.sm-canvas-detail[data-reading="false"] .sm-card-actions{display:flex;visibility:hidden;pointer-events:none}
+.sm-canvas-item .sm-card-content{transition:opacity 180ms cubic-bezier(.22,.8,.22,1)}
+@starting-style{.sm-canvas-item[data-reading="true"] .sm-card-content{opacity:0}}
 .sm-canvas-item[data-reading="true"] .sm-node{border-color:var(--accent-blue)}
 .sm-canvas-item[data-reading="true"]:not(.sm-canvas-root) .sm-card-head{border-bottom:1px solid var(--line-soft);margin-bottom:18px}
 .sm-canvas-item .sm-native-viewer{height:520px;touch-action:pan-x pan-y}
@@ -194,4 +198,4 @@ body[data-read-view="tour"] .sm-prototype{display:flex;flex-direction:column}
 @media(max-width:760px){.sm-canvas-item .sm-card-head{padding:22px 20px 16px}.sm-canvas-item .sm-card-content{padding:0 20px 20px}.sm-canvas-item .sm-select strong{font-size:22px}.sm-canvas-root .sm-select strong{font-size:30px}.sm-canvas .sm-native-viewer{height:560px}.sm-zoom-label{display:none!important}.sm-map-actions:has(.sm-zoom-label){gap:0}}
 @media(max-width:760px){.sm-canvas-chapter[data-reading="false"] .sm-select strong{font-size:30px}.sm-canvas-root[data-reading="false"] .sm-select strong{font-size:44px}.sm-canvas-chapter[data-reading="false"] .sm-symbol{font-size:14px}.sm-canvas-chapter[data-reading="false"] .sm-card-head{min-height:210px;padding:26px 22px}.sm-canvas-root[data-reading="false"] .sm-card-head{min-height:240px;padding:26px 22px}}
 @media(max-width:760px){.sm-canvas-item[data-reading="true"] .sm-card-content{padding-inline:12px}}
-@media(prefers-reduced-motion:reduce){.sm-canvas-world{transition-duration:0s}}
+@media(prefers-reduced-motion:reduce){.sm-canvas-world,.sm-canvas-item .sm-card-content{transition-duration:0s}}

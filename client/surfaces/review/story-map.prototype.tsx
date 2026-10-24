@@ -72,11 +72,12 @@ function revealInMap(element: HTMLElement | null, center = false, animate = true
 let selectionVersion = 0;
 async function selectSource(topic: Topic) {
   const version = ++selectionVersion;
-  document.querySelector<HTMLButtonElement>(`[data-thread-node="${topic.panelIndex}"]`)?.click();
+  if (!document.querySelector(`[data-step-panel="${topic.panelIndex}"]:not([data-step-lazy]):not([hidden])`)) document.querySelector<HTMLButtonElement>(`[data-thread-node="${topic.panelIndex}"]`)?.click();
   await waitFor(() => version !== selectionVersion || !!document.querySelector(`[data-step-panel="${topic.panelIndex}"]:not([data-step-lazy]):not([hidden])`));
-  if (version !== selectionVersion) return;
+  if (version !== selectionVersion) return false;
   const beat = document.querySelector<HTMLButtonElement>(`[data-dock-step="${topic.panelIndex}"] [data-story-beat][data-focus-group="${topic.beat}"]`);
-  beat?.click();
+  if (!beat?.classList.contains('is-selected')) beat?.click();
+  return version === selectionVersion && !!beat?.classList.contains('is-selected');
 }
 
 type ViewerBlock = Extract<ContentBlock, { type: 'code' | 'diff' }>;
@@ -133,10 +134,10 @@ function NativeViewer({ block, beat, current, full }: { block: ViewerBlock; beat
       } }));
     };
     const registration = { element, modal: !!element.closest('dialog'), refresh }; viewer.hosts.add(registration);
-    const schedule = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(() => refresh()); };
+    const schedule = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(() => refresh({ geometry: true })); };
     const observer = new MutationObserver(records => { if (records.some(record => (record.target as HTMLElement).matches('[data-mode],[data-full-inner],[data-diff-inner],[data-split-inner],[data-line-wrap-toggle],.ds-callsite-pane,[data-callsite-toggle]'))) schedule(); });
     let width = 0;
-    const resize = new ResizeObserver(entries => { const next = Math.round(entries[0].contentRect.width); if (next !== width) { width = next; refresh(); settleViewerScroll(viewer); } });
+    const resize = new ResizeObserver(entries => { const next = Math.round(entries[0].contentRect.width); if (next !== width) { width = next; refresh({ geometry: true }); settleViewerScroll(viewer); } });
     if (!viewerHtml.has(block.viewerId)) viewerHtml.set(block.viewerId, fetch('/_prototype/viewer?id=' + encodeURIComponent(block.viewerId)).then(response => response.text()));
     void viewerHtml.get(block.viewerId)!.then(markup => {
       if (cancelled) return;
@@ -265,7 +266,9 @@ function Prototype({ data }: { data: MapData }) {
     selectedRef.current = topic.id; setSelected(topic.id); setOutside(''); setVisited(old => new Set([...old, topic.id]));
     setSourcePosition({ panelIndex: topic.panelIndex, beat: topic.beat });
     setExpanded(old => new Set([...old, ...ancestors(topic.id).map(item => item.id)]));
-    void selectSource(topic);
+    void selectSource(topic).then(settled => {
+      if (settled && pendingSource.current?.panelIndex === topic.panelIndex && pendingSource.current.beat === topic.beat) pendingSource.current = null;
+    });
   };
   const cardFor = (id: string) => map.current?.querySelector<HTMLElement>(`[data-map-detail="${id}"]`) ?? map.current?.querySelector<HTMLElement>(`[data-map-node="${id}"]`) ?? null;
   const toggle = (id: string) => {
@@ -290,7 +293,7 @@ function Prototype({ data }: { data: MapData }) {
     }
     setExpanded(old => { const ids = ancestors(selectedRef.current).map(item => item.id); return ids.every(id => old.has(id)) ? old : new Set([...old, ...ids]); });
     focusCard(selectedRef.current);
-    revealInMap(cardFor(selectedRef.current), true, !keyboardInput.current);
+    revealInMap(cardFor(selectedRef.current), true, variant === 'A' || !keyboardInput.current);
   };
   const mapKey = (event: KeyboardEvent) => {
     if (event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.defaultPrevented) return;
@@ -322,7 +325,7 @@ function Prototype({ data }: { data: MapData }) {
     let next: Topic | undefined;
     if (event.key === 'Home') next = get('root');
     else if (event.key === 'Enter' && (target.closest('[data-map-focus]') || !target.closest('button'))) {
-      event.preventDefault(); event.stopPropagation(); focusCard(id); revealInMap(cardFor(id), true, false); return;
+      event.preventDefault(); event.stopPropagation(); focusCard(id); revealInMap(cardFor(id), true, variant === 'A'); return;
     } else if (event.key === 'ArrowRight' || (event.key === 'ArrowDown' && id === 'root')) {
       next = byId.get(current.children[0]);
     } else if (event.key === 'ArrowLeft' || event.key === 'Escape') {
@@ -387,7 +390,8 @@ function Prototype({ data }: { data: MapData }) {
     if (request?.focus) focusCard(selected);
     // Narration follows headers without taking the viewport away from inspection.
     if (!request && document.activeElement?.closest('[data-map-native-viewer]')) return;
-    revealInMap(card, !!request?.center || reflowed.current, reflowed.current || (!!request && !request.keyboard), !request?.center && !reflowed.current && (!request || request.keyboard));
+    const animate = variant === 'A' ? !!request || reflowed.current : reflowed.current || (!!request && !request.keyboard);
+    revealInMap(card, !!request?.center || reflowed.current, animate, !request?.center && !reflowed.current && (!request || request.keyboard));
     return () => cancelMapMotion(map.current);
   }, [selected, variant, focused, navigation, expanded, overview]);
   useEffect(() => { document.body.dataset.mapTranscript = String(transcript); }, [transcript]);
@@ -531,7 +535,7 @@ function Prototype({ data }: { data: MapData }) {
     <header className="sm-command-bar">
       <nav className="sm-breadcrumbs" aria-label="Map location">{path.map((item, index) => <span key={item.id}>{index > 0 && <span aria-hidden="true">/</span>}<button type="button" onClick={() => choose(item)} aria-current={item.id === selected ? 'location' : undefined}>{item.id === 'root' ? 'Gateway' : item.label}</button></span>)}</nav>
       <div className="sm-map-actions">
-        {variant === 'A' && <><button type="button" aria-label="Fit whole map" title="Whole map" onClick={() => { prepareReflow(); setOverview(true); canvas.fit(!keyboardInput.current); }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M9 3H3v6m12-6h6v6M3 15v6h6m12-6v6h-6"/></svg></button><button type="button" className="sm-zoom-label" aria-label={`Map zoom ${zoom} percent. Reset to readable size`} onClick={findCurrent}>{zoom}%</button></>}
+        {variant === 'A' && <><button type="button" aria-label="Fit whole map" title="Whole map" onClick={() => { prepareReflow(); setOverview(true); canvas.fit(!keyboardInput.current); }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M9 3H3v6m12-6h6v6M3 15v6h6m12-6v6h-6"/></svg></button><button type="button" className="sm-zoom-label" aria-label={`Map zoom ${zoom} percent. Reset to readable size`} onClick={() => overview ? findCurrent() : canvas.resetZoom(selectedRef.current)}>{zoom}%</button></>}
         <button type="button" aria-label="Find current card" title="Center current card" onClick={findCurrent}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><circle cx="12" cy="12" r="7"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg></button>
         <button type="button" className="sm-focus" aria-label="Focus current card" onClick={() => openCard(node)}><span className="sm-focus-label">Focus</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button>
         <button ref={optionsTrigger} type="button" aria-label="Map options" aria-haspopup="dialog" aria-expanded={optionsOpen} aria-controls={optionsId} popoverTarget={optionsId} title="Map options"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>

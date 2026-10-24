@@ -4511,7 +4511,9 @@ export function startReviewEngine(options){
       if(button&&button.getAttribute('aria-pressed')!=='true')setMode(button,{persist:false});
     }
     if(detail.reflow)$all('.ds-callsite-scroll',root).forEach(function(scroll){scroll._dsCallsiteCentered=false;});
-    syncSplitPaneLayouts(root);syncCallerWindow(root);$all('.ds-diff',root).forEach(updateChangeNav);
+    if(detail.initialize||detail.attach||detail.reflow||detail.geometry||detail.mode){
+      syncSplitPaneLayouts(root);syncCallerWindow(root);$all('.ds-diff',root).forEach(updateChangeNav);
+    }
     var ranges=detail.ranges||[],rows=$all('.ds-row,.ds-urow',root).filter(function(row){
       var line=Number(row.getAttribute('data-line')),stamped=row.getAttribute('data-step-focus');
       var on=stamped!==null&&Number(stamped)===detail.beat||row.getAttribute('data-side')!=='left'&&ranges.some(function(range){return line>=range[0]&&line<=range[1];});

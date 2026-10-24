@@ -86,13 +86,15 @@ try {
     await page.getByRole('dialog').waitFor({ state: 'hidden' });
     await key('ArrowRight', 'route-1');
     await key('ArrowLeft', 'route');
-    // A keyboard-activated toolbar command must settle without camera tweening.
+    // A uses Ivy's visual camera travel while focus remains immediate. B/C
+    // retain their scroll framing. Native inputs still own their keys below.
     await page.locator('.sm-map').evaluate(node => { node.scrollTop = 1600; });
     await page.getByRole('button', { name: 'Find current card', exact: true }).focus();
     await page.keyboard.press('Enter'); await focused('route');
+    if (variant === 'A' && motion !== 'reduce') await page.waitForTimeout(450);
     const position = await page.locator('.sm-map').evaluate(node => [node.scrollTop, node.scrollLeft]);
     await page.waitForTimeout(260);
-    assert.deepEqual(await page.locator('.sm-map').evaluate(node => [node.scrollTop, node.scrollLeft]), position, 'keyboard Find is immediate');
+    assert.deepEqual(await page.locator('.sm-map').evaluate(node => [node.scrollTop, node.scrollLeft]), position, 'keyboard Find settles without delayed drift');
     // Native widgets retain their own keyboard behavior.
     await page.getByRole('button', { name: 'Map options', exact: true }).click();
     await page.getByRole('combobox', { name: 'Map layout', exact: true }).focus();
@@ -111,7 +113,7 @@ try {
     assert.deepEqual(errors, []);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
     await page.screenshot({ path: resolve(output, `${variant}-${width}-${motion}.png`) });
-    console.log(`PASS ${variant}/${width}/${motion}: initial/prose keys, held keys, native code/Escape, instant keyboard Find, widget ownership, no map snapshots`);
+    console.log(`PASS ${variant}/${width}/${motion}: initial/prose keys, held keys, native code/Escape, keyboard framing, widget ownership, no map snapshots`);
     await page.close();
   }
 } finally { await browser.close(); }

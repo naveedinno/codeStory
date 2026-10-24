@@ -1,6 +1,6 @@
 // THROWAWAY: the Ivy docs' measured tree, transform camera and reflow, adapted to live CodeStory cards.
 type Topic = { id: string; children: string[] };
-type Card = { id: string; el: HTMLElement; x: number; y: number; w: number; h: number; treeW: number; treeH: number; childH: number; visible: boolean; children: Card[]; parent?: Card };
+type Card = { id: string; kind: string; el: HTMLElement; x: number; y: number; w: number; h: number; treeW: number; treeH: number; childH: number; visible: boolean; dirty: boolean; reading: boolean; children: Card[]; parent?: Card };
 type Presented = { x: number; y: number; w: number; h: number; sx: number; sy: number; opacity: string; visible: boolean };
 const cameras = new WeakMap<HTMLElement, StoryMapCanvas>();
 export const canvasFor = (map: HTMLElement) => cameras.get(map);
@@ -8,9 +8,26 @@ const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 const matrix = (element: Element) => { const css = getComputedStyle(element).transform; return new DOMMatrix(css === 'none' ? undefined : css); };
 const SVG = 'http://www.w3.org/2000/svg';
-function shiftedPath(path: string, dx: number, dy: number) {
+function shiftedPath(path: string, dx: number, dy: number, parent: Card, child: Card, oldParent: Presented | undefined, oldChild: Presented | undefined, vertical: boolean) {
   let i = 0;
-  return path.replace(/-?\d+(?:\.\d+)?(?:e[+-]?\d+)?/gi, value => String(Number(value) + (i++ % 2 ? dy : dx)));
+  const pw = parent.w - (oldParent?.w ?? parent.w), ph = parent.h - (oldParent?.h ?? parent.h);
+  const cw = child.w - (oldChild?.w ?? child.w), ch = child.h - (oldChild?.h ?? child.h);
+  // Reading disclosure changes a live card's dimensions before its translation
+  // starts. Shift the old path's anchors to those presented edges as well as
+  // compensating the world position; otherwise lines briefly float off cards.
+  return path.replace(/-?\d+(?:\.\d+)?(?:e[+-]?\d+)?/gi, value => {
+    const point = Math.floor(i / 2), y = i++ % 2;
+    let delta = y ? dy : dx;
+    if (!vertical) {
+      if (y) delta += (point < 2 ? ph : ch) / 2;
+      else if (point === 0) delta += pw * (oldParent?.sx ?? 1);
+      else if (point < 3) delta += pw * (oldParent?.sx ?? 1) / 2;
+    } else if (y) delta += point < 4 ? ph * (oldParent?.sy ?? 1) : ch * (oldChild?.sy ?? 1) / 2;
+    else if (point < 2) delta += pw / 2;
+    else if (point < 6) delta += pw * (1 - (oldParent?.sx ?? 1)) / 2;
+    else delta += cw * (1 - (oldChild?.sx ?? 1)) / 2;
+    return String(Number(value) + delta);
+  });
 }
 
 export class StoryMapCanvas {
@@ -24,7 +41,7 @@ export class StoryMapCanvas {
   private height = 0;
   private home = true;
   private target = 'root';
-  private pending: { cards: Map<string, Presented>; anchor: string; structural: boolean } | null = null;
+  private pending: { anchor: string; structural: boolean } | null = null;
   private slots = new Map<Element, Map<string, Animation>>();
   private resize: ResizeObserver | null = null;
   private resizeFrame = 0;
@@ -42,9 +59,9 @@ export class StoryMapCanvas {
     if (!map.querySelector('.sm-canvas-world')) return;
     if (this.pending) { this.pending.structural ||= structural; return; }
     this.interrupt();
-    this.pending = { cards: this.presented(), anchor, structural };
+    this.pending = { anchor, structural };
   }
-  private presented() {
+  private presented(): Map<string, Presented> {
     return new Map([...this.nodes].map(([id, n]) => { const m = matrix(n.el); return [id, { x: n.x + m.e, y: n.y + m.f, w: n.w, h: n.h, sx: m.a, sy: m.d, opacity: getComputedStyle(n.el).opacity, visible: !n.el.hidden }] as const; }));
   }
   private motion(el: HTMLElement | SVGElement, slot: string, from: Keyframe, to: Keyframe, duration: number, delay = 0, done?: () => void) {
@@ -63,41 +80,57 @@ export class StoryMapCanvas {
       this.svg = document.createElementNS(SVG, 'svg'); this.svg.classList.add('sm-canvas-edges'); this.svg.setAttribute('aria-hidden', 'true'); world.prepend(this.svg);
       for (const topic of this.topics) {
         const el = world.querySelector<HTMLElement>(`[data-canvas-node="${topic.id}"]`)!;
-        this.nodes.set(topic.id, { id: topic.id, el, x: 0, y: 0, w: 0, h: 0, treeW: 0, treeH: 0, childH: 0, visible: false, children: [] });
+        const kind = el.querySelector<HTMLElement>('[data-card-kind]')!.dataset.cardKind!;
+        this.nodes.set(topic.id, { id: topic.id, kind, el, x: 0, y: 0, w: 0, h: 0, treeW: 0, treeH: 0, childH: 0, visible: false, dirty: true, reading: false, children: [] });
       }
       for (const topic of this.topics) { const n = this.nodes.get(topic.id)!; n.children = topic.children.map(id => this.nodes.get(id)!); n.children.forEach(child => { child.parent = n; }); }
       this.wire();
-      this.resize = new ResizeObserver(() => {
+      this.resize = new ResizeObserver(entries => {
+        for (const entry of entries) {
+          const n = this.nodes.get((entry.target as HTMLElement).dataset.canvasNode ?? '');
+          if (n?.visible && Math.abs(entry.contentRect.height - n.h) > .5) n.dirty = true;
+        }
         cancelAnimationFrame(this.resizeFrame); this.resizeFrame = requestAnimationFrame(() => {
           if (!this.map || !this.world) return;
-          if (this.viewWidth === this.map.clientWidth && this.viewHeight === this.map.clientHeight && this.currentSignature() === this.signature) return;
+          const viewport = this.viewWidth !== this.map.clientWidth || this.viewHeight !== this.map.clientHeight;
+          if (!viewport && ![...this.nodes.values()].some(n => n.dirty)) return;
           const wasHome = this.home;
-          this.reflow(false);
-          if (wasHome) this.fit(false); else if (!document.activeElement?.closest('[data-map-native-viewer]')) this.center(this.nodes.get(this.target), false);
+          this.reflow(!viewport);
+          if (wasHome) this.fit(false); else if (!document.activeElement?.closest('[data-map-native-viewer]')) this.center(this.nodes.get(this.target), !viewport, true);
         });
       }); this.resize.observe(map); this.nodes.forEach(n => this.resize!.observe(n.el));
     }
     const pending = this.pending; this.pending = null;
-    if (!first && !pending && this.currentSignature() === this.signature) return false;
-    this.reflow(!first && !!pending?.structural, pending?.cards, pending?.anchor);
+    if (!first && this.currentSignature() === this.signature && ![...this.nodes.values()].some(n => n.dirty)) return false;
+    this.reflow(!first, undefined, pending?.anchor);
     if (first) this.fit(false);
     return pending?.structural ?? false;
   }
-  private currentSignature() { return [...this.nodes.values()].map(n => `${n.el.dataset.canvasOpen}:${n.el.dataset.reading}:${n.el.dataset.canvasOpen === 'true' ? n.el.offsetHeight : 0}`).join(','); }
+  private readingState(n: Card) { return n.el.dataset.reading === 'true' && (!n.el.classList.contains('sm-canvas-detail') || n.kind === 'Code' || n.kind === 'Code diff'); }
+  private currentSignature() { return [...this.nodes.values()].map(n => `${n.el.dataset.canvasOpen}:${this.readingState(n)}`).join(','); }
   private reflow(animate: boolean, before = this.presented(), anchorId = this.target) {
     if (!this.map || !this.world || !this.svg) return;
     this.interrupt();
     const vertical = this.map.clientWidth < 1120, duration = animate && !reduced() ? 440 : 0;
+    const paths = new Map([...this.svg.querySelectorAll<SVGPathElement>('path')].map(path => [path.dataset.mapEdge!, path]));
+    const pathFrames = new Map([...paths].map(([id, path]) => { const css = getComputedStyle(path); return [id, { d: css.getPropertyValue('d'), dash: css.strokeDashoffset }] as const; }));
     this.world.dataset.vertical = String(vertical);
+    const measuring: { n: Card; hidden: boolean }[] = [];
     for (const n of this.nodes.values()) {
-      n.visible = n.el.dataset.canvasOpen === 'true';
-      const reading = n.el.dataset.reading === 'true', kind = n.el.querySelector<HTMLElement>('[data-card-kind]')!.dataset.cardKind;
+      const visible = n.el.dataset.canvasOpen === 'true';
+      if (visible && !n.visible) n.dirty = true;
+      n.visible = visible;
+      const reading = this.readingState(n), kind = n.kind;
       const inspection = reading && (kind === 'Code' || kind === 'Code diff');
-      n.w = Math.min(reading && kind === 'Code' && n.id !== 'root' ? 920 : reading && kind === 'Code diff' ? 1040 : n.id === 'root' || !n.parent?.parent ? 720 : 460, Math.max(280, this.map.clientWidth - (inspection ? 24 : 48)));
-      n.el.style.width = n.w + 'px';
-      // Measure the same live card, never a clone of its native source viewer.
-      const hidden = n.el.hidden; n.el.hidden = false;
-      n.h = n.el.offsetHeight; n.el.hidden = hidden;
+      const width = Math.min(reading && kind === 'Code' && n.id !== 'root' ? 920 : reading && kind === 'Code diff' ? 1040 : n.id === 'root' || !n.parent?.parent ? 720 : 460, Math.max(280, this.map.clientWidth - (inspection ? 24 : 48)));
+      if (width !== n.w || reading !== n.reading) n.dirty = true;
+      n.w = width; n.reading = reading;
+      if (n.dirty) { measuring.push({ n, hidden: n.el.hidden }); n.el.style.width = width + 'px'; n.el.hidden = false; }
+    }
+    // Batch writes, then measure only invalidated live cards in one layout.
+    for (const { n } of measuring) { n.h = n.el.offsetHeight; n.dirty = false; }
+    for (const { n, hidden } of measuring) n.el.hidden = hidden;
+    for (const n of this.nodes.values()) {
       const old = before.get(n.id);
       if (!old?.visible || Math.abs(old.w - n.w) > 1 || Math.abs(old.h - n.h) > 1) this.needsFraming.add(n.id);
     }
@@ -129,13 +162,13 @@ export class StoryMapCanvas {
       if (n.visible) {
         el.hidden = false;
         const from = old?.visible ? `translate(${old.x + dx - n.x}px,${old.y + dy - n.y}px) scale(${old.sx},${old.sy})` : `translate(${vertical ? '0,-24px' : '-24px,0'}) scale(.94)`;
-        this.motion(el, 'position', { transform: from, opacity: old?.visible ? old.opacity : '0' }, { transform: 'none', opacity: '1' }, duration, !old?.visible && duration ? 230 : 0);
+        const moved = !old?.visible || Math.abs(old.x + dx - n.x) > .1 || Math.abs(old.y + dy - n.y) > .1 || Math.abs(old.sx - 1) > .001 || Math.abs(old.sy - 1) > .001 || Number(old.opacity) < .999;
+        this.motion(el, 'position', { transform: from, opacity: old?.visible ? old.opacity : '0' }, { transform: 'none', opacity: '1' }, moved ? duration : 0, !old?.visible && duration ? 230 : 0);
       } else if (old?.visible) {
         this.motion(el, 'position', { transform: getComputedStyle(el).transform, opacity: getComputedStyle(el).opacity }, { transform: 'translateX(-18px) scale(.96)', opacity: '0' }, duration ? 220 : 0, 0, () => { if (!n.visible) el.hidden = true; });
       } else el.hidden = true;
     }
     this.svg.setAttribute('width', String(this.width)); this.svg.setAttribute('height', String(this.height));
-    const paths = new Map([...this.svg.querySelectorAll<SVGPathElement>('path')].map(path => [path.dataset.mapEdge!, path]));
     for (const n of this.nodes.values()) {
       if (!n.parent) continue; const p = n.parent, on = n.visible && p.visible;
       let path = paths.get(n.id); if (!path && !on) continue;
@@ -145,12 +178,12 @@ export class StoryMapCanvas {
       if (on) {
         const x = p.x + p.w, y = p.y + p.h / 2, sy = n.y + n.h / 2, stem = x + gapX(p) / 2;
         const d = vertical ? `M ${p.x + p.w / 2} ${p.y + p.h} C ${p.x + p.w / 2} ${p.y + p.h + 42}, ${p.x - 24} ${p.y + p.h + 18}, ${p.x - 24} ${p.y + p.h + 60} L ${p.x - 24} ${sy - 24} Q ${p.x - 24} ${sy} ${n.x} ${sy}` : `M ${x} ${y} C ${stem} ${y}, ${stem} ${sy}, ${n.x} ${sy}`;
-        const prior = shiftedPath(getComputedStyle(path).getPropertyValue('d'), dx, dy); path.style.display = ''; path.dataset.closed = 'false'; path.setAttribute('d', d);
+        const prior = fresh ? `path("${d}")` : shiftedPath(pathFrames.get(n.id)!.d, dx, dy, p, n, before.get(p.id), before.get(n.id), vertical); path.style.display = ''; path.dataset.closed = 'false'; path.setAttribute('d', d);
         this.motion(path, 'shape', { d: fresh ? `path("${d}")` : prior }, { d: `path("${d}")` }, duration);
-        this.motion(path, 'draw', { strokeDashoffset: fresh ? '1' : getComputedStyle(path).strokeDashoffset }, { strokeDashoffset: '0' }, (fresh || closed) && duration ? 520 : duration);
+        this.motion(path, 'draw', { strokeDashoffset: fresh ? '1' : pathFrames.get(n.id)!.dash }, { strokeDashoffset: '0' }, (fresh || closed) && duration ? 520 : duration);
       } else if (!closed) {
         path.dataset.closed = 'true';
-        this.motion(path, 'draw', { strokeDashoffset: getComputedStyle(path).strokeDashoffset }, { strokeDashoffset: '1' }, duration ? 320 : 0, 0, () => { if (path!.dataset.closed === 'true') path!.style.display = 'none'; });
+        this.motion(path, 'draw', { strokeDashoffset: pathFrames.get(n.id)!.dash }, { strokeDashoffset: '1' }, duration ? 320 : 0, 0, () => { if (path!.dataset.closed === 'true') path!.style.display = 'none'; });
       }
     }
     // Commit compensation before any subsequent camera flight, as in Ivy reflow().
@@ -179,11 +212,11 @@ export class StoryMapCanvas {
     const s = Math.min(this.map.clientWidth / (this.width + 160), this.map.clientHeight / (this.height + 160), 1);
     this.cam = { s, x: (this.map.clientWidth - this.width * s) / 2, y: (this.map.clientHeight - this.height * s) / 2 }; this.apply(animate);
   }
-  private center(n: Card | undefined, animate: boolean) {
+  private center(n: Card | undefined, animate: boolean, preserveZoom = false) {
     if (!n || !this.map) return;
     this.home = false; this.target = n.id;
     this.needsFraming.delete(n.id);
-    this.cam.s = Math.min(1, (this.map.clientWidth - 32) / n.w);
+    if (!preserveZoom) this.cam.s = Math.min(1, (this.map.clientWidth - 32) / n.w);
     this.cam.x = this.map.clientWidth / 2 - (n.x + n.w / 2) * this.cam.s;
     this.cam.y = n.h * this.cam.s <= this.map.clientHeight - 24 ? this.map.clientHeight / 2 - (n.y + n.h / 2) * this.cam.s : 16 - n.y * this.cam.s;
     this.clampCamera(); this.apply(animate);
@@ -192,12 +225,13 @@ export class StoryMapCanvas {
     if (!this.map) return;
     const n = this.nodes.get(element.dataset.mapNode!); if (!n?.visible) return;
     this.target = n.id;
+    const preserveZoom = !this.home && (!n.reading || !this.needsFraming.has(n.id));
     this.interrupt();
-    if (!animate) this.slots.get(n.el)?.get('position')?.finish();
     const heading = element.querySelector('.sm-card-head')!, h = heading.getBoundingClientRect(), v = this.map.getBoundingClientRect();
     if (!center && headerOnly && !this.needsFraming.has(n.id) && this.cam.s >= .95 && h.top >= v.top + 16 && h.bottom <= v.bottom - 16 && h.left >= v.left + 16 && h.right <= v.right - 16) return;
-    this.center(n, animate);
+    this.center(n, animate, preserveZoom);
   }
+  resetZoom(id: string) { this.interrupt(); this.center(this.nodes.get(id), true); }
   zoom(factor: number, px?: number, py?: number) {
     if (!this.map) return; this.interrupt(); this.home = false;
     const minScale = Math.min(.15, this.map.clientWidth / (this.width + 160), this.map.clientHeight / (this.height + 160));

@@ -75,8 +75,10 @@ claim compiler-resolved call relationships.
 Body/background/prose arrows navigate from first load. Right enters the first
 child; Left folds the level being left and returns to its parent. Up/Down move
 among siblings without wrapping; Home returns to the gateway. Selection/focus
-update immediately. Structural growth animates; nonstructural keyboard framing
-settles immediately. Enter/Find centres the current card. Native code arrows
+update immediately. Visual keyboard travel, Enter and Find follow Ivy's 350ms
+camera curve; new commands retarget the presented position. Sibling selection
+keeps card dimensions stable and leaves unfinished branch entrances running.
+Enter/Find centres the current card. Native code arrows
 scroll code; Escape returns to the map without resetting the explanation.
 Open native menus close first, including inside Focus. Inputs, tabs, popovers
 and separators retain their own keys. Tab focus brings offscreen controls into
@@ -105,3 +107,14 @@ These browser checks are distinct from full-suite checks, audible synthesis,
 physical touch performance or native-app installation. Capture the implemented
 canvas and compare with the actual Ivy map at matching viewport/theme before
 calling a visual iteration complete.
+
+`story-map-motion-smoke.mjs` checks continuous keyboard camera travel, retained
+entrances during fast sibling input, reversal, connector attachment while cards
+resize, reduced motion and background gesture interruption. It also checks
+source synchronization after reselection and reading widths for code leaves.
+A captured Chromium
+comparison exposed the previous 30-layout sibling step; cached dimensions,
+batched measurement and highlight-only native refreshes reduce that steady
+step to 3 layouts on desktop/390px (4 under reduced motion at 320px). SVG path
+animation is measured separately because it legitimately performs layout work.
+These are browser measurements, not a physical-device frame-rate guarantee.
