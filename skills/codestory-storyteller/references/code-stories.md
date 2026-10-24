@@ -87,6 +87,12 @@ most 200 characters, and check that the step titles follow it.
 
 ## Beats for explanation
 
+Read `references/helper-depth.md`. After orientation, open the important
+helpers the overview introduced, explain their meaningful branches, and follow
+their returned values or state effects back into the caller. These are normal
+narrated stops. Use `callSite` on helper steps to preserve the invocation on
+screen while the helper's own source and beats advance.
+
 Every beat rule in SKILL.md holds: land the listener first, one decision per
 beat, end on the consequence, never narrate line numbers, write for the ear.
 

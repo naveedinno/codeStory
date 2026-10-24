@@ -50,6 +50,13 @@ The checker enforces every line of this; knowing it saves a rewrite.
   optional `when`; plain text, each at most 80 characters (`role.who` 40). The
   checker verifies that each caller shares a file with the symbol and that a
   gate is written in the step's file. The app shows it under the step title.
+- Optional `callSite` on a version 4 helper code step: `{"step":"caller-id",
+  "range":[start,end],"viewport":[start,end]}`. `step` names an earlier code
+  step; `range` is the actual call (at most 12 lines). Optional `viewport`
+  crops that caller. Both spans stay inside the caller's viewport; range stays
+  inside the crop. If `returnsTo` is present, it equals `callSite.step`.
+  The app shows caller and helper together at the same revision; caller context
+  adds no coverage. See `references/helper-depth.md` for narrative obligations.
 
 #### Narrative fields are HTML
 

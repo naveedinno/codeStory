@@ -246,6 +246,16 @@ export interface CodeStepView extends StepViewBase {
   note?: string;
   moves: LogicMoveView[];
   pairedView?: string;
+  callSite?: {
+    stepId: string;
+    panelIndex: number;
+    symbol: string;
+    file: string;
+    range: [number, number];
+    viewport: [number, number];
+    blocks: SbsRow[][];
+    note?: string;
+  };
 }
 
 /** One node of a landing's call graph; `panelIndex` is set when it is a story step. */
@@ -674,6 +684,22 @@ function buildCodeStep(
   const focusExplicit = beats.length > 0 || highlights.length > 0;
   const moves = buildLogicMoves(step, diffFile?.oldPath ?? step.file, ordered ?? []);
   const pairedView = pairedMoveFor(step)?.id;
+  const callerIndex = step.callSite ? (ordered ?? []).findIndex((candidate) => candidate.id === step.callSite!.step) : -1;
+  const caller = callerIndex < 0 ? undefined : ordered?.[callerIndex];
+  const callSite = step.callSite && caller && isCodeStep(caller)
+    ? {
+        stepId: caller.id,
+        panelIndex: callerIndex + 1,
+        symbol: caller.landing?.symbol ? narrativeText(caller.landing.symbol) : narrativeText(caller.title),
+        file: caller.file,
+        range: step.callSite.range,
+        viewport: step.callSite.viewport ?? stepViewport(caller),
+        ...(detailed ? stepBlocks(repo, {
+          id: caller.id, order: caller.order, title: caller.title, kind: 'context', file: caller.file,
+          range: step.callSite.range, viewport: step.callSite.viewport ?? stepViewport(caller), why: '',
+        }, files, headRef, baseRef, unreadableNote) : { blocks: [] }),
+      }
+    : undefined;
   return {
     id: step.id,
     order: step.order,
@@ -694,6 +720,7 @@ function buildCodeStep(
       kind: 'code',
       hasMoves: moves.length > 0,
       paired: pairedView !== undefined,
+      hasCallSite: callSite !== undefined,
     }),
     tags: (step.tags ?? []).map((tag) => narrativeText(tag)),
     newFile: step.kind === 'new-file',
@@ -737,6 +764,7 @@ function buildCodeStep(
     note,
     moves,
     pairedView,
+    callSite,
   };
 }
 

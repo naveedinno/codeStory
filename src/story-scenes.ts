@@ -5,7 +5,7 @@ import type { StoryStepSceneLayout } from './types.js';
 
 export type StoryStepSceneFacts =
   | { kind: 'concept'; hasDiagram: boolean; hasPage?: boolean }
-  | { kind: 'code'; hasMoves: boolean; paired: boolean };
+  | { kind: 'code'; hasMoves: boolean; paired: boolean; hasCallSite?: boolean };
 
 /**
  * Choose the most specific scene that can present the existing evidence.
@@ -17,6 +17,7 @@ export function projectStoryStepScene(facts: StoryStepSceneFacts): StoryStepScen
     if (facts.hasPage) return 'concept-page';
     return facts.hasDiagram ? 'concept-diagram' : 'concept-document';
   }
+  if (facts.hasCallSite) return 'caller-helper';
   if (facts.paired) return 'paired-code';
   if (facts.hasMoves) return 'logic-move';
   return 'code-focus';

@@ -165,7 +165,8 @@ function codeStepPanel(
           }</span></div>`
         : ""
     }
-    <div class="ds-diffscroll">
+    ${s.callSite ? callerHelperOpen(s, diffRegionId) : ''}
+    <div class="ds-diffscroll${s.callSite ? ' ds-helper-scroll' : ''}">
       <div class="ds-diff" id="${diffRegionId}" data-diff data-story-diff data-file="${esc(s.file)}" role="region" aria-label="${esc(
         s.file,
       )} story diff"${s.newFile ? ' data-newfile="1"' : ""}>
@@ -189,8 +190,39 @@ function codeStepPanel(
         <div data-full-inner hidden></div>
       </div>
     </div>
+    ${s.callSite ? '</div></div>' : ''}
     ${stepStoryHtml(s, diffRegionId, i + 1)}
   </section>`;
+}
+
+/** Independent source windows, not the before/after sides of a diff. */
+function callerHelperOpen(s: CodeStepView, diffRegionId: string): string {
+  const site = s.callSite!;
+  const callerId = `${diffRegionId}-caller`;
+  const body = site.blocks.flat().map((row) => {
+    const line = row.newNo;
+    const html = renderSplitRow(row, {
+      single: true,
+      rightTarget: line === undefined ? undefined : { side: 'right', file: site.file, line },
+      stepId: site.stepId,
+    });
+    return line !== undefined && line >= site.range[0] && line <= site.range[1]
+      ? html.replace('class="ds-row ', 'data-callsite-anchor class="ds-row is-callsite-focus ')
+      : html;
+  }).join('');
+  return `<div class="ds-code-pair" data-code-pair>
+    <div class="ds-code-pair-toolbar">
+      <span><strong>Caller</strong><span aria-hidden="true"> → </span><strong>Helper</strong></span>
+      <button type="button" data-callsite-toggle aria-expanded="true" aria-controls="${callerId}">Hide caller</button>
+    </div>
+    <div class="ds-code-pair-body">
+      <aside class="ds-callsite-pane" id="${callerId}" aria-label="${esc(`Caller: ${site.symbol}`)}">
+        <div class="ds-callsite-heading"><div><span class="ds-callsite-label">Caller</span><code>${esc(site.symbol)}</code></div>
+          <button type="button" data-callsite-return="${site.panelIndex}" data-callsite-line="${site.range[0]}" aria-label="${esc(`Return to ${site.symbol}`)}">Return to caller ↩</button></div>
+        <div class="ds-callsite-path" title="${esc(site.file)}">${esc(site.file)}${s.pinnedCommit ? ` · ${esc(s.pinnedCommit.slice(0, 7))}` : ''}</div>
+        <div class="ds-callsite-scroll" tabindex="0" role="region" aria-label="${esc(`Caller source: ${site.file}`)}"><div class="ds-diffbody">${body || `<div class="ds-diffnote">${esc(site.note ?? 'Caller source could not be read.')}</div>`}</div></div>
+      </aside>
+      <div class="ds-callsite-divider" data-callsite-divider role="separator" tabindex="0" aria-label="Resize caller and helper panes" aria-orientation="vertical" aria-valuemin="25" aria-valuemax="65" aria-valuenow="40" aria-keyshortcuts="ArrowLeft ArrowRight Home End"></div>`;
 }
 
 /**

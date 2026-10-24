@@ -24,6 +24,7 @@ export type StoryStepSceneLayout =
   | 'concept-diagram'
   | 'concept-page'
   | 'code-focus'
+  | 'caller-helper'
   | 'logic-move'
   | 'paired-code';
 
@@ -269,6 +270,15 @@ export interface CodeTourStepBase extends TourStepBase {
   calls?: string[];
   /** Step id to return to afterwards (the B -> A jump back). */
   returnsTo?: string;
+  /** Keep an earlier caller's source beside this helper. Both panes use the same revision. */
+  callSite?: {
+    /** Earlier code step containing the call. This is authored source evidence, not a runtime trace. */
+    step: string;
+    /** Exact call-site lines in that step's file. */
+    range: [number, number];
+    /** Optional tighter crop, contained in the caller's viewport; defaults to that viewport. */
+    viewport?: [number, number];
+  };
   /** Verified "where am I" facts; rendered under the step title. */
   landing?: StepLanding;
 }

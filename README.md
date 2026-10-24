@@ -116,6 +116,16 @@ Inside a repo, codeStory gives you two useful ways to read:
 The story never replaces the diff. It only explains and orders it. The code you
 read comes from git.
 
+Important helpers can get their own stops after the general pass: what each
+branch accepts or rejects, why the rule exists, and what its result changes in
+the caller. A **Caller → Helper** view keeps the invocation beside the helper,
+including two locations in the same file. The panes scroll independently;
+resize them by dragging the separator or using its arrow keys, hide the caller
+for more room, or return to its previous beat and position. Narrow windows
+stack the panes. The helper's normal narration and video export include the
+explanation. Existing stories need a rewrite or targeted repair to author the
+new stops and call-site anchors; opening them does not invent missing detail.
+
 ## Code Stories
 
 A story does not need a diff. Choose **Explain code** in Review history, ask what

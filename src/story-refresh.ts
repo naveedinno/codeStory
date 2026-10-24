@@ -19,7 +19,7 @@ export function planStoryRefresh(tour: Tour, changes: StoryDriftChange[]): Story
   while (expanded) {
     expanded = false;
     for (const step of steps) {
-      const links = step.kind === 'concept' ? step.preparesFor ?? [] : [...(step.calls ?? []), ...(step.returnsTo ? [step.returnsTo] : []), ...(step.landing?.calledBy ?? []).flatMap((caller) => { const id = bySymbol.get(landingSearchName(caller)); return id ? [id] : []; })];
+      const links = step.kind === 'concept' ? step.preparesFor ?? [] : [...(step.calls ?? []), ...(step.returnsTo ? [step.returnsTo] : []), ...(step.callSite ? [step.callSite.step] : []), ...(step.landing?.calledBy ?? []).flatMap((caller) => { const id = bySymbol.get(landingSearchName(caller)); return id ? [id] : []; })];
       if (affected.has(step.id) || links.some((id) => affected.has(id))) {
         for (const id of [step.id, ...links]) if (!affected.has(id)) { affected.add(id); expanded = true; }
       }
@@ -62,7 +62,7 @@ export function validateStoryRefresh(before: Tour, after: Tour, plan: StoryRefre
 export function storyRefreshPrompt(plan: StoryRefreshPlan, storyFile: string, base: string, head?: string): string {
   return `Use the codestory-storyteller skill to refresh affected stops in ${JSON.stringify(storyFile)} for ${JSON.stringify(base)}..${JSON.stringify(head ?? 'working tree')}.\n` +
     `Changed files: ${JSON.stringify(plan.changedFiles)}. Editable existing step ids: ${JSON.stringify(plan.stepIds)}.\n` +
-    `Read the existing story and current source. Update explanations, ranges, highlights, and dependent primers only where these changes require it.\n` +
+    `Read the existing story and current source. Update explanations, ranges, highlights, callSite anchors, and dependent primers only where these changes require it.\n` +
     `Preserve ALL existing step ids and their relative reading order. Preserve every unaffected step exactly (only its order number may shift). Add a stop only for uncovered changed code in the changed files.\n` +
     `Preserve all other story fields, including intent, scope, verification claims, storyArc, evolution, mode, audience, and version. Do not replace the walkthrough.\n` +
     `Write ONLY the selected story JSON file. Do not edit code, comments, snapshots, or any other artifact. Do not stamp a new baseline: the app does that after validating preservation and full changed-range coverage.\n` +

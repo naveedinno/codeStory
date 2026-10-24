@@ -29,6 +29,7 @@
     "typecheck:client": "tsc -p client/tsconfig.json",
     "check": "npm run build && npm run typecheck:client && node --test test/*.test.mjs",
     "test:browser": "npm run build && node scripts/browser-smoke.mjs",
+    "test:caller-helper": "npm run build && node scripts/caller-helper-smoke.mjs",
     "test:video": "npm run build && node scripts/video-smoke.mjs",
     "dev": "npm run build && node dist/app-server.js",
     "start": "node dist/app-server.js",

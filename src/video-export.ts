@@ -255,7 +255,8 @@ async function renderVideo(input: RenderInput): Promise<void> {
       *,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
       .ds-rail,.ds-rail-resizer,.ds-reviewchrome,.ds-dock,.ds-toast,.ds-live-banner,.ds-history-banner,
       .ds-diffview-controls,.ds-story-tune,.ds-concept-page-fullscreen,[data-mermaid-fullscreen],
-      .ds-caller-evidence,.ds-intro-start,.ds-intro-utility,[data-story-health]{display:none!important}
+      .ds-caller-evidence,.ds-intro-start,.ds-intro-utility,[data-story-health],
+      [data-callsite-toggle],[data-callsite-return]{display:none!important}
       body{gap:0!important}.ds-layout{gap:0!important}.ds-main{width:100%!important}
       #ds-view-tour{gap:0!important}
     ` });
@@ -287,11 +288,21 @@ async function renderVideo(input: RenderInput): Promise<void> {
           await page.waitForFunction(step => !document.querySelector(`[data-step-panel='${step}'] [data-concept-diagram][data-render-state='loading']`), scene.step);
         }
         activeStep = scene.step;
+        // Paired source needs readable long lines in a fixed video frame. This
+        // isolated renderer never changes the reviewer's saved wrap preference.
+        const panel = page.locator(`[data-step-panel='${scene.step}']`);
+        if (await panel.locator('[data-code-pair]').count()) {
+          const wrap = panel.locator('[data-line-wrap-toggle]').first();
+          if (await wrap.getAttribute('aria-pressed') !== 'true') await wrap.evaluate(node => (node as HTMLElement).click());
+        }
       }
       if (scene.group !== undefined) {
         const beat = page.locator(`[data-dock-step='${scene.step}'] [data-story-beat][data-focus-group='${scene.group}']`).first();
         if (!(await beat.count())) throw new Error(`Could not locate spotlight ${scene.group + 1} in step ${scene.step}.`);
         await beat.evaluate(node => (node as HTMLElement).click());
+        // The story camera schedules centering after its beat changes. Wait
+        // for that work, rather than capturing the previous beat's viewport.
+        await page.waitForFunction(() => !document.documentElement.hasAttribute('data-story-scroll-pending'));
       }
       await page.evaluate(async () => { await document.fonts.ready; await new Promise(requestAnimationFrame); await new Promise(requestAnimationFrame); });
       const image = `frame-${index}.png`;

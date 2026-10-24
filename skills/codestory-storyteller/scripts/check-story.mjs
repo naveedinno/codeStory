@@ -1502,6 +1502,7 @@ var CONCEPT_CODE_FIELDS = [
   "why",
   "calls",
   "returnsTo",
+  "callSite",
   "landing"
 ];
 var CONCEPT_MIN_WORDS = 60;
@@ -2198,6 +2199,19 @@ function validateCodeStep(step, where, storyFiles, storyVersion, errors) {
     errors.push(`${where}.returnsTo must be a string`);
   }
   validateLanding(step.landing, `${where}.landing`, errors);
+  if (step.callSite !== void 0) {
+    if (storyVersion !== 4) errors.push(`${where}.callSite requires story version 4`);
+    if (typeof step.callSite !== "object" || step.callSite === null || Array.isArray(step.callSite)) {
+      errors.push(`${where}.callSite must be an object`);
+    } else {
+      const site = step.callSite;
+      if (typeof site.step !== "string" || !site.step.trim()) errors.push(`${where}.callSite.step must be a non-empty step id`);
+      const anchor = validateLineRange(site.range, `${where}.callSite.range`, errors);
+      const crop = site.viewport === void 0 ? void 0 : validateLineRange(site.viewport, `${where}.callSite.viewport`, errors);
+      if (anchor && anchor[1] - anchor[0] + 1 > 12) errors.push(`${where}.callSite.range must be at most 12 lines`);
+      if (anchor && crop && (anchor[0] < crop[0] || anchor[1] > crop[1])) errors.push(`${where}.callSite.range must be inside callSite.viewport`);
+    }
+  }
   if (storyFiles && stepKind !== "context" && typeof step.file === "string" && !storyFiles.has(step.file)) {
     errors.push(`${where}.file must be in storyScope.includedFiles`);
   }
@@ -2587,6 +2601,22 @@ function validateTour(obj) {
         }
       }
       return;
+    }
+    if (typeof step.callSite === "object" && step.callSite !== null && !Array.isArray(step.callSite)) {
+      const site = step.callSite;
+      const caller = typeof site.step === "string" ? stepsById.get(site.step) : void 0;
+      const where = `steps[${i}].callSite`;
+      if (!caller || caller.kind === "concept") {
+        errors.push(`${where}.step must reference an earlier code step`);
+      } else {
+        if (typeof caller.order !== "number" || typeof step.order !== "number" || caller.order >= step.order) errors.push(`${where}.step must reference an earlier code step`);
+        const bounds = caller.viewport ?? caller.range;
+        for (const field of ["range", "viewport"]) {
+          const span = site[field];
+          if (Array.isArray(bounds) && Array.isArray(span) && span.length === 2 && (span[0] < bounds[0] || span[1] > bounds[1])) errors.push(`${where}.${field} must be inside the caller's viewport`);
+        }
+        if (step.returnsTo !== void 0 && step.returnsTo !== site.step) errors.push(`${where}.step must match returnsTo when both are supplied`);
+      }
     }
     const refs = [
       ...Array.isArray(step.calls) ? step.calls.filter((ref) => typeof ref === "string").map((ref) => ["calls", ref]) : [],

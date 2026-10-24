@@ -38,7 +38,7 @@ one command you run is the checker script that ships inside this skill folder
 3. Reconstruct the app path around every change.
 4. Make a reviewer map, including the newcomer's questions.
 5. Choose the arc (`references/change-types.md`) and plan the reading path.
-6. Storyboard each stop and write its beats (`references/camera-and-coverage.md`, `references/moves.md`).
+6. Storyboard each stop and write its beats (`references/camera-and-coverage.md`, `references/moves.md`, `references/helper-depth.md`).
 7. Re-read `references/schema.md`, then write the JSON.
 8. Run the checker until it says READY; keep the story fresh after later edits.
 
@@ -90,7 +90,7 @@ when the entry point or dependency contract lives elsewhere.
 
 The default for `"mode": "guided"`: one stop per review decision, grouped by
 runtime/control/data flow, with the context bridges the task needs. The
-reviewer should know where to read, what changed, and where to slow down.
+reviewer should know where to read, what changed, and where to slow down. After the general pass, explain important helpers' decisions and consequences (`references/helper-depth.md`).
 
 ### Line-by-line mode
 

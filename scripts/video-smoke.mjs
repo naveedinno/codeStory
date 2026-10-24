@@ -33,16 +33,30 @@ const tools=videoCapabilities();
 execFileSync(process.execPath,[join(root,'examples/demo.mjs')],{cwd:root,env:{...process.env,CODESTORY_DEMO_NO_SERVE:'1',CODESTORY_DEMO_DIR:repo},stdio:'pipe'});
 const storyPath=join(repo,'.codestory/story.json');
 const story=JSON.parse(readFileSync(storyPath,'utf8'));
-const code=story.steps.find(step=>step.id==='s2');code.order=3;code.title='Check the spending budget';
+const code=story.steps.find(step=>step.id==='s2');code.order=4;code.title='Check the spending budget';
 delete code.calls;delete code.returnsTo;
+delete code.moves;
+const caller=story.steps.find(step=>step.id==='s1');caller.order=3;caller.calls=['s2'];delete caller.returnsTo;
+code.callSite={step:'s1',range:[9,9],viewport:[5,16]};
+// Make the later beat genuinely offscreen at first: a two-frame capture used
+// to race the story camera's 120ms centering timer. These comments are fixture
+// context only; the spending logic and caller invocation stay unchanged.
+const limitsPath=join(repo,'src/limits.ts');
+const limits=readFileSync(limitsPath,'utf8').trimEnd().split('\n');
+limits.splice(6,0,...Array.from({length:29},(_,i)=>`  // Camera regression context ${i+1}: the decision remains below this source window.`));
+writeFileSync(limitsPath,limits.join('\n')+'\n');
+execFileSync('git',['add','src/limits.ts'],{cwd:repo});
+execFileSync('git',['commit','-qm','Add tall helper fixture for video camera coverage'],{cwd:repo});
+code.range=[1,40];code.viewport=[1,40];
 code.beats=code.beats.slice(0,2);code.beats[0].text='Read the remaining budget.';code.beats[1].text='The amount < remaining check also rejects equality.';
+code.beats[1].highlights=[[36,39]];code.highlights=code.beats.flatMap(beat=>beat.highlights);
 story.version=4;story.title='Spending limits';story.summary='Follow the budget check.';delete story.evolution;delete story.hotspots;
 // A new passage forces actual synthesis rather than reusing a previous WAV.
 if(offline)story.summary+=` Offline check ${Date.now()}.`;
 story.steps=[
   {id:'primer',order:1,kind:'concept',title:'Request flow',body:'The request reaches the shared policy.',diagram:{type:'mermaid',source:'flowchart LR\n Request --> Policy',caption:'A shared budget gate.'},preparesFor:['s2']},
   {id:'page',order:2,kind:'concept',title:'Budget model',narration:'Accepted orders consume the remaining budget.',page:'<!doctype html><html><body style="margin:0;display:grid;place-items:center;height:100vh;background:#16392e;color:#fff;font:36px sans-serif"><div id="ready">Budget → Check → Order</div><script>document.body.dataset.ready="yes"</script></body></html>',preparesFor:['s2']},
-  code,
+  caller,code,
 ];
 writeFileSync(storyPath,JSON.stringify(story,null,2));
 loadTour(storyPath);

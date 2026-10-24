@@ -5,7 +5,7 @@ narrative fields. It covers `.codestory/story.json` and every
 `.codestory/stories/*.json`.
 
 Structural fields (`id`, `order`, `file`, `range`, `viewport`, `highlights`,
-`kind`, `calls`, `returnsTo`, `preparesFor`, `diagram`) are documented in
+`kind`, `calls`, `returnsTo`, `callSite`, `preparesFor`, `diagram`) are documented in
 [`src/types.ts`](../src/types.ts). This document is only about the fields that
 carry prose.
 
@@ -22,8 +22,27 @@ appears on screen as `**bold**`, not as bold text. The fix is to regenerate the
 story; there is no automatic conversion.
 
 `Tour.version` is unrelated to text format: `1` means code-only steps, `2` permits
-concept primers, `3` permits semantic logic moves, and `4` permits page concepts
-and lifts concept placement rules.
+concept primers, `3` permits semantic logic moves, and `4` permits page concepts,
+caller/helper source windows, and lifts concept placement rules.
+
+## Caller and helper source windows
+
+A version 4 code step can carry `callSite: { step, range, viewport? }` to show
+an earlier caller's source beside its own code. `step` names an earlier code
+step; `range` identifies its invocation (1-12 lines). Both `range` and optional
+`viewport` must be inside that caller's viewport, and range must fit in the
+optional crop. Without a crop the full caller viewport is used. If `returnsTo`
+is also supplied, it must equal `callSite.step`.
+
+The source windows can show two places in one file or different files. Both
+use the story's revision, including a code story's pinned commit. Caller
+context adds no diff coverage. This is an author-selected relationship, not a
+runtime trace. The main helper's normal beats drive its highlights and are
+included in read-aloud and video export. The caller remains visible with a
+distinct call-site marker, independent scrolling, a hide/show control, and a
+return button that restores the caller's previously visited beat and scroll.
+Narrow windows stack the source panes; wide windows offer a keyboard- and
+pointer-operable divider.
 
 `Tour.subject` is also unrelated to text format. A `"code"` story explains existing
 code at one commit: it is version 4, pins `head` to a full commit id with `base`

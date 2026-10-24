@@ -226,6 +226,7 @@ export function startReviewEngine(options){
     return !!closest(t,'[data-readaloud]');
   }
   function setLineWrap(on,persist){
+    var changed=document.body.classList.contains('ds-line-wrap')!==on;
     document.body.classList.toggle('ds-line-wrap',on);
     document.body.setAttribute('data-line-wrap',on?'on':'off');
     $all('[data-line-wrap-toggle]').forEach(function(button){
@@ -236,6 +237,7 @@ export function startReviewEngine(options){
     });
     if(persist){try{localStorage.setItem('ds-line-wrap',on?'1':'0');}catch(e){}}
     syncSplitPaneLayouts();
+    if(changed)$all('.ds-callsite-scroll').forEach(function(scroll){scroll._dsCallsiteCentered=false;syncCallerWindow(closest(scroll,'.ds-step'));});
   }
   function loadLineWrap(){
     var on=false;try{on=localStorage.getItem('ds-line-wrap')==='1';}catch(e){}
@@ -1091,7 +1093,7 @@ export function startReviewEngine(options){
         // pi-lens-ignore: ast-grep:no-inner-html-js
         var template=document.createElement('template');template.innerHTML=html.trim();var fresh=template.content.firstElementChild;
         if(!fresh||!fresh.classList||!fresh.classList.contains('ds-step'))throw new Error('Invalid story step');
-        var callbacks=panel._dsStepCallbacks||[];panel.replaceWith(fresh);stepPanels=$all('.ds-step');
+        var callbacks=panel._dsStepCallbacks||[];fresh._dsPendingReturn=panel._dsPendingReturn;fresh._dsReadingPosition=panel._dsReadingPosition;panel.replaceWith(fresh);stepPanels=$all('.ds-step');
         mountCommentPins(fresh);adoptStepDocks();renderConceptDiagrams(fresh);mountConceptPages(fresh);setLineWrap(document.body.classList.contains('ds-line-wrap'),false);$all('.ds-filepanel,.ds-diff',fresh).forEach(updateChangeNav);
         try{var split=localStorage.getItem('ds-split');if(split)$all('.ds-filepanel,.ds-diff',fresh).forEach(function(holder){holder.style.setProperty('--ds-split',split);});}catch(e){}
         syncSplitPaneLayouts(fresh);
@@ -1107,7 +1109,12 @@ export function startReviewEngine(options){
       });
   }
   function activateStep(i,autoSpeak){
-    if(i<0)i=0;if(i>total-1)i=total-1;var previous=active;active=i;visited[i]=true;
+    if(i<0)i=0;if(i>total-1)i=total-1;var previous=active;
+    if(previous!==i&&stepPanels&&stepPanels[previous]){
+      var oldPanel=stepPanels[previous],oldScroll=$('.ds-diffscroll',oldPanel);
+      if(oldScroll)oldPanel._dsReadingPosition={group:storyFocusIndex===previous?storyFocusGroup:0,top:oldScroll.scrollTop,left:oldScroll.scrollLeft};
+    }
+    active=i;visited[i]=true;
     cancelSceneEntrance();
     var entrancePanel=stepPanels&&stepPanels[i],revealConcept=conceptSceneNeedsEntrance(entrancePanel,i);
     if(aloudIntent==='off')clearVoiceFocus();
@@ -1116,6 +1123,7 @@ export function startReviewEngine(options){
       // The split columns can only be measured once the panel has a box; a
       // view transition runs this update after activateStep has returned.
       syncSplitPaneLayouts(stepPanels[i]);
+      requestAnimationFrame(function(){if(active===i)syncCallerWindow(stepPanels[i]);});
       stepCards.forEach(function(c,idx){
         var isA=idx===i,isV=visited[idx]&&!isA;
         c.classList.toggle('is-active',isA);
@@ -1166,6 +1174,19 @@ export function startReviewEngine(options){
     if(i===0)clearStoryFocus();
     var storyFocused=ap&&i>0?selectStoryFocus(i,0,true):false;
     if(ap&&!storyFocused)jumpToFirstChange($('.ds-diff',ap));
+    syncCallerWindow(ap);
+    if(ap&&ap._dsPendingReturn&&!ap.hasAttribute('data-step-lazy')){
+      var pending=ap._dsPendingReturn;ap._dsPendingReturn=null;
+      var restore=function(){
+        if(active!==i)return;
+        var saved=ap._dsReadingPosition,scroller=$('.ds-diffscroll',ap);
+        if(saved){selectStoryFocus(i,saved.group,false);cancelFocusScroll();if(scroller){scroller.scrollTop=saved.top;scroller.scrollLeft=saved.left;}}
+        else{var row=$all('[data-story-diff] [data-side="right"][data-line="'+pending.line+'"]',ap).find(function(r){return !closest(r,'[hidden]')&&r.getClientRects().length;});if(row){var group=parseInt(row.getAttribute('data-step-focus')||'0',10);selectStoryFocus(i,group,false);centerFocusRows([row],true);}}
+        var selected=$('[data-story-beat].is-selected',beatHost(ap));if(selected)focusElementWithoutScroll(selected);
+      };
+      var afterTransition=function(){requestAnimationFrame(function(){requestAnimationFrame(restore);});};
+      if(workspaceTransition&&workspaceTransition.finished)Promise.resolve(workspaceTransition.finished).then(afterTransition,afterTransition);else afterTransition();
+    }
     // The autoSpeak branch is exactly the user-driven navigation path — the
     // narration engine advances the story with activateStep(i,false). Moving
     // while paused stays silent (speakStep is intent-gated) and re-points Resume
@@ -1302,16 +1323,19 @@ export function startReviewEngine(options){
     if(focusScrollTimer)clearTimeout(focusScrollTimer);
     if(focusScrollFrame)cancelAnimationFrame(focusScrollFrame);
     focusScrollTimer=0;focusScrollFrame=0;
+    document.documentElement.removeAttribute('data-story-scroll-pending');
   }
   function centerFocusRows(rows,instant){
     cancelFocusScroll();
     if(!rows.length)return;
     var rendered=rows.filter(function(row){return !closest(row,'[hidden]')&&row.getClientRects().length>0;});
     var candidates=rendered.length?rendered:rows,target=candidates[Math.floor((candidates.length-1)/2)];if(!target)return;
+    document.documentElement.setAttribute('data-story-scroll-pending','1');
     focusScrollTimer=setTimeout(function(){
       focusScrollTimer=0;
       focusScrollFrame=requestAnimationFrame(function(){
         focusScrollFrame=0;
+        document.documentElement.removeAttribute('data-story-scroll-pending');
         if(!document.documentElement.contains(target))return;
         var scroller=closest(target,'.ds-diffscroll');if(!scroller||!document.documentElement.contains(scroller))return;
         var sr=scroller.getBoundingClientRect(),tr=target.getBoundingClientRect(),ft=flowRowTop(target);
@@ -1407,6 +1431,46 @@ export function startReviewEngine(options){
       var panelIndex=parseInt(panel.getAttribute('data-step-panel')||'-1',10);
       if(storyFocusIndex===panelIndex)selectStoryFocus(panelIndex,storyFocusGroup,true);
     }
+  }
+  function syncCallerWindow(panel){
+    if(!panel)return;
+    var scroll=$('.ds-callsite-scroll',panel),anchor=$('[data-callsite-anchor]',panel);
+    if(scroll&&anchor&&!scroll._dsCallsiteCentered&&anchor.getClientRects().length){
+      var sr=scroll.getBoundingClientRect(),ar=anchor.getBoundingClientRect();
+      scroll.scrollTop=Math.max(0,scroll.scrollTop+ar.top-sr.top-(scroll.clientHeight-ar.height)/2);scroll._dsCallsiteCentered=true;
+    }
+  }
+  function toggleCaller(button){
+    var pair=closest(button,'[data-code-pair]');if(!pair)return;
+    var hide=button.getAttribute('aria-expanded')==='true',pane=$('.ds-callsite-pane',pair),divider=$('[data-callsite-divider]',pair);
+    pair.classList.toggle('is-caller-hidden',hide);if(pane)pane.hidden=hide;if(divider)divider.hidden=hide;
+    button.setAttribute('aria-expanded',String(!hide));button.textContent=hide?'Show caller':'Hide caller';
+    syncCallerWindow(closest(pair,'.ds-step'));syncSplitPaneLayouts(pair);updateStickyMetrics();
+  }
+  function returnToCaller(button){
+    var index=Number(button.getAttribute('data-callsite-return')),panel=stepPanels&&stepPanels[index];if(!panel)return;
+    var wasNarrating=aloudIntent!=='off';cancelSpeech();setAloudIntent(wasNarrating?'paused':'off');updateReadAloudButton();
+    panel._dsPendingReturn={line:Number(button.getAttribute('data-callsite-line'))};setActive(index,false);
+  }
+  function setCallerWidth(divider,value){
+    var pair=closest(divider,'[data-code-pair]');if(!pair)return;
+    value=Math.max(25,Math.min(65,value));pair.style.setProperty('--ds-caller-width',String(value));divider.setAttribute('aria-valuenow',String(Math.round(value)));
+    var scroll=$('.ds-callsite-scroll',pair);if(scroll)scroll._dsCallsiteCentered=false;syncCallerWindow(closest(pair,'.ds-step'));
+    syncSplitPaneLayouts(pair);updateStickyMetrics();
+  }
+  function callerDividerKey(e){
+    var divider=closest(e.target,'[data-callsite-divider]');if(!divider)return;
+    var value=Number(divider.getAttribute('aria-valuenow')||40),delta=e.shiftKey?10:4;
+    if(e.key==='ArrowLeft')value-=delta;else if(e.key==='ArrowRight')value+=delta;else if(e.key==='Home')value=25;else if(e.key==='End')value=65;else return;
+    e.preventDefault();e.stopPropagation();setCallerWidth(divider,value);
+  }
+  function startCallerResize(e){
+    var divider=closest(e.target,'[data-callsite-divider]');if(!divider||e.button!==0)return;
+    var body=closest(divider,'.ds-code-pair-body');if(!body)return;
+    e.preventDefault();divider.setPointerCapture(e.pointerId);document.body.classList.add('ds-resizing');
+    var move=function(event){var r=body.getBoundingClientRect();if(r.width>10)setCallerWidth(divider,(event.clientX-r.left-5)/(r.width-10)*100);};
+    var end=function(){document.body.classList.remove('ds-resizing');divider.removeEventListener('pointermove',move);divider.removeEventListener('pointerup',end);divider.removeEventListener('pointercancel',end);divider.removeEventListener('lostpointercapture',end);};
+    divider.addEventListener('pointermove',move);divider.addEventListener('pointerup',end);divider.addEventListener('pointercancel',end);divider.addEventListener('lostpointercapture',end);
   }
   function estimatedSpeechDurationMs(text){
     var words=(text||'').split(/\s+/).filter(Boolean).length;
@@ -4102,6 +4166,8 @@ export function startReviewEngine(options){
       b.disabled=true;preview.hidden=false;replaceChildrenFromHtml(preview,'<div class="ds-diffnote">Loading excluded file preview…</div>');
       fetch(reviewPageUrl('/api/review/excluded-file?file='+encodeURIComponent(excludedFile))).then(reviewLazyText).then(function(html){replaceChildrenFromHtml(preview,html);preview.setAttribute('data-loaded','1');b.disabled=false;b.textContent='Hide preview';}).catch(function(err){replaceChildrenFromHtml(preview,'<div class="ds-diffnote" role="alert">'+reviewLazyMessage(err,'Could not load this excluded file.')+(err&&err.reloadRequired?' <button type="button" class="ds-btn ds-btn-ghost" data-review-reload>Reload review</button>':'')+'</div>');b.disabled=false;b.textContent=err&&err.reloadRequired?'Reload required':'Try preview again';});return;
     }
+    b=closest(t,'[data-callsite-toggle]');if(b){toggleCaller(b);return;}
+    b=closest(t,'[data-callsite-return]');if(b){returnToCaller(b);return;}
     b=closest(t,'[data-goto-step]');if(b){closeDriftDrawer();setView('tour');setActive(Number(b.getAttribute('data-goto-step')));collapseCompactSidebar();return;}
     b=closest(t,'[data-goto-file]');if(b){closeDriftDrawer();setView('files');selectFileByPath(b.getAttribute('data-goto-file'));collapseCompactSidebar();return;}
     b=closest(t,'[data-explain]');if(b){repairStory('explain',{file:b.getAttribute('data-story-file'),line:Number(b.getAttribute('data-story-line')||0)});return;}
@@ -4334,6 +4400,9 @@ export function startReviewEngine(options){
     document.addEventListener('click',onClick);
     document.addEventListener('contextmenu',openSelectionMenu);
     document.addEventListener('keydown',onKey);
+    document.addEventListener('keydown',callerDividerKey,true);
+    document.addEventListener('pointerdown',startCallerResize);
+    window.addEventListener('resize',function(){$all('.ds-callsite-scroll').forEach(function(scroll){scroll._dsCallsiteCentered=false;syncCallerWindow(closest(scroll,'.ds-step'));});});
     document.addEventListener('wheel',onSplitPaneWheel,{passive:false});
     window.addEventListener('message',onConceptFrameMessage);
     // A dirty composer holds an unqueued draft; stash it and warn before the

@@ -166,11 +166,10 @@ export function storyPrompt(
     `reviewer, not a changelog.\n\n` +
     audienceContract +
     storyStructureContract(evolutionManifest) +
+    HELPER_DEPTH_CONTRACT +
     storyScopeContract +
     scopeContract +
-    `The skill owns the craft. Follow its workflow in order — recover the why, reconstruct the app path, storyboard the camera, then write the steps — and honor every contract it defines: ` +
-    `coverage, ranges, viewport/highlight camera limits, beats, hotspots, non-goals, truth, and the "${storyMode}" detail level. ` +
-    `The app validates the finished story against those contracts and flags violations, so do not improvise a different format or looser limits.\n\n` +
+    `The skill owns the craft: recover the why, reconstruct the app path, storyboard the camera, then write the steps. Honor coverage, ranges, viewport/highlight limits, beats, hotspots, non-goals, truth, and "${storyMode}" detail. The app validates the finished story.\n\n` +
     // The craft lives in the skill, but these exact field names do not survive
     // being read as prose: real runs paraphrased "text" into "body" and "prose",
     // and dropped "order" from every step. Machine-checked names get pinned here,
@@ -182,7 +181,7 @@ export function storyPrompt(
     `- Code steps: "file", "range", "viewport", "highlights", "why", "beats"; optional TOP-LEVEL "ranges" only when "tags" includes "skim", "sweep", or "mechanical".\n` +
     `- Optional moves (max 6): "id", "kind", "before"/"after" {"file","range"}, "label" (tag, max 24), "hidden" {"as":path|destination|consequence, "tag" max 48, "what" max 120}; kinds are moved/extracted/inlined/wrapped/unwrapped/condition-changed/reordered/flow.\n` +
     `- Every beat: "text" (not "body" or "prose") and "highlights"/"oldHighlights". "body" is concept-only.\n` +
-    `- Page concept steps: "id", "order", "title", "kind": "concept", "page", "narration"; optional "preparesFor", "tags", "chapter", "network". "page" is a complete HTML document (any HTML, CSS, SVG, canvas, JavaScript; offline unless "network": true opts into CDN libraries). "narration" is plain text with no tags. Add as many as teach the change, anywhere in the path.\n` +
+    `- Page concept steps: "id", "order", "title", "kind": "concept", "page", "narration"; optional "preparesFor", "tags", "chapter", "network". "page" is complete HTML/CSS/JS, offline unless "network": true. "narration" is plain text. Place pages wherever they teach the change.\n` +
     // The format is validator-enforced, so it is pinned here rather than left to
     // the skill: prose about a format does not survive being read as reliably as
     // a field name does, and a Markdown-shaped story now renders its asterisks
@@ -228,7 +227,7 @@ export function storyPrompt(
     checkerInstruction() +
     `Live progress notes (streamed to the reviewer while you work):\n` +
     `- Announce each phase as you enter it by printing its marker alone on its own line, exactly: ">> Recovering the why", then ">> Reconstructing the app path", then ">> Storyboarding the camera", then ">> Writing the steps".\n` +
-    `- Print every phase note as its own line starting with ">> " — for example ">> Goal: enable keepers to cap the fee" or ">> Arc: the cap is stored, then enforced, then tested".\n` +
+    `- Print every phase note on its own line starting with ">> ".\n` +
     `- Keep each note to one short, concrete sentence. These lines are shown live in the review UI, so no filler and no markdown.\n\n` +
     `Do not ask questions. Generate it directly.`
   );
@@ -252,6 +251,10 @@ export interface CodeStoryPromptInput {
 }
 
 const WORKTREE_LIST_CAP = 40;
+
+const HELPER_DEPTH_CONTRACT =
+  `After orientation, explain important helpers' decisions and return consequences in normal spoken beats; see references/helper-depth.md. ` +
+  `On a helper, optional "callSite": {"step":"earlier-caller-id","range":[start,end],"viewport":[start,end]} keeps that caller beside it. Both spans stay inside the caller's viewport; range is at most 12 lines.\n\n`;
 
 /**
  * The instruction for a code story: the same skill and reader, but no diff.
@@ -303,6 +306,7 @@ export function codeStoryPrompt(input: CodeStoryPromptInput): string {
     `and set its "mode" field to "${storyMode}". Do not write "base", "storyScope", "evolution", or "codeScope"; the app owns them. Write no other story file.\n\n` +
     audienceContract +
     `Code story contract:\n` +
+    HELPER_DEPTH_CONTRACT +
     `- Every code step is "kind": "context": unchanged code at this commit. Never "changed" or "new-file", and never "oldHighlights".\n` +
     `- Add top-level "storyArc" with exactly "shape" and "readingPath", and no "changeType".\n` +
     `- "shape" is entry-implementation|lifecycle|data-flow|map-then-path|core-supporting|rule-instances|cause-effect.\n` +
@@ -397,7 +401,7 @@ export function storyRepairPrompt(input: {
     // Same reason the generation prompt pins it: the repair path is a second
     // authoring entry point, and a repair written in Markdown renders literally.
     `- Prose is restricted HTML, never Markdown. A concept "page" is free HTML; a legacy concept "body" takes block tags; "why", beat "text", "summary", "intent", and "hotspots[].reason" take inline tags only (code, kbd, strong, em, sup, sub, span, br); every "title" is plain text. Every <table> needs a <caption>. Outside "page": no links, images, SVG, id, or style.\n` +
-    `- Renumber order fields and repair calls/returnsTo/preparesFor only where the targeted edit requires it.\n` +
+    `- Renumber order fields and repair calls/returnsTo/callSite/preparesFor only where the targeted edit requires it. Preserve unaffected callSite anchors; keep them inside the caller's viewport. Upgrade to version 4 when adding callSite.\n` +
     `- Validate every chapter, range, viewport, highlight, beat, concept page/narration/body, preparesFor target, id, and full-diff coverage before finishing.\n` +
     `- Write the repaired JSON back to ${DATA_DIR}/story.json. Do not ask questions.\n\n` +
     checkerInstruction()
@@ -451,7 +455,7 @@ function codeStoryRepairPrompt(input: {
     `- Keep the story explanatory, in the voice of the steps around the repair.\n` +
     `- A step's FIRST beat lands the listener: name the function/rule, who reaches it and when, then explain it.\n` +
     `- Prose is restricted HTML, never Markdown. A concept "page" is free HTML; "why", beat "text", "summary", "intent", and "hotspots[].reason" take inline tags only (code, kbd, strong, em, sup, sub, span, br); every "title" is plain text. Outside "page": no links, images, SVG, id, or style.\n` +
-    `- Renumber order fields and repair calls/returnsTo/preparesFor only where the targeted edit requires it.\n` +
+    `- Renumber order fields and repair calls/returnsTo/callSite/preparesFor only where the targeted edit requires it. Preserve unaffected callSite anchors; keep them inside the caller's viewport.\n` +
     `- Validate every chapter, range, viewport, highlight, beat, concept page/narration/body, preparesFor target, and id before finishing. Every line number is a line at ${short}.\n` +
     `- Write the repaired JSON back to ${storyFile}. Do not ask questions.\n\n` +
     checker
