@@ -1,12 +1,17 @@
-# Gateway story map prototype
+# Gateway content-card prototype
 
-Question: can a reader understand the gateway by expanding a map of meaningful
-questions beside the existing code, then choose how deeply to read each branch?
+Question: can the story itself live in connected cards, with prose, diagrams,
+source code and real code diffs inside the map?
 
-Status: runnable design prototype; owner comparison pending. No variant has
-been promoted to the application. Capture branch: `prototype/story-map-gateway`,
-based on `ce912c9` in the CodeStory repository. Main and the installed app retain
-the existing viewer.
+The owner clarified that the map is the reading surface. Each topic now owns
+`content` blocks: `text`, `diagram`, `code`, or `diff`. A card can combine blocks.
+The former permanent code pane is hidden in this prototype; the existing lazy
+panels remain as the narration state engine. Focus card opens the same content
+in a larger native dialog, including caller context where available.
+
+Status: owner comparison pending. Captured on `prototype/story-map-gateway`,
+based on `ce912c9`; the earlier navigation-only version is commit `4f8d37e`.
+Main and installed CodeStory remain unchanged.
 
 Run from this checkout:
 
@@ -14,61 +19,55 @@ Run from this checkout:
 npm run prototype:story-map -- --repo /path/to/core --story stories/code-complete-tour.json
 ```
 
-The development runner prints the local review URL on port 7799. It uses the
-real existing story at its pinned revision, an isolated temporary app home,
-and the normal lazy source renderer. It injects the prototype only through
-this runner; `NODE_ENV=production` refuses to start it. No generated story is
-written or committed. The proxy refuses mutations except the local narrator.
+The development runner prints the local URL on port 7799 and injects this
+prototype on the existing review route. `NODE_ENV=production` refuses to run.
+It reads the real story and its pinned Git revision, uses a temporary app home,
+and rejects mutations except local narration. It never writes a story file.
 
-Compare three layouts on the same review route:
+Compare three content layouts using the floating design bar:
 
-- `?variant=A`: connected left-to-right map with four question branches;
-  Overview/Detail changes the selected card from a label to its real explanation.
-  On phones the branches reflow vertically at readable text sizes.
-- `?variant=B`: expandable tree with nested explanations.
-- `?variant=C`: focused question and detail columns.
+- `?variant=A`: connected cards with their content visible inside the map.
+- `?variant=B`: an expandable reading tree containing the same rich cards.
+- `?variant=C`: branch selection and one focused content card.
 
-The floating design bar cycles layouts and preserves the selected topic.
-Left/right keys also cycle while the design bar or the page itself has focus.
-Application widgets retain their keyboard behavior. Buttons support normal
-Tab/Enter/Space.
+The gateway overview combines prose with a small validation-order diagram.
+Route/signature cards contain pinned source with line numbers and beat-based
+highlights. Caller context can expand inside the code card. Replay and other
+explanation cards contain prose. The Call/SignedCall card contains a real
+historical diff of `SymmioGatewayTypes.sol`, from `d8a23d4` to the story's
+`6399ecf`. Its old/new revisions and historical scope are labeled explicitly;
+it is not a working-tree diff or a fabricated example.
 
-Selecting a node opens the real step and updates the reading branch; explanation
-nodes select its actual highlighted beat. Manual selection stops playback so
-the old branch cannot override the new topic. Play reads the new function from
-its introduction. The map follows source navigation and narration. Breadcrumbs
-return to ancestors. Focus code collapses the map. Follow this branch changes
-the existing Play transport's reading path to that branch. Follow gateway
-restores the curated chapter path. Branches organize the authored story;
-connections do not claim a compiler-resolved runtime call graph.
+Buttons retain keyboard behavior. Layout arrow shortcuts apply only to the
+design bar or the page itself. A focused card is a modal dialog with native
+Escape, Tab containment, and a Close card action. The source and diff regions
+are independently scrollable without selecting the card or changing playback.
+Focus preserves the active explanation and follows narration into the next
+card. Its header mirrors the existing Play/Pause/Resume and Stop controls.
 
-Prototype state stays in memory; only the layout key is placed in the URL.
-The existing viewer continues using its normal reading-position preferences.
-Playback uses the existing local narrator; new audio synthesis is not part of
-this prototype. Browser checks inspect the planned narration separately from
-audible playback.
+Selecting a card updates the existing step/beat and scopes reading to its
+function branch, stopping old playback. Explanation leaves use their parent's
+helper scope. Narration progress selects the corresponding card without
+triggering manual rescoping. Follow branch resets to its introduction; Follow
+gateway restores the curated reading path. The engine preserves speech caches
+during lazy loading and reveals a freshly loaded narration target.
 
-Source locations: `story-map.prototype.tsx`, `story-map.prototype.css`, and
-`scripts/story-map-prototype.mjs`. The engine's path hooks are
-throwaway integration code on this branch, activated only by the prototype.
-The loading placeholder also retains its speech cache so prefetching cannot
-drop a helper from the narration plan. Narration reveals a freshly loaded
-helper panel even when its lazy placeholder was already the active step.
+Reference: `core/docs/site/assets/map.js` and `map.css`. This iteration carries
+its semantic detail, parent-child expansion, current path and readable mobile
+reflow into content cards. Scrolling is instant; no animated camera was added.
+The topology organizes authored explanations and does not claim to be a
+compiler-resolved call graph.
 
-Reference: the core docs map at `core/docs/site/assets/map.js` and `map.css`.
-Its key ideas carried here are semantic levels of detail, connected expansion
-from parents to children, parent breadcrumbs, readable mobile reflow, and
-centering the selected topic without moving the source reader. This prototype
-uses instant native scrolling and discrete detail levels; it does not add the
-docs site's animated pan/zoom camera.
+Implementation: `story-map.prototype.tsx`, `story-map.prototype.css`, and
+`scripts/story-map-prototype.mjs`. State stays in memory; only the layout key is
+stored in the URL. No variant has been promoted to the application. Keep this
+prototype off main and implement the chosen direction after owner feedback.
 
-Verification: `npm run check` passes 1,123 existing tests. Manual browser checks
-cover all three layouts, 390px/320px mobile widths, 1024px focus-code collapse,
-keyboard tab navigation, unselected branch expansion, branch endpoints, map
-reopening, original story bytes, and local read-only request guards. Mocked
-playback requests/progress cover the gateway path, delayed helper loading,
-route-only reading, and switching to signatures during playback. Audible Lino
-synthesis and screen-reader behavior have not been tested for this prototype.
-The final focused independent recheck has no remaining concrete findings.
-Keep the prototype and layout switcher off main; implement a chosen direction
-properly after owner feedback.
+Verification: `npm run check` passes 1,123 existing tests and client typecheck
+passes. Browser checks cover all three layouts, 390px and 320px widths, inline
+code/diff inspection, focused reading and branch links. Every displayed source
+line and changed diff row matches the pinned Git data; story bytes are unchanged.
+Mocked narration checks cover gateway/branch scoping, progress into focused
+diff/code cards, Pause/Resume/Stop, and source keyboard scrolling without story
+navigation. Audible synthesis and native installation were not tested for this
+prototype.

@@ -4,10 +4,15 @@ import { createRoot } from 'react-dom/client';
 import { createPortal } from 'react-dom';
 import type { ReviewPayload } from '../../../src/payloads';
 
-interface Topic { id: string; stepId: string; panelIndex: number; label: string; symbol: string; beat: number; children: string[]; beats: number }
+type ContentBlock =
+  | { type: 'text'; panelIndex: number; beat: number }
+  | { type: 'diagram'; title: string; labels: string[] }
+  | { type: 'code'; label: string; file: string; revision: string; stepId: string; lines: { number: number; text: string }[]; rangesByBeat: [number, number][][] }
+  | { type: 'diff'; file: string; base: string; head: string; rows: { kind: 'ctx' | 'add' | 'del' | 'hunk'; text: string; oldLine?: number; newLine?: number }[] };
+interface Topic { id: string; stepId: string; panelIndex: number; label: string; symbol: string; beat: number; children: string[]; beats: number; content: ContentBlock[] }
 interface MapData { nodes: Topic[]; commit: string; title: string; path: string[] }
 type Variant = 'A' | 'B' | 'C';
-const variants: Record<Variant, string> = { A: 'Mind map', B: 'Branch tree', C: 'Focus path' };
+const variants: Record<Variant, string> = { A: 'Content map', B: 'Reading tree', C: 'Focused cards' };
 const readVariant = (): Variant => { const v = new URL(location.href).searchParams.get('variant'); return v === 'B' || v === 'C' ? v : 'A'; };
 const payload: ReviewPayload = JSON.parse(document.querySelector('#__CODESTORY_DATA__')!.textContent!);
 const waitFor = (condition: () => boolean) => new Promise<void>(resolve => {
@@ -47,14 +52,16 @@ function Prototype({ data }: { data: MapData }) {
   const [variant, setVariant] = useState<Variant>(readVariant);
   const [selected, setSelected] = useState('root');
   const selectedRef = useRef('root');
+  const [sourcePosition, setSourcePosition] = useState({ panelIndex: get('root').panelIndex, beat: 0 });
   const [expanded, setExpanded] = useState(new Set(['root']));
-  const [detail, setDetail] = useState(false);
+  const [detail, setDetail] = useState(true);
   const [visited, setVisited] = useState(new Set(['root']));
-  const [collapsed, setCollapsed] = useState(false);
+  const [focused, setFocused] = useState<string | null>(null);
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [transport, setTransport] = useState({ label: 'Play', accessibleLabel: 'Play narration', disabled: false, canStop: false });
   const [reading, setReading] = useState('Gateway');
   const [outside, setOutside] = useState('');
   const node = get(selected), path = [...ancestors(selected), node];
-  const branch = path.find(item => get('root').children.includes(item.id)) ?? get('route');
   const readingPlan = (topic: Topic) => {
     const collect = (n: Topic): number[] => [n.panelIndex, ...n.children.flatMap(id => collect(get(id)))];
     const indexes = topic.id === 'root' ? data.path.map(id => get(id).panelIndex) : collect(topic);
@@ -66,6 +73,7 @@ function Prototype({ data }: { data: MapData }) {
     const owner = parent(topic.id);
     readingPlan(owner?.stepId === topic.stepId ? owner : topic);
     selectedRef.current = topic.id; setSelected(topic.id); setOutside(''); setVisited(old => new Set([...old, topic.id]));
+    setSourcePosition({ panelIndex: topic.panelIndex, beat: topic.beat });
     setExpanded(old => new Set([...old, ...ancestors(topic.id).map(item => item.id)]));
     void selectSource(topic);
   };
@@ -87,11 +95,44 @@ function Prototype({ data }: { data: MapData }) {
 
   useEffect(() => {
     document.body.dataset.mapVariant = variant;
-    document.body.classList.toggle('sm-map-collapsed', collapsed);
-  }, [variant, collapsed]);
+  }, [variant]);
   useEffect(() => {
-    if (!collapsed) requestAnimationFrame(() => revealInMap(document.querySelector<HTMLElement>(`.sm-map [data-map-node="${selected}"]`)));
-  }, [selected, variant, detail, collapsed]);
+    setFocused(current => {
+      if (!current || !document.querySelector('[data-readaloud][aria-pressed="true"]')) return current;
+      const topic = get(selected), shown = get(current), owner = parent(topic.id);
+      if (shown.panelIndex === topic.panelIndex && parent(shown.id)?.stepId !== shown.stepId) return current;
+      return owner?.stepId === topic.stepId ? owner.id : topic.id;
+    });
+  }, [selected]);
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      revealInMap(document.querySelector<HTMLElement>(`.sm-map [data-map-node="${selected}"]`));
+      document.querySelectorAll<HTMLElement>('.sm-map [data-source-step], .sm-focus-dialog[open] [data-source-step]').forEach(scroller => {
+        if (scroller.dataset.sourceStep !== get(selected).stepId && !scroller.dataset.sourceStep?.startsWith('callsite:')) return;
+        const rows = scroller.querySelectorAll<HTMLElement>('.is-highlighted');
+        if (!rows.length) return;
+        const first = rows[0].getBoundingClientRect(), last = rows[rows.length - 1].getBoundingClientRect(), box = scroller.getBoundingClientRect();
+        const span = last.bottom - first.top;
+        scroller.scrollTop += first.top - box.top - Math.max(0, (scroller.clientHeight - span) / 2);
+      });
+    });
+  }, [selected, sourcePosition.beat, variant, detail, focused]);
+  useEffect(() => {
+    if (focused && !dialog.current?.open) dialog.current?.showModal();
+    else if (!focused && dialog.current?.open) dialog.current.close();
+    if (focused && dialog.current) dialog.current.scrollTop = 0;
+  }, [focused]);
+  useEffect(() => {
+    const primary = document.querySelector<HTMLButtonElement>('[data-readaloud]');
+    const stop = document.querySelector<HTMLButtonElement>('[data-aloud-stop]');
+    if (!primary || !stop) return;
+    const sync = () => setTransport({ label: primary.querySelector('[data-readaloud-label]')?.textContent?.trim() || 'Play',
+      accessibleLabel: primary.getAttribute('aria-label') || 'Play narration', disabled: primary.disabled, canStop: !stop.hidden });
+    const observer = new MutationObserver(sync);
+    observer.observe(primary, { attributes: true, childList: true, characterData: true, subtree: true });
+    observer.observe(stop, { attributes: true, attributeFilter: ['hidden'] });
+    sync(); return () => observer.disconnect();
+  }, []);
   useEffect(() => {
     document.body.dataset.prototypeReadingPath = data.path.map(id => get(id).panelIndex).join(',');
     void selectSource(get('root'));
@@ -112,6 +153,7 @@ function Prototype({ data }: { data: MapData }) {
       const active = view.querySelector<HTMLElement>('.ds-step:not([hidden])');
       const panel = Number(active?.dataset.stepPanel);
       const beat = Number(document.querySelector(`[data-dock-step="${panel}"] [data-story-beat].is-selected`)?.getAttribute('data-focus-group') ?? 0);
+      setSourcePosition(old => old.panelIndex === panel && old.beat === beat ? old : { panelIndex: panel, beat });
       const matches = data.nodes.filter(topic => topic.panelIndex === panel);
       if (!matches.length) { if (panel) setOutside(payload.steps[panel - 1]?.title.text ?? 'Another part of the story'); return; }
       setOutside('');
@@ -125,25 +167,47 @@ function Prototype({ data }: { data: MapData }) {
     return () => observer.disconnect();
   }, []);
 
-  function Node({ topic, compact = false, disclosure = true, readable = false }: { topic: Topic; compact?: boolean; disclosure?: boolean; readable?: boolean }) {
+  const kindOf = (topic: Topic) => topic.content.some(block => block.type === 'diff') ? 'Code diff' : topic.content.some(block => block.type === 'code') ? 'Code' : topic.content.some(block => block.type === 'diagram') ? 'Story + diagram' : 'Story';
+  const openCard = (topic: Topic) => { if (get(selectedRef.current).stepId !== topic.stepId) choose(topic); setFocused(topic.id); };
+  function Content({ topic, full = false }: { topic: Topic; full?: boolean }) {
+    const currentBeat = sourcePosition.panelIndex === topic.panelIndex && parent(topic.id)?.stepId !== topic.stepId ? sourcePosition.beat : topic.beat;
+    return <div className={`sm-card-content ${full ? 'is-full' : ''}`}>{topic.content.map((block, index) => {
+      if (block.type === 'text') return <p className="sm-prose" key={index}>{payload.steps[block.panelIndex - 1]?.beats[currentBeat]?.text.text}</p>;
+      if (block.type === 'diagram') return <figure className="sm-diagram" key={index}><figcaption>{block.title}</figcaption>
+        <ol aria-label={block.title}>{block.labels.map((label, i) => <li key={label}><span>{String(i + 1).padStart(2, '0')}</span>{label}</li>)}</ol></figure>;
+      if (block.type === 'code') {
+        const group = block.stepId === topic.stepId ? currentBeat : 0;
+        const ranges = block.rangesByBeat[group] ?? block.rangesByBeat[0] ?? [];
+        const source = <div className="sm-source-block"><div className="sm-source-meta"><span>{block.file}</span><span>at {block.revision.slice(0, 7)}</span></div>
+          <div className="sm-source-scroll" data-source-step={block.stepId} tabIndex={0} role="region" aria-label={`${block.label}: ${block.file}`} onKeyDown={event => event.stopPropagation()}>
+            <pre>{block.lines.map(line => <span className={`sm-code-line ${ranges.some(([a, b]) => line.number >= a && line.number <= b) ? 'is-highlighted' : ''}`} key={line.number}><span className="sm-line-number">{line.number}</span><code>{line.text || ' '}</code></span>)}</pre>
+          </div></div>;
+        return block.label === 'Caller context' ? <details className="sm-card-caller" key={index} open={full}><summary>Caller context</summary>{source}</details> : <div key={index}>{source}</div>;
+      }
+      return <div className="sm-diff-block" key={index}><div className="sm-source-meta"><span>{block.file}</span><span>{block.base.slice(0, 7)} → {block.head.slice(0, 7)}</span></div>
+        <div className="sm-diff-key"><span>− Removed</span><span>+ Added</span><span>Historical change at the story’s commit</span></div>
+        <div className="sm-source-scroll" tabIndex={0} role="region" aria-label={`Code diff: ${block.file}`} onKeyDown={event => event.stopPropagation()}><pre>{block.rows.map((line, row) => <span className={`sm-diff-line is-${line.kind}`} key={row}><span className="sm-line-number">{line.oldLine ?? ''}</span><span className="sm-line-number">{line.newLine ?? ''}</span><span className="sm-diff-sign">{line.kind === 'add' ? '+' : line.kind === 'del' ? '−' : ' '}</span><code>{line.text || ' '}</code></span>)}</pre></div>
+      </div>;
+    })}</div>;
+  }
+  function Node({ topic, compact = false, disclosure = true, full = false, summaryOnly = false }: { topic: Topic; compact?: boolean; disclosure?: boolean; full?: boolean; summaryOnly?: boolean }) {
     const active = selected === topic.id;
-    const explanation = payload.steps[topic.panelIndex - 1]?.beats[topic.beat]?.text.text;
-    return <div className={`sm-node ${active ? 'is-current' : ''} ${compact ? 'is-small' : ''}`} data-map-node={topic.id}>
-      <button type="button" className="sm-select" aria-current={active ? 'location' : undefined} aria-label={`Read ${topic.label}`} aria-describedby={`sm-symbol-${topic.id}${readable && active && explanation ? ` sm-summary-${topic.id}` : ''}`} onClick={() => choose(topic)}>
-        <span className="sm-node-state" aria-label={visited.has(topic.id) ? 'Visited' : 'Not visited'}>{visited.has(topic.id) ? '✓' : '·'}</span>
-        <strong>{topic.label}</strong>
-        <span className="sm-symbol" id={`sm-symbol-${topic.id}`}>{topic.children.length ? topic.symbol : `Explanation ${topic.beat + 1} of ${topic.beats}`}</span>
-        {readable && active && explanation && <span className="sm-card-summary" id={`sm-summary-${topic.id}`}>{explanation}</span>}
-      </button>
-      {disclosure && !!topic.children.length && <button type="button" className="sm-expand" aria-label={`${expanded.has(topic.id) ? 'Collapse' : 'Expand'} ${topic.label}`} aria-expanded={expanded.has(topic.id)} onClick={() => toggle(topic.id)}>{expanded.has(topic.id) ? '−' : '+'}</button>}
-    </div>;
+    return <article className={`sm-node ${active ? 'is-current' : ''} ${compact ? 'is-small' : ''}`} aria-label={topic.label} data-map-node={full ? undefined : topic.id} data-card-kind={kindOf(topic)}>
+      <header className="sm-card-head"><div><span className="sm-card-type">{kindOf(topic)}</span>
+        {full ? <h3>{topic.label}</h3> : <button type="button" className="sm-select" aria-current={active ? 'location' : undefined} aria-label={`Read ${topic.label}`} onClick={() => choose(topic)}><strong>{topic.label}</strong></button>}
+        <code className="sm-symbol">{topic.symbol}</code></div>
+        {disclosure && !!topic.children.length && <button type="button" className="sm-expand" aria-label={`${expanded.has(topic.id) ? 'Collapse' : 'Expand'} ${topic.label}`} aria-expanded={expanded.has(topic.id)} onClick={() => toggle(topic.id)}>{expanded.has(topic.id) ? '−' : '+'}</button>}
+      </header>
+      {!summaryOnly && (!compact || active) && Content({ topic, full })}
+      {!full && !summaryOnly && <footer className="sm-card-actions"><span>{visited.has(topic.id) ? '✓ Visited' : 'Not visited'}</span><button type="button" onClick={() => openCard(topic)} aria-label={`Focus ${topic.label}`}>Focus card ↗</button></footer>}
+    </article>;
   }
 
   function VariantA() {
     const world = (id: string): React.ReactNode => {
       const topic = get(id), open = expanded.has(id) && !!topic.children.length;
       return <div className={`sm-world-row ${open ? 'has-children' : ''}`} key={id}>
-        <div className={`sm-world-card ${detail && selected === id ? 'is-reading' : ''}`}>{Node({ topic, readable: detail })}</div>
+        <div className={`sm-world-card ${detail ? 'is-reading' : ''}`}>{Node({ topic, compact: !detail })}</div>
         {open && <div className="sm-world-children" id={`sm-branch-${id}`}>{topic.children.map(world)}</div>}
       </div>;
     };
@@ -162,18 +226,26 @@ function Prototype({ data }: { data: MapData }) {
   }
   function VariantB() { return <div className="sm-tree"><ul>{Tree({ id: 'root' })}</ul></div>; }
   function VariantC() {
+    const owner = parent(node.id);
+    const branch = owner?.stepId === node.stepId ? owner : node;
     return <div className="sm-columns">
       <div className="sm-chapter-column"><button type="button" className="sm-root-link" onClick={() => choose(get('root'))}>← The whole call</button>
-        <div className="sm-section-label">Four questions</div>{get('root').children.map(id => <div key={id}>{Node({ topic: get(id), disclosure: false })}</div>)}</div>
-      <div className="sm-detail-column"><div className="sm-section-label">Inside {branch.symbol}</div>
-        <h3>{branch.label}</h3>{branch.children.map(id => <div key={id}>{Node({ topic: get(id), compact: true })}</div>)}</div>
+        <div className="sm-section-label">Story branches</div>{get('root').children.map(id => <div key={id}>{Node({ topic: get(id), disclosure: false, summaryOnly: true })}</div>)}</div>
+      <div className="sm-detail-column">{Node({ topic: node, full: true, disclosure: false })}
+        {branch.id !== 'root' && !!branch.children.length && <nav className="sm-child-list" aria-label={`Explore ${branch.label}`}><div className="sm-section-label">Go deeper</div>
+          {branch.children.map(id => <div key={id}>{Node({ topic: get(id), disclosure: false, summaryOnly: true })}</div>)}</nav>}
+      </div>
     </div>;
   }
 
   return <>
+    {createPortal(<dialog ref={dialog} className="sm-focus-dialog" aria-labelledby="sm-focus-title" onCancel={() => setFocused(null)} onKeyDown={event => event.stopPropagation()}><div className="sm-focus-head"><h2 id="sm-focus-title">{focused ? get(focused).label : 'Read card'}</h2><div className="sm-focus-actions">
+      <button type="button" disabled={transport.disabled} aria-label={transport.accessibleLabel} onClick={() => document.querySelector<HTMLButtonElement>('[data-readaloud]')?.click()}>{transport.label}</button>
+      {transport.canStop && <button type="button" onClick={() => document.querySelector<HTMLButtonElement>('[data-aloud-stop]')?.click()}>Stop narration</button>}
+      <button type="button" autoFocus onClick={() => setFocused(null)}>Close card</button></div></div>{focused && Node({ topic: get(focused), full: true, disclosure: false })}</dialog>, document.body)}
     <header className="sm-head"><div><span className="sm-kicker">Explore the story</span><h2>Gateway</h2></div>
-      <button type="button" className="sm-focus" onClick={() => setCollapsed(!collapsed)} aria-expanded={!collapsed}>{collapsed ? 'Open map' : 'Focus code'}</button></header>
-    {!collapsed && <>
+      <button type="button" className="sm-focus" onClick={() => openCard(node)}>Focus current card</button></header>
+    <>
       <nav className="sm-breadcrumbs" aria-label="Map location">{path.map((item, index) => <span key={item.id}>{index > 0 && <span aria-hidden="true">/</span>}<button type="button" onClick={() => choose(item)} aria-current={item.id === selected ? 'location' : undefined}>{item.id === 'root' ? '_executeCall()' : item.label}</button></span>)}</nav>
       <nav className="sm-map" aria-label="Gateway story map">{variant === 'A' ? VariantA() : variant === 'B' ? VariantB() : VariantC()}</nav>
       {outside && <div className="sm-outside">Reading elsewhere in the story.<button type="button" onClick={() => choose(node)}>Return to this branch</button></div>}
@@ -181,7 +253,7 @@ function Prototype({ data }: { data: MapData }) {
         <button type="button" onClick={() => scope(node)}>{selected === 'root' ? 'Follow gateway' : 'Follow this branch'} <span aria-hidden="true">→</span></button>
         <p>{outside ? 'Return to the map to follow a branch.' : 'Play follows this path. Choose any node to explore.'}</p>
       </footer>
-    </>}
+    </>
     <span className="ds-sr-only" role="status">{outside || `Reading ${node.label}. ${visited.size} topics visited.`}</span>
     {createPortal(<div className="sm-switcher" role="group" aria-label="Prototype layout"><span>Design prototype</span>
       <button type="button" aria-label="Previous layout" onClick={() => cycle(-1)}>←</button><strong>{variant} <span>— {variants[variant]}</span></strong>
@@ -193,7 +265,7 @@ async function boot() {
   await waitFor(() => !!document.querySelector('.ds-filmthread'));
   const data: MapData = await (await fetch('/_prototype/map.json')).json();
   const host = document.createElement('aside'); host.className = 'sm-prototype'; host.setAttribute('aria-label', 'Story map');
-  const main = document.querySelector('.ds-main')!; main.before(host);
+  document.querySelector('#ds-view-tour')!.prepend(host);
   document.body.classList.add('sm-prototyping');
   createRoot(host).render(<Prototype data={data} />);
 }

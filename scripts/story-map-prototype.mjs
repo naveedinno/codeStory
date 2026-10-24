@@ -7,7 +7,10 @@ import { basename, resolve, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
+import { execFileSync } from 'node:child_process';
 import { serve } from '../dist/server.js';
+import { parseUnifiedDiff } from '../dist/diff.js';
+import { discoverStoryCallSite } from '../dist/source-call-site.js';
 
 if (process.env.NODE_ENV === 'production') throw new Error('This prototype is development-only.');
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -42,9 +45,39 @@ topic('schedule', 'b-use-schedule', 'Consume a matured schedule');
 topic('wallet', 'b-wallet-route', 'Execute through a wallet');
 topic('forward', 'b-forward', 'Forward with account context');
 next.children.push('policy', 'schedule', 'wallet', 'forward');
-entry.children = ['route', 'signatures', 'replay', 'execution'];
+topic('change', 'b-signed-call', 'Call and its signatures');
+entry.children = ['route', 'change', 'replay', 'signatures', 'execution'];
+const git = (...args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 }).trimEnd();
+const base = git('rev-parse', `${tour.head}^`);
+const codeBlock = (step, range = step.viewport ?? step.range, label = 'Source') => {
+  const source = git('show', `${tour.head}:${step.file}`).split('\n');
+  return { type: 'code', label, file: step.file, revision: tour.head, stepId: step.id,
+    lines: source.slice(range[0] - 1, range[1]).map((text, index) => ({ number: range[0] + index, text })),
+    rangesByBeat: (step.beats ?? []).map(beat => beat.highlights ?? []) };
+};
+for (const node of nodes) {
+  const step = ordered[node.panelIndex - 1];
+  node.content = [{ type: 'text', panelIndex: node.panelIndex, beat: node.beat }];
+  if (['route', 'signatures', 'policy', 'schedule', 'wallet', 'forward'].includes(node.id)) {
+    const site = discoverStoryCallSite(repo, step, ordered, tour.head);
+    if (site) {
+      const caller = ordered.find(candidate => candidate.id === site.step);
+      const context = codeBlock(caller, [Math.max(1, site.range[0] - 2), site.range[1] + 2], 'Caller context');
+      context.rangesByBeat = [[site.range]]; context.stepId = `callsite:${node.id}`;
+      node.content.push(context);
+    }
+    node.content.push(codeBlock(step));
+  }
+}
+entry.content.push({ type: 'diagram', title: 'Checks before execution', labels: ['Deadline', 'Route', 'Signatures', 'Replay protection', 'Execute'] });
+nodes.find(node => node.id === 'execution').content.push({ type: 'diagram', title: 'Execution after validation', labels: ['Timelock checks, if required', 'Wallet or gateway route', 'Execute'] });
+const diffFile = 'contracts/gateway/SymmioGatewayTypes.sol';
+const changes = parseUnifiedDiff(git('diff', '--no-ext-diff', '--no-color', '--unified=3', base, tour.head, '--', diffFile))[0];
+nodes.find(node => node.id === 'change').content.push({ type: 'diff', file: diffFile, base, head: tour.head,
+  rows: changes.hunks.flatMap(hunk => [{ kind: 'hunk', text: `@@ -${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines} @@` },
+    ...hunk.lines.map(line => ({ kind: line.type, text: line.content, oldLine: line.oldNo, newLine: line.newNo }))]) });
 const data = { nodes, commit: tour.head, title: tour.title, sourceStory: storyId,
-  path: ['root', 'route', 'signatures', 'replay', 'policy', 'execution', 'schedule', 'wallet', 'forward'] };
+  path: ['root', 'change', 'route', 'signatures', 'replay', 'policy', 'execution', 'schedule', 'wallet', 'forward'] };
 const bundled = await build({ entryPoints: [join(root, 'client/surfaces/review/story-map.prototype.tsx')],
   bundle: true, write: false, format: 'esm', platform: 'browser', jsx: 'automatic', target: 'es2022',
   define: { 'process.env.NODE_ENV': '"development"' }, minify: false });
@@ -89,5 +122,5 @@ const proxy = createServer((req, res) => {
 proxy.listen(Number(arg('--port', '7799')), '127.0.0.1');
 await once(proxy, 'listening');
 console.log(`\nGateway mind-map prototype → http://localhost:${proxy.address().port}/repo/${basename(repo)}/review?story=${encodeURIComponent(storyId)}&variant=A`);
-console.log('A: Mind map · B: Branch tree · C: Focus path. Local read-only prototype; source story is preserved.');
+console.log('A: Content map · B: Reading tree · C: Focused cards. Local read-only prototype; source story is preserved.');
 process.on('SIGINT', () => { proxy.close(); backend.close(); process.exit(); });
