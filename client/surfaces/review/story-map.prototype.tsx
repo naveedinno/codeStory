@@ -3,6 +3,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createPortal } from 'react-dom';
 import type { ReviewPayload } from '../../../src/payloads';
+import { MapBranchMotion, branchExitStyle, mapScrollBounds, mapCardLayoutBox } from './story-map-motion.prototype';
 
 type ContentBlock =
   | { type: 'text'; panelIndex: number; beat: number }
@@ -29,34 +30,36 @@ function cancelMapMotion(map: HTMLElement | null) {
   cancelAnimationFrame(mapFrames.get(map) ?? 0); mapFrames.delete(map);
 }
 function cameraEase(progress: number) {
-  // A short ease-out for intentional pointer framing; keyboard paths are instant.
+  // The docs camera curve; branch focus is immediate while its viewport follows.
   const curve = (t: number, a: number, b: number) => 3 * (1 - t) ** 2 * t * a + 3 * (1 - t) * t ** 2 * b + t ** 3;
   let low = 0, high = 1;
-  for (let i = 0; i < 12; i++) { const mid = (low + high) / 2; if (curve(mid, .23, .32) < progress) low = mid; else high = mid; }
-  return curve((low + high) / 2, 1, 1);
+  for (let i = 0; i < 12; i++) { const mid = (low + high) / 2; if (curve(mid, .25, .15) < progress) low = mid; else high = mid; }
+  return curve((low + high) / 2, .7, 1);
 }
 function revealInMap(element: HTMLElement | null, center = false, animate = true, headerOnly = false) {
   const map = element?.closest<HTMLElement>('.sm-map');
   if (!element || !map) return;
   cancelMapMotion(map);
   const heading = element.querySelector('.sm-card-head') ?? element;
-  const head = heading.getBoundingClientRect(), card = element.getBoundingClientRect(), box = map.getBoundingClientRect();
+  const presented = heading.getBoundingClientRect(), card = mapCardLayoutBox(element), box = map.getBoundingClientRect();
+  const head = { left: card.left, top: card.top, height: (heading as HTMLElement).offsetHeight };
   const width = Math.min(card.width, box.width - 32);
   // Selecting something already readable must not move a large code card merely
   // because its bottom is outside the viewport. Find is the explicit framing action.
-  if (!center && head.top >= box.top + 16 && head.bottom <= box.bottom - 16 && head.left >= box.left + 16 && head.left + width <= box.right - 16) return;
+  if (!center && presented.top >= box.top + 16 && presented.bottom <= box.bottom - 16 && presented.left >= box.left + 16 && presented.left + Math.min(presented.width, box.width - 32) <= box.right - 16) return;
   const height = Math.min(headerOnly ? head.height : center ? card.height : Math.min(card.height, 360), box.height - 32);
   const x = head.left - box.left, y = head.top - box.top;
   const dx = center ? x - (box.width - width) / 2 : x < 16 ? x - 16 : x + width > box.width - 16 ? x + width - box.width + 16 : 0;
   const dy = center ? y - (box.height - height) / 2 : y < 16 ? y - 16 : y + height > box.height - 16 ? y + height - box.height + 16 : 0;
   const fromX = map.scrollLeft, fromY = map.scrollTop;
-  const toX = Math.max(0, Math.min(map.scrollWidth - map.clientWidth, fromX + dx));
-  const toY = Math.max(0, Math.min(map.scrollHeight - map.clientHeight, fromY + dy));
+  const limits = mapScrollBounds(map);
+  const toX = Math.max(0, Math.min(limits.width - map.clientWidth, fromX + dx));
+  const toY = Math.max(0, Math.min(limits.height - map.clientHeight, fromY + dy));
   if (!animate || matchMedia('(prefers-reduced-motion: reduce)').matches) { map.scrollLeft = toX; map.scrollTop = toY; return; }
   if (Math.abs(toX - fromX) < 1 && Math.abs(toY - fromY) < 1) return;
   const start = performance.now();
   const frame = (now: number) => {
-    const progress = Math.min(1, (now - start) / 220), eased = cameraEase(progress);
+    const progress = Math.min(1, (now - start) / 350), eased = cameraEase(progress);
     map.scrollLeft = fromX + (toX - fromX) * eased; map.scrollTop = fromY + (toY - fromY) * eased;
     if (progress < 1) mapFrames.set(map, requestAnimationFrame(frame)); else mapFrames.delete(map);
   };
@@ -172,6 +175,20 @@ function NativeViewer({ block, beat, current, full }: { block: ViewerBlock; beat
   </div>;
 }
 
+function BranchPresence({ open, branchId, as = 'div', className, children }: { open: boolean; branchId: string; as?: 'div' | 'ul'; className?: string; children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(open), [shown, setShown] = useState(open);
+  const element = useRef<HTMLDivElement & HTMLUListElement>(null);
+  useLayoutEffect(() => {
+    if (open) { setMounted(true); setShown(true); return; }
+    if (!shown) return;
+    const timer = window.setTimeout(() => setShown(false), matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 220);
+    return () => clearTimeout(timer);
+  }, [open, shown]);
+  if (!mounted && !open) return null;
+  const Tag = as;
+  return <Tag ref={element} id={`sm-branch-${branchId}`} data-presence-branch={branchId} data-branch-exiting={!open && shown ? 'true' : undefined} className={className} hidden={!open && !shown} inert={!open} aria-hidden={!open || undefined} style={!open && shown ? branchExitStyle(element.current) : undefined}>{children}</Tag>;
+}
+
 function Prototype({ data }: { data: MapData }) {
   const byId = new Map(data.nodes.map(node => [node.id, node]));
   const get = (id: string) => byId.get(id)!;
@@ -181,11 +198,14 @@ function Prototype({ data }: { data: MapData }) {
   const [selected, setSelected] = useState('root');
   const [navigation, setNavigation] = useState(0);
   const selectedRef = useRef('root');
+  const [branchMotion] = useState(() => new MapBranchMotion(new Map(data.nodes.flatMap(node => node.children.map(child => [child, node.id] as const)))));
+  const reflowed = useRef(false), focusByMap = useRef(false);
   const keyboardInput = useRef(false);
   const keyHandler = useRef<(event: KeyboardEvent) => void>(() => {});
   const pendingSource = useRef<{ panelIndex: number; beat: number } | null>(null);
   const [sourcePosition, setSourcePosition] = useState({ panelIndex: get('root').panelIndex, beat: 0 });
   const [expanded, setExpanded] = useState(new Set(['root']));
+  const expandedRef = useRef(expanded); expandedRef.current = expanded;
   const [detail, setDetail] = useState(true);
   const [visited, setVisited] = useState(new Set(['root']));
   const [focused, setFocused] = useState<string | null>(null);
@@ -206,8 +226,10 @@ function Prototype({ data }: { data: MapData }) {
     document.body.dataset.prototypeReadingPath = [...new Set(indexes)].join(',');
     setReading(topic.id === 'root' ? 'Gateway' : topic.label);
   };
+  const prepareReflow = (anchor = selectedRef.current, layoutChange = false) => { if (map.current) branchMotion.capture(map.current, anchor, layoutChange); };
   const choose = (topic: Topic, intent: NavigationIntent = {}) => {
     const keyboard = intent.keyboard ?? keyboardInput.current;
+    prepareReflow(selectedRef.current, ancestors(topic.id).some(item => !expandedRef.current.has(item.id)));
     cancelMapMotion(map.current);
     revealRequest.current = { id: topic.id, keyboard, focus: intent.focus ?? keyboard };
     setNavigation(value => value + 1);
@@ -222,18 +244,23 @@ function Prototype({ data }: { data: MapData }) {
   };
   const cardFor = (id: string) => map.current?.querySelector<HTMLElement>(`[data-map-detail="${id}"]`) ?? map.current?.querySelector<HTMLElement>(`[data-map-node="${id}"]`) ?? null;
   const toggle = (id: string) => {
-    if (expanded.has(id) && ancestors(selectedRef.current).some(topic => topic.id === id)) choose(get(id));
+    const opening = !expanded.has(id);
+    prepareReflow(id, true);
+    const returning = !opening && ancestors(selectedRef.current).some(topic => topic.id === id);
+    if (returning) choose(get(id));
     cancelMapMotion(map.current);
+    revealRequest.current = { id: opening ? get(id).children[0] : id, keyboard: keyboardInput.current, focus: returning && keyboardInput.current };
+    setNavigation(value => value + 1);
     setExpanded(old => { const next = new Set(old); next.has(id) ? next.delete(id) : next.add(id); return next; });
   };
   const changeVariant = (next: Variant) => {
-    cancelMapMotion(map.current);
+    cancelMapMotion(map.current); branchMotion.reset();
     const url = new URL(location.href); url.searchParams.set('variant', next); history.replaceState(null, '', url);
     revealRequest.current = { id: selectedRef.current, keyboard: keyboardInput.current, focus: false }; setVariant(next);
   };
-  const focusCard = (id: string) => cardFor(id)?.querySelector<HTMLElement>('[data-map-focus]')?.focus({ preventScroll: true });
+  const focusCard = (id: string) => { focusByMap.current = true; try { cardFor(id)?.querySelector<HTMLElement>('[data-map-focus]')?.focus({ preventScroll: true }); } finally { focusByMap.current = false; } };
   const findCurrent = () => {
-    setExpanded(old => new Set([...old, ...ancestors(selectedRef.current).map(item => item.id)]));
+    setExpanded(old => { const ids = ancestors(selectedRef.current).map(item => item.id); return ids.every(id => old.has(id)) ? old : new Set([...old, ...ids]); });
     focusCard(selectedRef.current);
     revealInMap(cardFor(selectedRef.current), true, !keyboardInput.current);
   };
@@ -272,12 +299,11 @@ function Prototype({ data }: { data: MapData }) {
       next = byId.get(current.children[0]);
     } else if (event.key === 'ArrowLeft' || event.key === 'Escape') {
       next = owner;
-      if (owner) setExpanded(old => { const next = new Set(old); owner.children.forEach(id => next.delete(id)); return next; });
+      if (owner) { prepareReflow(owner.id, owner.children.some(id => expandedRef.current.has(id))); setExpanded(old => { const next = new Set(old); owner.children.forEach(id => next.delete(id)); return next; }); }
     }
     else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') next = byId.get(siblings[siblings.indexOf(id) + (event.key === 'ArrowDown' ? 1 : -1)]);
     else return;
     event.preventDefault(); event.stopPropagation();
-    cancelMapMotion(map.current);
     if (next) choose(next, { keyboard: true });
   };
   keyHandler.current = mapKey;
@@ -311,18 +337,20 @@ function Prototype({ data }: { data: MapData }) {
       return owner?.stepId === topic.stepId ? owner.id : topic.id;
     });
   }, [selected]);
+  useLayoutEffect(() => { reflowed.current = map.current ? branchMotion.flush(map.current) : false; });
+  useEffect(() => () => branchMotion.reset(), []);
   useLayoutEffect(() => {
     const request = revealRequest.current;
     revealRequest.current = null;
     if (focused) { cancelMapMotion(map.current); return; }
-    const card = cardFor(selected);
+    const card = cardFor(request?.id ?? selected);
     if (!card) return;
-    if (request?.focus) card.querySelector<HTMLElement>('[data-map-focus]')?.focus({ preventScroll: true });
+    if (request?.focus) focusCard(selected);
     // Narration follows headers without taking the viewport away from inspection.
     if (!request && document.activeElement?.closest('[data-map-native-viewer]')) return;
-    revealInMap(card, false, !!request && !request.keyboard, !request || request.keyboard);
+    revealInMap(card, reflowed.current, reflowed.current || (!!request && !request.keyboard), !reflowed.current && (!request || request.keyboard));
     return () => cancelMapMotion(map.current);
-  }, [selected, variant, detail, focused, navigation]);
+  }, [selected, variant, detail, focused, navigation, expanded]);
   useEffect(() => { document.body.dataset.mapTranscript = String(transcript); }, [transcript]);
   useEffect(() => {
     if (focused && !dialog.current?.open) dialog.current?.showModal();
@@ -354,10 +382,10 @@ function Prototype({ data }: { data: MapData }) {
     return () => window.removeEventListener('codestory:map-return', returned);
   }, []);
   useEffect(() => {
-    const pop = () => setVariant(readVariant()); window.addEventListener('popstate', pop);
+    const pop = () => { branchMotion.reset(); setVariant(readVariant()); }; window.addEventListener('popstate', pop);
     const interrupt = () => cancelMapMotion(map.current);
     const pointer = () => { keyboardInput.current = false; interrupt(); };
-    const key = (event: KeyboardEvent) => { keyboardInput.current = true; interrupt(); keyHandler.current(event); };
+    const key = (event: KeyboardEvent) => { keyboardInput.current = true; keyHandler.current(event); if (!event.defaultPrevented) interrupt(); };
     window.addEventListener('pointerdown', pointer, true);
     window.addEventListener('keydown', key, true);
     window.addEventListener('wheel', interrupt, { capture: true, passive: true });
@@ -383,6 +411,7 @@ function Prototype({ data }: { data: MapData }) {
       setOutside('');
       const requested = get(selectedRef.current);
       const exact = requested.panelIndex === panel && requested.beat === beat ? requested : matches.find(topic => !topic.children.length && topic.beat === beat) ?? matches[0];
+      if (ancestors(exact.id).some(topic => !expandedRef.current.has(topic.id))) prepareReflow(selectedRef.current, true);
       selectedRef.current = exact.id;
       setSelected(exact.id); setVisited(old => old.has(exact.id) ? old : new Set([...old, exact.id]));
       setExpanded(old => { const ids = ancestors(exact.id).map(item => item.id); return ids.every(id => old.has(id)) ? old : new Set([...old, ...ids]); });
@@ -407,7 +436,7 @@ function Prototype({ data }: { data: MapData }) {
     const active = selected === topic.id;
     return <article className={`sm-node ${active ? 'is-current' : ''} ${compact ? 'is-small' : ''}`} aria-label={topic.label} data-map-node={full ? undefined : topic.id} data-map-detail={full && !modal ? topic.id : undefined} data-card-kind={kindOf(topic)}>
       <header className="sm-card-head"><div><span className="sm-card-type">{kindOf(topic)}</span>
-        {modal ? <h3>{topic.label}</h3> : <button type="button" className="sm-select" data-map-focus={topic.id} tabIndex={active && !(variant === 'C' && summaryOnly) ? 0 : -1} aria-current={active ? 'location' : undefined} aria-label={`Read ${topic.label}`} onClick={() => choose(topic)} onFocus={event => { if (event.currentTarget.matches(':focus-visible')) revealInMap(event.currentTarget.closest('[data-map-node],[data-map-detail]'), false, false, true); }}><strong>{topic.label}</strong></button>}
+        {modal ? <h3>{topic.label}</h3> : <button type="button" className="sm-select" data-map-focus={topic.id} tabIndex={active && !(variant === 'C' && summaryOnly) ? 0 : -1} aria-current={active ? 'location' : undefined} aria-label={`Read ${topic.label}`} onClick={() => choose(topic)} onFocus={event => { if (!focusByMap.current && event.currentTarget.matches(':focus-visible')) revealInMap(event.currentTarget.closest('[data-map-node],[data-map-detail]'), false, false, true); }}><strong>{topic.label}</strong></button>}
         <code className="sm-symbol">{topic.symbol}</code></div>
         {disclosure && !!topic.children.length && <button type="button" className="sm-expand" aria-label={`${expanded.has(topic.id) ? 'Collapse' : 'Expand'} ${topic.label}`} aria-expanded={expanded.has(topic.id)} onClick={() => toggle(topic.id)}>{expanded.has(topic.id) ? '−' : '+'}</button>}
       </header>
@@ -421,14 +450,14 @@ function Prototype({ data }: { data: MapData }) {
       const topic = get(id), open = expanded.has(id) && !!topic.children.length;
       return <div className={`sm-world-row ${open ? 'has-children' : ''}`} key={id}>
         <div className={`sm-world-card ${detail ? 'is-reading' : ''}`}>{Node({ topic, compact: !detail })}</div>
-        {open && <div className="sm-world-children" id={`sm-branch-${id}`}>{topic.children.map(world)}</div>}
+        {!!topic.children.length && <BranchPresence open={open} branchId={id} className="sm-world-children">{topic.children.map(world)}</BranchPresence>}
       </div>;
     };
     return <div className="sm-world">{world('root')}</div>;
   }
   function Tree({ id }: { id: string }) {
     const n = get(id);
-    return <li key={id}>{Node({ topic: n })}{expanded.has(id) && !!n.children.length && <ul>{n.children.map(child => Tree({ id: child }))}</ul>}</li>;
+    return <li key={id}>{Node({ topic: n })}{!!n.children.length && <BranchPresence as="ul" open={expanded.has(id)} branchId={id}>{n.children.map(child => Tree({ id: child }))}</BranchPresence>}</li>;
   }
   function VariantB() { return <div className="sm-tree"><ul>{Tree({ id: 'root' })}</ul></div>; }
   function VariantC() {
@@ -461,7 +490,7 @@ function Prototype({ data }: { data: MapData }) {
     {createPortal(<div ref={options} id={optionsId} popover="auto" className="sm-options" role="dialog" aria-label="Map options" onToggle={event => setOptionsOpen(event.currentTarget.matches(':popover-open'))} onKeyDown={event => event.stopPropagation()}>
       <div className="sm-options-head"><strong>Map options</strong><button type="button" aria-label="Close map options" onClick={() => options.current?.hidePopover()}>×</button></div>
       <label>Layout<select aria-label="Map layout" value={variant} onChange={event => changeVariant(event.target.value as Variant)}>{(['A', 'B', 'C'] as Variant[]).map(key => <option key={key} value={key}>{variants[key]}</option>)}</select></label>
-      {variant === 'A' && <label className="sm-check"><input type="checkbox" checked={detail} onChange={event => setDetail(event.target.checked)} />Show card content</label>}
+      {variant === 'A' && <label className="sm-check"><input type="checkbox" checked={detail} onChange={event => { prepareReflow(selectedRef.current, true); setDetail(event.target.checked); }} />Show card content</label>}
       <label className="sm-check"><input type="checkbox" checked={transcript} onChange={event => setTranscript(event.target.checked)} />Show narration transcript</label>
       <div className="sm-options-reading"><span className="sm-section-label">Reading path · {reading}</span><button type="button" onClick={() => follow(get('root'))}>Follow gateway</button><button type="button" onClick={() => follow(node)}>Follow this branch</button></div>
       <details><summary>Keyboard shortcuts</summary><dl><dt>→ / ←</dt><dd>Enter first detail / return to parent</dd><dt>↑ / ↓</dt><dd>Previous / next sibling</dd><dt>Home</dt><dd>Gateway overview</dd><dt>Enter</dt><dd>Center the current card</dd><dt>Escape</dt><dd>Leave code, or go up one level</dd><dt>Tab</dt><dd>Inspect card controls and source</dd></dl></details>

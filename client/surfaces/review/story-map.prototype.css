@@ -41,8 +41,8 @@ body[data-read-view="tour"] .sm-prototype{display:flex;flex-direction:column}
 .sm-options label.sm-check{display:flex;align-items:center;gap:10px;min-height:44px;margin:0;color:var(--text)}.sm-check input{width:18px;height:18px;accent-color:var(--accent-blue)}
 .sm-options-reading{display:grid;border-block:1px solid var(--line-soft);padding-block:12px;margin-top:8px}.sm-options-reading>.sm-section-label{margin-bottom:4px}
 .sm-options summary{min-height:44px;align-content:center;cursor:pointer}.sm-options dl{display:grid;grid-template-columns:auto 1fr;gap:10px;margin:4px 0 12px;font-size:12px;color:var(--muted)}.sm-options dt{font-family:var(--mono);color:var(--text)}.sm-options dd{margin:0}
-.sm-map{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;background:var(--bg);overflow-anchor:none;scroll-behavior:auto}
-.sm-world{display:flex;justify-content:center;width:max-content;min-width:100%;box-sizing:border-box;padding:28px 32px 40px}
+.sm-map{position:relative;flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;background:var(--bg);overflow-anchor:none;scroll-behavior:auto}
+.sm-world{position:relative;display:flex;justify-content:flex-start;width:max-content;min-width:100%;box-sizing:border-box;padding:28px 32px 40px}
 .sm-world-row{position:relative;display:flex;align-items:flex-start}
 .sm-world-card{position:relative;width:420px;flex:none}
 .sm-world-card:has([data-card-kind="Code"]){width:920px}
@@ -123,3 +123,18 @@ body[data-read-view="tour"] .sm-prototype{display:flex;flex-direction:column}
  .sm-columns{grid-template-columns:1fr}.sm-chapter-column{display:flex;gap:8px;overflow:auto;border-right:0;border-bottom:1px solid var(--line);padding:8px}.sm-chapter-column>div{min-width:200px}.sm-chapter-column>.sm-section-label,.sm-chapter-column>.sm-root-link{display:none}.sm-detail-column{padding:8px}
  .sm-focus-head{padding:10px 12px}.sm-focus-head h2{font-size:16px}
 }
+
+/* Same parent-side growth and connector draw as the Ivy docs map. */
+.sm-map [data-presence-branch][hidden]{display:none!important}
+.sm-map [data-branch-exiting="true"]{pointer-events:none}
+.sm-motion-extent{position:absolute;inset:0 auto auto 0;pointer-events:none}
+.sm-world-row,.sm-tree li{position:relative}
+.sm-world-row.has-children>.sm-world-card::after,.sm-world-children>.sm-world-row::before{display:none}
+.sm-world-children,.sm-tree li>ul{border-left:0}
+.sm-world-card>.sm-node{transform-origin:left center}
+.sm-tree{position:relative}
+.sm-tree .sm-node{transform-origin:top center}
+.sm-map-edges{position:absolute;left:0;top:0;overflow:visible;pointer-events:none;z-index:0}
+.sm-map-edges path{fill:none;stroke:var(--line);stroke-width:1;stroke-dasharray:1;vector-effect:non-scaling-stroke}
+.sm-world-row>.sm-world-card,.sm-tree .sm-node{position:relative;z-index:1}
+@media(max-width:760px){.sm-world-card>.sm-node{transform-origin:top center}}

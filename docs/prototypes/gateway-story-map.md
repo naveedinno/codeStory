@@ -65,7 +65,9 @@ the first child in one command; Left folds the level being left and returns
 to its parent in one command. Down from the overview enters its first topic. Up/Down move among
 siblings without wrapping. Home returns to the gateway. Escape goes up one level,
 and Enter explicitly centers the current card. Keyboard focus and selection
-update together; only obscured headers are revealed, immediately. Native tabs,
+update together immediately. Branch opening animates the geometry while focus
+already belongs to its destination. Other keyboard movement reveals obscured
+headers immediately. Native tabs,
 inputs, code/diff scroll regions and resize handles keep their own keys. Code inspection retains native arrow scrolling; Escape returns to the current
 map explanation without resetting its beat or reading position. Open native
 menus close first, including inside Focus. Page arrows navigate the selected map branch, never layouts or slides. A focused card is a
@@ -81,24 +83,39 @@ triggering manual rescoping. Follow branch resets to its introduction; Follow
 gateway restores the curated reading path. The engine preserves speech caches
 during lazy loading and reveals a freshly loaded narration target.
 
-Reference: `core/docs/site/assets/map.js` and `map.css`. This iteration carries
-its semantic detail, parent-child expansion, current path and readable mobile
-reflow into content cards. Pointer selection, Find current and explicit centering
-use one interruptible 220ms outer-scroll controller with a short
-`cubic-bezier(0.23,1,0.32,1)` ease-out curve. An already-visible heading stays stationary; other selections reveal a
-stable opening area rather than the entire tall card. Explicit Find centers it.
-No code scaling is involved. Wheel, touch, pointer interaction,
+Reference: `core/docs/site/assets/map.js` (`reflow`) and `map.css`. A/B now use
+its branch-growth sequence: connectors draw over 520ms; new cards enter from
+the parent side at 94% scale and zero opacity over 440ms after a 230ms delay.
+Surviving cards translate into the new layout over 440ms. Exiting cards fade
+and shrink to 96% over 220ms; connectors retract over 320ms. The branch curve
+is `cubic-bezier(.22,.8,.22,1)`. Vertical layouts enter from above. Previously
+opened branches retain their exact DOM while hidden, keeping native viewer
+state; exiting branches immediately become inert and hidden to accessibility.
+One coordinator samples presented positions before retargeting, compensates
+the surviving parent before panning, and draws connectors from moving boxes.
+Rapid reversals cancel old completions rather than queueing transitions.
+If a collapse pan is interrupted, the viewport retains enough temporary space
+to keep its current offsets. That space shrinks as the reader scrolls back;
+an exit-completion timer cannot clamp the viewport to the abandoned destination.
+
+The owner explicitly requested this growth for keyboard opening too, after
+confirming the repaired keyboard semantics. Selection and focus stay immediate;
+branch geometry and its viewport follow the docs' motion. One interruptible
+350ms outer-scroll controller uses `cubic-bezier(.25,.7,.15,1)`. An already-visible
+heading stays stationary during ordinary selection; explicit Find centers it.
+Native viewer rendering and inner scrolling stay intact. Wheel, touch, pointer interaction,
 resizing or another command cancels at the current offsets. Reduced motion uses
-immediate framing. All keyboard paths, including Enter and keyboard-activated
-Find/breadcrumbs, settle immediately. Hidden native source-step and mode changes
+zero durations and delays. Nonstructural keyboard paths, including Enter and
+keyboard-activated Find, settle immediately. Hidden native source-step and mode changes
 bypass workspace snapshot/fallback animations so they cannot freeze or crossfade
 the visible map. Genuine Story/Files workspace transitions retain native behavior.
 Narration follows headers without moving an actively inspected
-native viewer. Keyboard disclosure has no height animation.
+native viewer. Growth applies to the connected map and reading tree; C retains
+its focused-card navigation.
 The topology organizes authored explanations and does not claim to be a
 compiler-resolved call graph.
 
-Implementation: `story-map.prototype.tsx`, `story-map.prototype.css`, and
+Implementation: `story-map.prototype.tsx`, `story-map-motion.prototype.ts`, `story-map.prototype.css`, and
 `scripts/story-map-prototype.mjs`. State stays in memory; only the layout key is
 stored in the URL. No variant has been promoted to the application. Keep this
 prototype off main and implement the chosen direction after owner feedback.
@@ -151,3 +168,17 @@ The map owner also accepts arrows from its own toolbar, card-footer Focus and
 root-link controls, so returning from Focus does not strand keyboard navigation.
 Keyboard immediacy and focus destination are separate: layout selection retains
 its native select focus, and Follow restores the options trigger.
+
+Branch-motion verification: `node scripts/story-map-growth-smoke.mjs` covers
+painted intermediate entry/connector frames, immediate logical focus, hidden
+exit accessibility, rapid reversals, retained native DOM/Full-file mode and
+nonzero inspection offsets. It checks A/B desktop, A390, B320 and reduced
+motion; held arrows keep the final heading visible, and pointer Find completes
+centering. Exact interruption regressions cover Home 80ms into a branch entry,
+and wheel input during collapse followed by extent release and scrolling back.
+The input regression still passes A/B/C and phone widths. Native caller/Focus
+state, historical old68/new76 expansion and mocked narration progression were
+also rechecked. Fresh independent UI and behavior reviews closed the identified
+Home/extent issues. The actual normal-motion browser recording and desktop/phone
+captures accompany the handoff. Audible playback and native installation remain
+outside this iteration.
