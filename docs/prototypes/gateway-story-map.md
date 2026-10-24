@@ -58,13 +58,17 @@ One compact native narration strip shows playback, current explanation and
 previous/next controls. Transcript text is optional in Map options; the story
 cards already contain the explanation. Follow gateway/branch remains there too.
 
-Map card headers use roving Tab focus. Right opens a folded branch, then enters
-its first child; Left folds, then returns to the parent. Up/Down move among
+The map owns navigation from initial page focus, its background and card text;
+card titles keep roving Tab focus. Clicking card text selects and focuses its
+card without stealing interactions from the embedded viewers. Right opens and enters
+the first child in one command; Left folds the level being left and returns
+to its parent in one command. Down from the overview enters its first topic. Up/Down move among
 siblings without wrapping. Home returns to the gateway. Escape goes up one level,
-and Enter explicitly centers the focused card. Keyboard focus and selection
+and Enter explicitly centers the current card. Keyboard focus and selection
 update together; only obscured headers are revealed, immediately. Native tabs,
-inputs, code/diff scroll regions and resize handles keep their own keys. Page
-arrows no longer change layouts or trigger unrelated beats. A focused card is a
+inputs, code/diff scroll regions and resize handles keep their own keys. Code inspection retains native arrow scrolling; Escape returns to the current
+map explanation without resetting its beat or reading position. Open native
+menus close first, including inside Focus. Page arrows navigate the selected map branch, never layouts or slides. A focused card is a
 modal dialog with native Escape, Tab containment, and a Close card action. The source and diff regions
 are independently scrollable without selecting the card or changing playback.
 Focus preserves the active explanation and follows narration into the next
@@ -80,11 +84,16 @@ during lazy loading and reveals a freshly loaded narration target.
 Reference: `core/docs/site/assets/map.js` and `map.css`. This iteration carries
 its semantic detail, parent-child expansion, current path and readable mobile
 reflow into content cards. Pointer selection, Find current and explicit centering
-use one interruptible 300ms outer-scroll controller with the docs camera's
-`cubic-bezier(.25,.7,.15,1)` curve. It frames readable opening content instead of
-scaling code or fitting an entire tall branch. Wheel, touch, pointer interaction,
+use one interruptible 220ms outer-scroll controller with a short
+`cubic-bezier(0.23,1,0.32,1)` ease-out curve. An already-visible heading stays stationary; other selections reveal a
+stable opening area rather than the entire tall card. Explicit Find centers it.
+No code scaling is involved. Wheel, touch, pointer interaction,
 resizing or another command cancels at the current offsets. Reduced motion uses
-immediate framing. Narration follows headers without moving an actively inspected
+immediate framing. All keyboard paths, including Enter and keyboard-activated
+Find/breadcrumbs, settle immediately. Hidden native source-step and mode changes
+bypass workspace snapshot/fallback animations so they cannot freeze or crossfade
+the visible map. Genuine Story/Files workspace transitions retain native behavior.
+Narration follows headers without moving an actively inspected
 native viewer. Keyboard disclosure has no height animation.
 The topology organizes authored explanations and does not claim to be a
 compiler-resolved call graph.
@@ -128,3 +137,17 @@ native activation, including when the transcript is visible. Source and UI
 review findings were patched and rechecked.
 The native viewer, historical-context, clamped-scroll and mocked narration
 checks remain separate from audible synthesis or native installation.
+
+Input regression after owner feedback: the earlier title-focused/reduced-motion
+checks missed initial-body and prose focus, and normal-motion native workspace
+snapshots. `node scripts/story-map-input-smoke.mjs` against the running prototype
+covers those paths with normal motion, held arrows, code inspection/Escape,
+keyboard Find and native widget ownership across A/B/C and phone widths.
+The same initial-body/prose and snapshot assertions were run failing before
+this fix. A separate code-row reproduction confirmed native horizontal scrolling
+and failed Escape-to-map before the handoff fix.
+
+The map owner also accepts arrows from its own toolbar, card-footer Focus and
+root-link controls, so returning from Focus does not strand keyboard navigation.
+Keyboard immediacy and focus destination are separate: layout selection retains
+its native select focus, and Follow restores the options trigger.

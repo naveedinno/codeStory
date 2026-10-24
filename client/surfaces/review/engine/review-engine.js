@@ -682,6 +682,9 @@ export function startReviewEngine(options){
   }
   function runWorkspaceTransition(kind,direction,update){
     if(!update)return null;
+    // Map cards remain visible while their hidden source panels change. A root
+    // snapshot would freeze/crossfade the map on every navigation command.
+    if(document.body.classList.contains('sm-prototyping')&&currentView()==='tour'&&(kind==='step'||kind==='mode')){update();return null;}
     if(prefersReducedMotion()){update();return null;}
     if(typeof document.startViewTransition!=='function')return runWorkspaceFallback(kind,direction,update);
     if(workspaceTransition&&typeof workspaceTransition.skipTransition==='function')workspaceTransition.skipTransition();

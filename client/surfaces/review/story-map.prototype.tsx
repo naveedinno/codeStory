@@ -12,6 +12,7 @@ type ContentBlock =
 interface Topic { id: string; stepId: string; panelIndex: number; label: string; symbol: string; beat: number; children: string[]; beats: number; content: ContentBlock[] }
 interface MapData { nodes: Topic[]; commit: string; title: string; path: string[] }
 type Variant = 'A' | 'B' | 'C';
+type NavigationIntent = { keyboard?: boolean; focus?: boolean };
 const variants: Record<Variant, string> = { A: 'Content map', B: 'Reading tree', C: 'Focused cards' };
 const readVariant = (): Variant => { const v = new URL(location.href).searchParams.get('variant'); return v === 'B' || v === 'C' ? v : 'A'; };
 const payload: ReviewPayload = JSON.parse(document.querySelector('#__CODESTORY_DATA__')!.textContent!);
@@ -28,19 +29,24 @@ function cancelMapMotion(map: HTMLElement | null) {
   cancelAnimationFrame(mapFrames.get(map) ?? 0); mapFrames.delete(map);
 }
 function cameraEase(progress: number) {
-  // cubic-bezier(.25,.7,.15,1), matching the docs camera.
+  // A short ease-out for intentional pointer framing; keyboard paths are instant.
   const curve = (t: number, a: number, b: number) => 3 * (1 - t) ** 2 * t * a + 3 * (1 - t) * t ** 2 * b + t ** 3;
   let low = 0, high = 1;
-  for (let i = 0; i < 12; i++) { const mid = (low + high) / 2; if (curve(mid, .25, .15) < progress) low = mid; else high = mid; }
-  return curve((low + high) / 2, .7, 1);
+  for (let i = 0; i < 12; i++) { const mid = (low + high) / 2; if (curve(mid, .23, .32) < progress) low = mid; else high = mid; }
+  return curve((low + high) / 2, 1, 1);
 }
 function revealInMap(element: HTMLElement | null, center = false, animate = true, headerOnly = false) {
   const map = element?.closest<HTMLElement>('.sm-map');
   if (!element || !map) return;
   cancelMapMotion(map);
-  const target = (headerOnly ? element.querySelector('.sm-card-head') ?? element : element).getBoundingClientRect(), box = map.getBoundingClientRect();
-  const width = Math.min(target.width, box.width - 32), height = Math.min(target.height, box.height - 32);
-  const x = target.left - box.left, y = target.top - box.top;
+  const heading = element.querySelector('.sm-card-head') ?? element;
+  const head = heading.getBoundingClientRect(), card = element.getBoundingClientRect(), box = map.getBoundingClientRect();
+  const width = Math.min(card.width, box.width - 32);
+  // Selecting something already readable must not move a large code card merely
+  // because its bottom is outside the viewport. Find is the explicit framing action.
+  if (!center && head.top >= box.top + 16 && head.bottom <= box.bottom - 16 && head.left >= box.left + 16 && head.left + width <= box.right - 16) return;
+  const height = Math.min(headerOnly ? head.height : center ? card.height : Math.min(card.height, 360), box.height - 32);
+  const x = head.left - box.left, y = head.top - box.top;
   const dx = center ? x - (box.width - width) / 2 : x < 16 ? x - 16 : x + width > box.width - 16 ? x + width - box.width + 16 : 0;
   const dy = center ? y - (box.height - height) / 2 : y < 16 ? y - 16 : y + height > box.height - 16 ? y + height - box.height + 16 : 0;
   const fromX = map.scrollLeft, fromY = map.scrollTop;
@@ -50,7 +56,7 @@ function revealInMap(element: HTMLElement | null, center = false, animate = true
   if (Math.abs(toX - fromX) < 1 && Math.abs(toY - fromY) < 1) return;
   const start = performance.now();
   const frame = (now: number) => {
-    const progress = Math.min(1, (now - start) / 300), eased = cameraEase(progress);
+    const progress = Math.min(1, (now - start) / 220), eased = cameraEase(progress);
     map.scrollLeft = fromX + (toX - fromX) * eased; map.scrollTop = fromY + (toY - fromY) * eased;
     if (progress < 1) mapFrames.set(map, requestAnimationFrame(frame)); else mapFrames.delete(map);
   };
@@ -175,6 +181,8 @@ function Prototype({ data }: { data: MapData }) {
   const [selected, setSelected] = useState('root');
   const [navigation, setNavigation] = useState(0);
   const selectedRef = useRef('root');
+  const keyboardInput = useRef(false);
+  const keyHandler = useRef<(event: KeyboardEvent) => void>(() => {});
   const pendingSource = useRef<{ panelIndex: number; beat: number } | null>(null);
   const [sourcePosition, setSourcePosition] = useState({ panelIndex: get('root').panelIndex, beat: 0 });
   const [expanded, setExpanded] = useState(new Set(['root']));
@@ -184,7 +192,7 @@ function Prototype({ data }: { data: MapData }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const optionsTrigger = useRef<HTMLButtonElement>(null);
   const map = useRef<HTMLElement>(null), options = useRef<HTMLDivElement>(null), optionsId = 'sm-options-' + useId();
-  const revealRequest = useRef<{ id: string; keyboard: boolean } | null>(null);
+  const revealRequest = useRef<{ id: string; keyboard: boolean; focus: boolean } | null>(null);
   const [transcript, setTranscript] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [beatNav, setBeatNav] = useState({ previous: false, next: false });
@@ -198,9 +206,10 @@ function Prototype({ data }: { data: MapData }) {
     document.body.dataset.prototypeReadingPath = [...new Set(indexes)].join(',');
     setReading(topic.id === 'root' ? 'Gateway' : topic.label);
   };
-  const choose = (topic: Topic, keyboard = false) => {
+  const choose = (topic: Topic, intent: NavigationIntent = {}) => {
+    const keyboard = intent.keyboard ?? keyboardInput.current;
     cancelMapMotion(map.current);
-    revealRequest.current = { id: topic.id, keyboard };
+    revealRequest.current = { id: topic.id, keyboard, focus: intent.focus ?? keyboard };
     setNavigation(value => value + 1);
     pendingSource.current = { panelIndex: topic.panelIndex, beat: topic.beat };
     document.querySelector<HTMLButtonElement>('[data-aloud-stop]:not([hidden])')?.click();
@@ -220,45 +229,75 @@ function Prototype({ data }: { data: MapData }) {
   const changeVariant = (next: Variant) => {
     cancelMapMotion(map.current);
     const url = new URL(location.href); url.searchParams.set('variant', next); history.replaceState(null, '', url);
-    revealRequest.current = { id: selectedRef.current, keyboard: false }; setVariant(next);
+    revealRequest.current = { id: selectedRef.current, keyboard: keyboardInput.current, focus: false }; setVariant(next);
   };
+  const focusCard = (id: string) => cardFor(id)?.querySelector<HTMLElement>('[data-map-focus]')?.focus({ preventScroll: true });
   const findCurrent = () => {
     setExpanded(old => new Set([...old, ...ancestors(selectedRef.current).map(item => item.id)]));
-    revealInMap(cardFor(selectedRef.current), true);
+    focusCard(selectedRef.current);
+    revealInMap(cardFor(selectedRef.current), true, !keyboardInput.current);
   };
-  const mapKey = (event: React.KeyboardEvent<HTMLElement>) => {
-    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.defaultPrevented) return;
+  const mapKey = (event: KeyboardEvent) => {
+    if (event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.defaultPrevented) return;
+    if (document.querySelector('[popover]:popover-open,.ds-command-root:not([hidden])')) return;
     const target = event.target as HTMLElement;
-    if (!target.closest('[data-map-focus],.sm-expand')) return;
-    const id = target.closest<HTMLElement>('[data-map-focus]')?.dataset.mapFocus ?? target.closest<HTMLElement>('[data-map-node]')?.dataset.mapNode;
-    if (!id) return;
+    const viewer = target.closest('[data-map-native-viewer]');
+    if (viewer && event.key === 'Escape') {
+      const menu = viewer.querySelector<HTMLDetailsElement>('details[open]');
+      if (menu) { event.preventDefault(); event.stopPropagation(); menu.open = false; menu.querySelector<HTMLElement>('summary')?.focus({ preventScroll: true }); return; }
+    }
+    if (focused || document.body.dataset.readView !== 'tour' || document.querySelector('dialog[open]')) return;
+    if (viewer) {
+      if (event.key === 'Escape') {
+        event.preventDefault(); event.stopPropagation();
+        const card = target.closest<HTMLElement>('[data-map-node],[data-map-detail]');
+        const ownerId = card?.dataset.mapNode ?? card?.dataset.mapDetail ?? selectedRef.current;
+        const id = get(ownerId).panelIndex === get(selectedRef.current).panelIndex ? selectedRef.current : ownerId;
+        if (selectedRef.current !== id) choose(get(id), { keyboard: true }); else focusCard(id);
+        revealInMap(cardFor(id), false, false, true);
+      }
+      return;
+    }
+    const navigationControl = target.closest('[data-map-focus],.sm-expand,.sm-map-actions button,.sm-breadcrumbs button,.sm-card-actions button,.sm-root-link');
+    if (!navigationControl && target.closest('button,a,input,textarea,select,summary,[contenteditable="true"],[role="separator"],[role="tab"],[role="slider"]')) return;
+    const onMap = map.current?.contains(target) || !!target.closest('.sm-command-bar') || target === document.body || target === document.documentElement || target.matches('.ds-main,#ds-view-tour');
+    if (!onMap) return;
+    const id = selectedRef.current;
     const current = get(id), owner = parent(id), siblings = owner ? owner.children : ['root'];
     let next: Topic | undefined;
     if (event.key === 'Home') next = get('root');
-    else if (event.key === 'Enter' && target.matches('[data-map-focus]')) {
-      event.preventDefault(); event.stopPropagation(); revealInMap(cardFor(id), true); return;
-    } else if (event.key === 'ArrowRight') {
-      if (current.children.length && !expanded.has(id) && variant !== 'C') toggle(id);
-      else next = byId.get(current.children[0]);
-    } else if (event.key === 'ArrowLeft') {
-      if (expanded.has(id) && current.children.length && variant !== 'C') toggle(id);
-      else next = owner;
-    } else if (event.key === 'Escape') next = owner;
+    else if (event.key === 'Enter' && (target.closest('[data-map-focus]') || !target.closest('button'))) {
+      event.preventDefault(); event.stopPropagation(); focusCard(id); revealInMap(cardFor(id), true, false); return;
+    } else if (event.key === 'ArrowRight' || (event.key === 'ArrowDown' && id === 'root')) {
+      next = byId.get(current.children[0]);
+    } else if (event.key === 'ArrowLeft' || event.key === 'Escape') {
+      next = owner;
+      if (owner) setExpanded(old => { const next = new Set(old); owner.children.forEach(id => next.delete(id)); return next; });
+    }
     else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') next = byId.get(siblings[siblings.indexOf(id) + (event.key === 'ArrowDown' ? 1 : -1)]);
     else return;
     event.preventDefault(); event.stopPropagation();
     cancelMapMotion(map.current);
-    if (next) choose(next, true);
+    if (next) choose(next, { keyboard: true });
   };
-  const scope = (requested: Topic) => {
+  keyHandler.current = mapKey;
+  const mapClick = (event: React.MouseEvent<HTMLElement>) => {
+    const target = event.target as HTMLElement;
+    if (event.defaultPrevented || target.closest('[data-map-native-viewer],button,a,input,textarea,select,summary,[role="separator"]') || !window.getSelection()?.isCollapsed) return;
+    const card = target.closest<HTMLElement>('[data-map-node],[data-map-detail]');
+    const id = card?.dataset.mapNode ?? card?.dataset.mapDetail;
+    if (id) { if (id !== selectedRef.current) choose(get(id)); focusCard(id); }
+    else map.current?.focus({ preventScroll: true });
+  };
+  const scope = (requested: Topic, focus = true) => {
     const owner = parent(requested.id);
-    choose(owner?.stepId === requested.stepId ? owner : requested);
+    choose(owner?.stepId === requested.stepId ? owner : requested, { focus });
   };
 
   const follow = (topic: Topic) => {
     options.current?.hidePopover();
     optionsTrigger.current?.focus({ preventScroll: true });
-    scope(topic);
+    scope(topic, false);
   };
 
   useEffect(() => {
@@ -278,7 +317,7 @@ function Prototype({ data }: { data: MapData }) {
     if (focused) { cancelMapMotion(map.current); return; }
     const card = cardFor(selected);
     if (!card) return;
-    if (request?.keyboard) card.querySelector<HTMLElement>('[data-map-focus]')?.focus({ preventScroll: true });
+    if (request?.focus) card.querySelector<HTMLElement>('[data-map-focus]')?.focus({ preventScroll: true });
     // Narration follows headers without taking the viewport away from inspection.
     if (!request && document.activeElement?.closest('[data-map-native-viewer]')) return;
     revealInMap(card, false, !!request && !request.keyboard, !request || request.keyboard);
@@ -317,9 +356,13 @@ function Prototype({ data }: { data: MapData }) {
   useEffect(() => {
     const pop = () => setVariant(readVariant()); window.addEventListener('popstate', pop);
     const interrupt = () => cancelMapMotion(map.current);
-    const events = ['pointerdown', 'wheel', 'keydown', 'resize'] as const;
-    events.forEach(type => window.addEventListener(type, interrupt, { capture: true, passive: true }));
-    return () => { window.removeEventListener('popstate', pop); events.forEach(type => window.removeEventListener(type, interrupt, true)); interrupt(); };
+    const pointer = () => { keyboardInput.current = false; interrupt(); };
+    const key = (event: KeyboardEvent) => { keyboardInput.current = true; interrupt(); keyHandler.current(event); };
+    window.addEventListener('pointerdown', pointer, true);
+    window.addEventListener('keydown', key, true);
+    window.addEventListener('wheel', interrupt, { capture: true, passive: true });
+    window.addEventListener('resize', interrupt);
+    return () => { window.removeEventListener('popstate', pop); window.removeEventListener('pointerdown', pointer, true); window.removeEventListener('keydown', key, true); window.removeEventListener('wheel', interrupt, true); window.removeEventListener('resize', interrupt); interrupt(); };
   }, []);
   useEffect(() => {
     const view = document.querySelector('#ds-view-tour')!;
@@ -421,10 +464,11 @@ function Prototype({ data }: { data: MapData }) {
       {variant === 'A' && <label className="sm-check"><input type="checkbox" checked={detail} onChange={event => setDetail(event.target.checked)} />Show card content</label>}
       <label className="sm-check"><input type="checkbox" checked={transcript} onChange={event => setTranscript(event.target.checked)} />Show narration transcript</label>
       <div className="sm-options-reading"><span className="sm-section-label">Reading path · {reading}</span><button type="button" onClick={() => follow(get('root'))}>Follow gateway</button><button type="button" onClick={() => follow(node)}>Follow this branch</button></div>
-      <details><summary>Keyboard shortcuts</summary><dl><dt>→ / ←</dt><dd>Open / fold, then enter / go up</dd><dt>↑ / ↓</dt><dd>Previous / next sibling</dd><dt>Home</dt><dd>Gateway overview</dd><dt>Enter</dt><dd>Center the focused card</dd><dt>Escape</dt><dd>Go up one level</dd><dt>Tab</dt><dd>Inspect card controls and source</dd></dl></details>
+      <details><summary>Keyboard shortcuts</summary><dl><dt>→ / ←</dt><dd>Enter first detail / return to parent</dd><dt>↑ / ↓</dt><dd>Previous / next sibling</dd><dt>Home</dt><dd>Gateway overview</dd><dt>Enter</dt><dd>Center the current card</dd><dt>Escape</dt><dd>Leave code, or go up one level</dd><dt>Tab</dt><dd>Inspect card controls and source</dd></dl></details>
     </div>, document.body)}
-    <nav ref={map} className="sm-map" aria-label="Gateway story map" onKeyDown={mapKey}>{variant === 'A' ? VariantA() : variant === 'B' ? VariantB() : VariantC()}</nav>
+    <nav ref={map} className="sm-map" tabIndex={-1} aria-label="Gateway story map" aria-describedby="sm-map-key-help" onClick={mapClick}>{variant === 'A' ? VariantA() : variant === 'B' ? VariantB() : VariantC()}</nav>
     {outside && <div className="sm-outside">Reading elsewhere in the story.<button type="button" onClick={() => choose(node)}>Return to this branch</button></div>}
+    <span id="sm-map-key-help" className="ds-sr-only">Arrow keys navigate the map. Enter centers the current card. Escape returns from code to the map.</span>
     <span className="ds-sr-only" role="status">{outside || `Reading ${node.label}. ${visited.size} topics visited.`}</span>
     {createPortal(<div className="sm-playback-context"><div className="sm-playback-label"><span>{node.label}</span><small>{reading === 'Gateway' ? 'Gateway' : 'Branch'} · {sourcePosition.beat + 1} / {payload.steps[sourcePosition.panelIndex - 1]?.beats.length || 1}</small></div><div className="sm-beat-controls" role="group" aria-label="Explanation navigation">
       <button type="button" aria-label="Previous explanation" disabled={!beatNav.previous} onClick={() => document.querySelector<HTMLButtonElement>('.ds-dock-stage [data-beat-dock]:not([hidden]) [data-beat-move="-1"]')?.click()}>←</button>
