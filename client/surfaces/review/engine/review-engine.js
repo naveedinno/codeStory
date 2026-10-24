@@ -1012,6 +1012,8 @@ export function startReviewEngine(options){
     return document.activeElement===target;
   }
   function focusStoryViewEntry(){
+    // A map command owns focus while it activates its underlying native panel.
+    if(document.body.classList.contains('sm-prototyping')&&closest(document.activeElement,'.sm-prototype,.sm-options,.sm-focus-dialog'))return;
     var panel=stepPanels&&stepPanels[active],target=null;
     if(panel){
       var host=beatHost(panel);
@@ -4198,6 +4200,10 @@ export function startReviewEngine(options){
     });
   }
   function onKey(e){
+    if(e.defaultPrevented)return;
+    // Map navigation and embedded inspection own their keys. Native divider
+    // handlers run locally or in capture before this fallback.
+    if(document.body.classList.contains('sm-prototyping')&&closest(e.target,'.sm-prototype,.sm-focus-dialog,.sm-options'))return;
     // Native popover keys belong to source inspection, not story navigation.
     if($('.ds-source-references:popover-open'))return;
     if(e.key==='Escape'&&blameOpen()){e.preventDefault();e.stopPropagation();closeBlame(true);return;}
@@ -4278,6 +4284,7 @@ export function startReviewEngine(options){
     if(focusedStoryBeat&&(e.key==='ArrowRight'||e.key==='ArrowLeft')){
       e.preventDefault();moveStoryBeat(focusedStoryBeat,e.key==='ArrowRight'?1:-1);return;
     }
+    if(document.body.classList.contains('sm-prototyping')&&currentView()==='tour'&&(e.key==='ArrowRight'||e.key==='ArrowLeft'||e.key==='j'||e.key==='k'))return;
     var wantsBeatNav=e.key==='ArrowRight'||e.key==='ArrowLeft';
     if(wantsBeatNav&&moveSpeechBeat(e.key==='ArrowRight'?1:-1)){e.preventDefault();return;}
     if(wantsBeatNav&&!isTextEntryTarget(e.target)&&tourView&&!tourView.hidden&&active>0&&movePanelBeat(stepPanels[active],e.key==='ArrowRight'?1:-1)){e.preventDefault();return;}

@@ -30,7 +30,7 @@ prototype on the existing review route. `NODE_ENV=production` refuses to run.
 It reads the real story and its pinned Git revision, uses a temporary app home,
 and rejects mutations except local narration. It never writes a story file.
 
-Compare three content layouts using the floating design bar:
+Compare three content layouts in Map options (the top-right ••• button):
 
 - `?variant=A`: connected cards with their content visible inside the map.
 - `?variant=B`: an expandable reading tree containing the same rich cards.
@@ -50,9 +50,22 @@ uses `buildFullFileRows` and `renderFullFile` for the same historical comparison
 Native context expansion is routed through `/_prototype/context` with that same
 historical dataset, so old and new line numbers keep the correct revisions.
 
-Buttons retain keyboard behavior. Layout arrow shortcuts apply only to the
-design bar or the page itself. A focused card is a modal dialog with native
-Escape, Tab containment, and a Close card action. The source and diff regions
+The two-row header retains the story identity and native Story/Files/Review
+choices, then one map command row with breadcrumbs, Find current, Focus and
+Map options. The large floating layout switcher, repeated Gateway heading and
+guided-reading footer are removed. A/B/C and content density live in Map options.
+One compact native narration strip shows playback, current explanation and
+previous/next controls. Transcript text is optional in Map options; the story
+cards already contain the explanation. Follow gateway/branch remains there too.
+
+Map card headers use roving Tab focus. Right opens a folded branch, then enters
+its first child; Left folds, then returns to the parent. Up/Down move among
+siblings without wrapping. Home returns to the gateway. Escape goes up one level,
+and Enter explicitly centers the focused card. Keyboard focus and selection
+update together; only obscured headers are revealed, immediately. Native tabs,
+inputs, code/diff scroll regions and resize handles keep their own keys. Page
+arrows no longer change layouts or trigger unrelated beats. A focused card is a
+modal dialog with native Escape, Tab containment, and a Close card action. The source and diff regions
 are independently scrollable without selecting the card or changing playback.
 Focus preserves the active explanation and follows narration into the next
 card. Its header mirrors the existing Play/Pause/Resume and Stop controls.
@@ -66,7 +79,13 @@ during lazy loading and reveals a freshly loaded narration target.
 
 Reference: `core/docs/site/assets/map.js` and `map.css`. This iteration carries
 its semantic detail, parent-child expansion, current path and readable mobile
-reflow into content cards. Scrolling is instant; no animated camera was added.
+reflow into content cards. Pointer selection, Find current and explicit centering
+use one interruptible 300ms outer-scroll controller with the docs camera's
+`cubic-bezier(.25,.7,.15,1)` curve. It frames readable opening content instead of
+scaling code or fitting an entire tall branch. Wheel, touch, pointer interaction,
+resizing or another command cancels at the current offsets. Reduced motion uses
+immediate framing. Narration follows headers without moving an actively inspected
+native viewer. Keyboard disclosure has no height animation.
 The topology organizes authored explanations and does not claim to be a
 compiler-resolved call graph.
 
@@ -84,9 +103,9 @@ removals. Story bytes stay unchanged. Mocked narration checks pass for progressi
 from overview to diff to helper, matching prose/highlights, Pause/Resume/Stop,
 independent keyboard scrolling and the return chain back through `executeSigned()`.
 The embedded viewer owns its focus paint, so native narrative-step cleanup cannot
-erase its highlights. The narration dock is bounded on small phones and retains
-its scrollable text. Focus preserves caller visibility and widths in both
-directions; historical expansion verifies old line 68 against new line 76.
+erase its highlights. The narration dock is compact on phones; its optional
+transcript retains scrollable text below the complete playback row. Focus
+preserves caller visibility and widths in both directions; historical expansion verifies old line 68 against new line 76.
 Native wheel checks retain 600px when opening Focus, 1,150px when closing it,
 and the same position after Escape across A/B/C and both phone widths. Scroll
 offsets are captured before detach and restored after layout; native scroll
@@ -97,3 +116,15 @@ survives until the reader actually scrolls that axis. Boundary probes cover
 horizontal movement updates only the horizontal coordinate.
 Audible synthesis and native installation are outside this
 prototype's verification scope.
+
+Chrome/navigation verification for this revision: browser probes cover A/B/C
+hierarchy keys, sibling boundaries, same-selection Home focus, roving Tab entry,
+native Story/Files tab arrows, transcript toggle, mirrored Previous/Next and
+44px phone targets. Normal-motion framing has intermediate rendered offsets;
+wheel input and opening Map options cancel it without a destination snap.
+Reduced motion frames immediately. Fresh 1440px, 390px and 320px captures show
+no page overflow. Follow actions retain focus on the Map options trigger through
+native activation, including when the transcript is visible. Source and UI
+review findings were patched and rechecked.
+The native viewer, historical-context, clamped-scroll and mocked narration
+checks remain separate from audible synthesis or native installation.
