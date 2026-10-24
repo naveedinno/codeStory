@@ -5,9 +5,15 @@ source code and real code diffs inside the map?
 
 The owner clarified that the map is the reading surface. Each topic now owns
 `content` blocks: `text`, `diagram`, `code`, or `diff`. A card can combine blocks.
-The former permanent code pane is hidden in this prototype; the existing lazy
-panels remain as the narration state engine. Focus card opens the same content
-in a larger native dialog, including caller context where available.
+The map changes navigation and composition. Code and diff blocks embed the
+existing CodeStory viewers, produced by `renderStoryStepPanel`, with the same
+syntax highlighting, word diffs, split/unified/full-file modes, wrapping and
+resizing controls. Caller/helper blocks keep the native paired source windows.
+Focus card reparents the same live viewer element, preserving its display mode,
+pane visibility/widths, loaded context and inspection position. It does not
+reconstruct the viewer when entering or leaving Focus.
+The underlying lazy story panels still own narration state; embedded viewer
+fragments are not duplicate narrative steps.
 
 Status: owner comparison pending. Captured on `prototype/story-map-gateway`,
 based on `ce912c9`; the earlier navigation-only version is commit `4f8d37e`.
@@ -31,12 +37,18 @@ Compare three content layouts using the floating design bar:
 - `?variant=C`: branch selection and one focused content card.
 
 The gateway overview combines prose with a small validation-order diagram.
-Route/signature cards contain pinned source with line numbers and beat-based
-highlights. Caller context can expand inside the code card. Replay and other
-explanation cards contain prose. The Call/SignedCall card contains a real
+Route/signature cards contain pinned source with native beat-based highlights.
+Their native caller/helper panes support Hide/Show, resizing and Return to caller.
+The overview also offers its native `_executeCall()` viewer in a disclosure.
+Its caller, `executeSigned()`, has a submission card so returning up the call
+chain stays inside the map, including Focus and its guided reading scope.
+Replay and other explanation cards contain prose. The Call/SignedCall card contains a real
 historical diff of `SymmioGatewayTypes.sol`, from `d8a23d4` to the story's
 `6399ecf`. Its old/new revisions and historical scope are labeled explicitly;
-it is not a working-tree diff or a fabricated example.
+it is not a working-tree diff or a fabricated example. Its complete-file mode
+uses `buildFullFileRows` and `renderFullFile` for the same historical comparison.
+Native context expansion is routed through `/_prototype/context` with that same
+historical dataset, so old and new line numbers keep the correct revisions.
 
 Buttons retain keyboard behavior. Layout arrow shortcuts apply only to the
 design bar or the page itself. A focused card is a modal dialog with native
@@ -63,11 +75,25 @@ Implementation: `story-map.prototype.tsx`, `story-map.prototype.css`, and
 stored in the URL. No variant has been promoted to the application. Keep this
 prototype off main and implement the chosen direction after owner feedback.
 
-Verification: `npm run check` passes 1,123 existing tests and client typecheck
-passes. Browser checks cover all three layouts, 390px and 320px widths, inline
-code/diff inspection, focused reading and branch links. Every displayed source
-line and changed diff row matches the pinned Git data; story bytes are unchanged.
-Mocked narration checks cover gateway/branch scoping, progress into focused
-diff/code cards, Pause/Resume/Stop, and source keyboard scrolling without story
-navigation. Audible synthesis and native installation were not tested for this
-prototype.
+`npm run check` passes all 1,123 tests, including build and client typecheck.
+Native-viewer browser checks pass for all three layouts plus 390px and 320px
+widths: syntax tokens, split/unified/full-file modes, wrapping, caller Hide/Show,
+resizing, caller Return and focus-mode retention. The source full-file request
+uses the pinned story commit; historical Full file retains its additions and
+removals. Story bytes stay unchanged. Mocked narration checks pass for progression
+from overview to diff to helper, matching prose/highlights, Pause/Resume/Stop,
+independent keyboard scrolling and the return chain back through `executeSigned()`.
+The embedded viewer owns its focus paint, so native narrative-step cleanup cannot
+erase its highlights. The narration dock is bounded on small phones and retains
+its scrollable text. Focus preserves caller visibility and widths in both
+directions; historical expansion verifies old line 68 against new line 76.
+Native wheel checks retain 600px when opening Focus, 1,150px when closing it,
+and the same position after Escape across A/B/C and both phone widths. Scroll
+offsets are captured before detach and restored after layout; native scroll
+anchoring is suspended only for that handoff and then restored.
+If Focus's larger viewport clamps a coordinate, the original requested offset
+survives until the reader actually scrolls that axis. Boundary probes cover
+`(300,500)` clamping to `(165,273)` and restoring on Close/Escape, while explicit
+horizontal movement updates only the horizontal coordinate.
+Audible synthesis and native installation are outside this
+prototype's verification scope.

@@ -1,5 +1,5 @@
 // THROWAWAY: compare spatial, hierarchical, and focused navigation on the real review screen.
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createPortal } from 'react-dom';
 import type { ReviewPayload } from '../../../src/payloads';
@@ -7,8 +7,8 @@ import type { ReviewPayload } from '../../../src/payloads';
 type ContentBlock =
   | { type: 'text'; panelIndex: number; beat: number }
   | { type: 'diagram'; title: string; labels: string[] }
-  | { type: 'code'; label: string; file: string; revision: string; stepId: string; lines: { number: number; text: string }[]; rangesByBeat: [number, number][][] }
-  | { type: 'diff'; file: string; base: string; head: string; rows: { kind: 'ctx' | 'add' | 'del' | 'hunk'; text: string; oldLine?: number; newLine?: number }[] };
+  | { type: 'code'; viewerId: string; file: string; revision: string; rangesByBeat: [number, number][][] }
+  | { type: 'diff'; viewerId: string; file: string; base: string; head: string; rangesByBeat: [number, number][][] };
 interface Topic { id: string; stepId: string; panelIndex: number; label: string; symbol: string; beat: number; children: string[]; beats: number; content: ContentBlock[] }
 interface MapData { nodes: Topic[]; commit: string; title: string; path: string[] }
 type Variant = 'A' | 'B' | 'C';
@@ -40,8 +40,105 @@ async function selectSource(topic: Topic) {
   if (version !== selectionVersion) return;
   const beat = document.querySelector<HTMLButtonElement>(`[data-dock-step="${topic.panelIndex}"] [data-story-beat][data-focus-group="${topic.beat}"]`);
   beat?.click();
-  const wrap = document.querySelector<HTMLButtonElement>(`[data-step-panel="${topic.panelIndex}"] [data-line-wrap-toggle][aria-pressed="false"]`);
-  wrap?.click();
+}
+
+type ViewerBlock = Extract<ContentBlock, { type: 'code' | 'diff' }>;
+const viewerHtml = new Map<string, Promise<string>>();
+type ViewerHost = { element: HTMLDivElement; modal: boolean; refresh: (extra?: Record<string, unknown>) => void };
+type LiveViewer = { panel?: HTMLElement; initialized: boolean; hosts: Set<ViewerHost>; restoring: boolean; scrolls: { element: HTMLElement; top: number; left: number; appliedTop: number; appliedLeft: number; anchor: string }[] };
+const liveViewers = new Map<string, LiveViewer>();
+function rememberViewerScroll(viewer: LiveViewer) {
+  if (viewer.restoring || !viewer.panel?.getClientRects().length) return;
+  viewer.scrolls = [...viewer.panel.querySelectorAll<HTMLElement>('.ds-diffscroll,.ds-callsite-scroll,[data-split-pane-scroll]')]
+    .filter(element => element.getClientRects().length).map(element => {
+      const previous = viewer.scrolls.find(saved => saved.element === element), top = element.scrollTop, left = element.scrollLeft;
+      // A larger viewport can clamp an unchanged position. Keep the requested
+      // coordinate until the reader actually scrolls that axis again.
+      return { element, top: previous && Math.abs(top - previous.appliedTop) < 1 ? previous.top : top,
+        left: previous && Math.abs(left - previous.appliedLeft) < 1 ? previous.left : left,
+        appliedTop: top, appliedLeft: left, anchor: element.style.overflowAnchor };
+    });
+}
+function restoreViewerScroll(viewer: LiveViewer, settled = false) {
+  if (!viewer.restoring || !viewer.panel?.getClientRects().length) return;
+  for (const saved of viewer.scrolls) { saved.element.scrollTop = saved.top; saved.element.scrollLeft = saved.left; saved.appliedTop = saved.element.scrollTop; saved.appliedLeft = saved.element.scrollLeft; }
+  if (settled) { for (const saved of viewer.scrolls) saved.element.style.overflowAnchor = saved.anchor; viewer.restoring = false; }
+}
+function settleViewerScroll(viewer: LiveViewer) {
+  // Reparenting and a wider toolbar can reset offsets or trigger scroll anchoring.
+  // Restore after layout, then return anchoring to its original native setting.
+  requestAnimationFrame(() => { restoreViewerScroll(viewer); requestAnimationFrame(() => restoreViewerScroll(viewer, true)); });
+}
+function placeViewer(viewer: LiveViewer) {
+  const owner = [...viewer.hosts].find(host => host.modal) ?? [...viewer.hosts][0];
+  if (!owner || !viewer.panel) return;
+  if (viewer.panel.parentElement !== owner.element) {
+    rememberViewerScroll(viewer); viewer.restoring = true;
+    for (const saved of viewer.scrolls) saved.element.style.overflowAnchor = 'none';
+    owner.element.replaceChildren(viewer.panel);
+  }
+  owner.refresh({ initialize: !viewer.initialized, attach: true, reflow: !viewer.initialized });
+  viewer.initialized = true;
+  settleViewerScroll(viewer);
+}
+function NativeViewer({ block, beat, current, full }: { block: ViewerBlock; beat: number; current: boolean; full: boolean }) {
+  const host = useRef<HTMLDivElement>(null), id = useId(), positioned = useRef(false);
+  const position = useRef({ beat, current }); position.current = { beat, current };
+  useLayoutEffect(() => {
+    const element = host.current!; let cancelled = false, frame = 0;
+    if (!liveViewers.has(block.viewerId)) liveViewers.set(block.viewerId, { initialized: false, hosts: new Set(), restoring: false, scrolls: [] });
+    const viewer = liveViewers.get(block.viewerId)!;
+    const refresh = (extra: Record<string, unknown> = {}) => {
+      if (!viewer.panel || viewer.panel.parentElement !== element) return;
+      const state = position.current;
+      element.dispatchEvent(new CustomEvent('codestory:map-viewer', { bubbles: true, detail: {
+        beat: state.beat, ranges: block.rangesByBeat[state.beat] ?? [], ...extra,
+      } }));
+    };
+    const registration = { element, modal: !!element.closest('dialog'), refresh }; viewer.hosts.add(registration);
+    const schedule = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(() => refresh()); };
+    const observer = new MutationObserver(records => { if (records.some(record => (record.target as HTMLElement).matches('[data-mode],[data-full-inner],[data-diff-inner],[data-split-inner],[data-line-wrap-toggle],.ds-callsite-pane,[data-callsite-toggle]'))) schedule(); });
+    let width = 0;
+    const resize = new ResizeObserver(entries => { const next = Math.round(entries[0].contentRect.width); if (next !== width) { width = next; refresh(); settleViewerScroll(viewer); } });
+    if (!viewerHtml.has(block.viewerId)) viewerHtml.set(block.viewerId, fetch('/_prototype/viewer?id=' + encodeURIComponent(block.viewerId)).then(response => response.text()));
+    void viewerHtml.get(block.viewerId)!.then(markup => {
+      if (cancelled) return;
+      if (!viewer.panel) {
+        // The ordinary escaped server fragment becomes one live viewer. Focus
+        // reparents this element, preserving all native inspection state.
+        const template = document.createElement('template'); template.innerHTML = markup;
+        const panel = template.content.firstElementChild as HTMLElement;
+        panel.classList.remove('ds-step'); panel.classList.add('sm-native-step'); panel.removeAttribute('hidden'); panel.removeAttribute('data-step-panel');
+        panel.querySelectorAll('[data-beat-dock],template[data-step-landing]').forEach(node => node.remove());
+        panel.querySelectorAll<HTMLElement>('.ds-diffscroll').forEach(node => { node.tabIndex = 0; node.setAttribute('role', 'region'); node.setAttribute('aria-label', `${block.type === 'diff' ? 'Code diff' : 'Code'} viewport: ${block.file}`); });
+        const ids = new Map<string, string>();
+        panel.querySelectorAll<HTMLElement>('[id]').forEach(node => { ids.set(node.id, 'sm-' + id + '-' + node.id); node.id = ids.get(node.id)!; });
+        panel.querySelectorAll<HTMLElement>('[aria-controls],[aria-labelledby],[popovertarget]').forEach(node => {
+          for (const attr of ['aria-controls', 'aria-labelledby', 'popovertarget']) if (node.hasAttribute(attr)) node.setAttribute(attr, node.getAttribute(attr)!.split(' ').map(value => ids.get(value) ?? value).join(' '));
+        });
+        if (block.type === 'diff') panel.querySelectorAll<HTMLElement>('[data-open-full-diff]').forEach(node => { node.removeAttribute('data-open-full-diff'); node.setAttribute('data-map-open-full', ''); node.setAttribute('aria-label', 'Read the complete file at this historical change'); node.title = 'Read the complete file at this historical change'; });
+        viewer.panel = panel;
+      }
+      placeViewer(viewer);
+      observer.observe(element, { subtree: true, attributes: true, attributeFilter: ['hidden', 'aria-pressed', 'aria-busy'] });
+      resize.observe(element);
+    });
+    const update = (event: Event) => refresh((event as CustomEvent).detail);
+    const scrolled = () => { if (viewer.panel?.parentElement === element) rememberViewerScroll(viewer); };
+    element.addEventListener('scroll', scrolled, true);
+    element.addEventListener('codestory:map-position', update);
+    return () => { rememberViewerScroll(viewer); cancelled = true; cancelAnimationFrame(frame); observer.disconnect(); resize.disconnect(); element.removeEventListener('scroll', scrolled, true); element.removeEventListener('codestory:map-position', update); viewer.hosts.delete(registration); placeViewer(viewer); };
+  }, [block.viewerId]);
+  useEffect(() => { host.current?.dispatchEvent(new CustomEvent('codestory:map-position', { detail: { center: current && (positioned.current || !full) } })); positioned.current = true; }, [beat, current]);
+  return <div className="sm-viewer-block"><div className="sm-viewer-revision">{block.type === 'code' ? `Code at ${block.revision.slice(0, 7)}` : `Historical change · ${block.base.slice(0, 7)} → ${block.head.slice(0, 7)}`}</div>
+    <div ref={host} data-map-native-viewer={block.viewerId} className="sm-native-viewer" onClick={event => {
+      if ((event.target as HTMLElement).closest('[data-map-open-full]')) { event.stopPropagation(); host.current?.querySelector<HTMLButtonElement>('[data-mode="full"]')?.click(); }
+      const caller = (event.target as HTMLElement).closest('[data-callsite-return]');
+      if (caller) window.dispatchEvent(new CustomEvent('codestory:map-return', { detail: Number(caller.getAttribute('data-callsite-return')) }));
+    }} onKeyDown={event => {
+      if (!(event.target as HTMLElement).closest('button,a,input,textarea,select,[role="separator"]')) event.stopPropagation();
+    }}><div className="ds-step-loading" role="status">Loading CodeStory viewer…</div></div>
+  </div>;
 }
 
 function Prototype({ data }: { data: MapData }) {
@@ -98,23 +195,15 @@ function Prototype({ data }: { data: MapData }) {
   }, [variant]);
   useEffect(() => {
     setFocused(current => {
-      if (!current || !document.querySelector('[data-readaloud][aria-pressed="true"]')) return current;
+      if (!current) return current;
       const topic = get(selected), shown = get(current), owner = parent(topic.id);
-      if (shown.panelIndex === topic.panelIndex && parent(shown.id)?.stepId !== shown.stepId) return current;
+      if (shown.panelIndex === topic.panelIndex && (!document.querySelector('[data-readaloud][aria-pressed="true"]') || parent(shown.id)?.stepId !== shown.stepId)) return current;
       return owner?.stepId === topic.stepId ? owner.id : topic.id;
     });
   }, [selected]);
   useEffect(() => {
     requestAnimationFrame(() => {
       revealInMap(document.querySelector<HTMLElement>(`.sm-map [data-map-node="${selected}"]`));
-      document.querySelectorAll<HTMLElement>('.sm-map [data-source-step], .sm-focus-dialog[open] [data-source-step]').forEach(scroller => {
-        if (scroller.dataset.sourceStep !== get(selected).stepId && !scroller.dataset.sourceStep?.startsWith('callsite:')) return;
-        const rows = scroller.querySelectorAll<HTMLElement>('.is-highlighted');
-        if (!rows.length) return;
-        const first = rows[0].getBoundingClientRect(), last = rows[rows.length - 1].getBoundingClientRect(), box = scroller.getBoundingClientRect();
-        const span = last.bottom - first.top;
-        scroller.scrollTop += first.top - box.top - Math.max(0, (scroller.clientHeight - span) / 2);
-      });
     });
   }, [selected, sourcePosition.beat, variant, detail, focused]);
   useEffect(() => {
@@ -136,6 +225,12 @@ function Prototype({ data }: { data: MapData }) {
   useEffect(() => {
     document.body.dataset.prototypeReadingPath = data.path.map(id => get(id).panelIndex).join(',');
     void selectSource(get('root'));
+    const returned = (event: Event) => {
+      const topic = data.nodes.find(item => item.panelIndex === (event as CustomEvent<number>).detail);
+      if (topic) { choose(topic); requestAnimationFrame(() => { const code = document.querySelector<HTMLDetailsElement>(`.sm-map [data-map-node="${topic.id}"] .sm-native-disclosure`); if (code) code.open = true; }); }
+    };
+    window.addEventListener('codestory:map-return', returned);
+    return () => window.removeEventListener('codestory:map-return', returned);
   }, []);
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
@@ -175,19 +270,8 @@ function Prototype({ data }: { data: MapData }) {
       if (block.type === 'text') return <p className="sm-prose" key={index}>{payload.steps[block.panelIndex - 1]?.beats[currentBeat]?.text.text}</p>;
       if (block.type === 'diagram') return <figure className="sm-diagram" key={index}><figcaption>{block.title}</figcaption>
         <ol aria-label={block.title}>{block.labels.map((label, i) => <li key={label}><span>{String(i + 1).padStart(2, '0')}</span>{label}</li>)}</ol></figure>;
-      if (block.type === 'code') {
-        const group = block.stepId === topic.stepId ? currentBeat : 0;
-        const ranges = block.rangesByBeat[group] ?? block.rangesByBeat[0] ?? [];
-        const source = <div className="sm-source-block"><div className="sm-source-meta"><span>{block.file}</span><span>at {block.revision.slice(0, 7)}</span></div>
-          <div className="sm-source-scroll" data-source-step={block.stepId} tabIndex={0} role="region" aria-label={`${block.label}: ${block.file}`} onKeyDown={event => event.stopPropagation()}>
-            <pre>{block.lines.map(line => <span className={`sm-code-line ${ranges.some(([a, b]) => line.number >= a && line.number <= b) ? 'is-highlighted' : ''}`} key={line.number}><span className="sm-line-number">{line.number}</span><code>{line.text || ' '}</code></span>)}</pre>
-          </div></div>;
-        return block.label === 'Caller context' ? <details className="sm-card-caller" key={index} open={full}><summary>Caller context</summary>{source}</details> : <div key={index}>{source}</div>;
-      }
-      return <div className="sm-diff-block" key={index}><div className="sm-source-meta"><span>{block.file}</span><span>{block.base.slice(0, 7)} → {block.head.slice(0, 7)}</span></div>
-        <div className="sm-diff-key"><span>− Removed</span><span>+ Added</span><span>Historical change at the story’s commit</span></div>
-        <div className="sm-source-scroll" tabIndex={0} role="region" aria-label={`Code diff: ${block.file}`} onKeyDown={event => event.stopPropagation()}><pre>{block.rows.map((line, row) => <span className={`sm-diff-line is-${line.kind}`} key={row}><span className="sm-line-number">{line.oldLine ?? ''}</span><span className="sm-line-number">{line.newLine ?? ''}</span><span className="sm-diff-sign">{line.kind === 'add' ? '+' : line.kind === 'del' ? '−' : ' '}</span><code>{line.text || ' '}</code></span>)}</pre></div>
-      </div>;
+      if (block.viewerId === 'source-root') return <details key={block.viewerId} className="sm-native-disclosure" open={full}><summary>Read _executeCall() code</summary><NativeViewer block={block} beat={currentBeat} current={sourcePosition.panelIndex === topic.panelIndex} full={full} /></details>;
+      return <NativeViewer key={block.viewerId} block={block} beat={currentBeat} current={sourcePosition.panelIndex === topic.panelIndex} full={full} />;
     })}</div>;
   }
   function Node({ topic, compact = false, disclosure = true, full = false, summaryOnly = false }: { topic: Topic; compact?: boolean; disclosure?: boolean; full?: boolean; summaryOnly?: boolean }) {
@@ -239,7 +323,7 @@ function Prototype({ data }: { data: MapData }) {
   }
 
   return <>
-    {createPortal(<dialog ref={dialog} className="sm-focus-dialog" aria-labelledby="sm-focus-title" onCancel={() => setFocused(null)} onKeyDown={event => event.stopPropagation()}><div className="sm-focus-head"><h2 id="sm-focus-title">{focused ? get(focused).label : 'Read card'}</h2><div className="sm-focus-actions">
+    {createPortal(<dialog ref={dialog} className="sm-focus-dialog" aria-labelledby="sm-focus-title" onCancel={event => { event.preventDefault(); setFocused(null); }} onKeyDown={event => event.stopPropagation()}><div className="sm-focus-head"><h2 id="sm-focus-title">{focused ? get(focused).label : 'Read card'}</h2><div className="sm-focus-actions">
       <button type="button" disabled={transport.disabled} aria-label={transport.accessibleLabel} onClick={() => document.querySelector<HTMLButtonElement>('[data-readaloud]')?.click()}>{transport.label}</button>
       {transport.canStop && <button type="button" onClick={() => document.querySelector<HTMLButtonElement>('[data-aloud-stop]')?.click()}>Stop narration</button>}
       <button type="button" autoFocus onClick={() => setFocused(null)}>Close card</button></div></div>{focused && Node({ topic: get(focused), full: true, disclosure: false })}</dialog>, document.body)}

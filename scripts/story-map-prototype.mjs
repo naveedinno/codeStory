@@ -10,7 +10,8 @@ import { build } from 'esbuild';
 import { execFileSync } from 'node:child_process';
 import { serve } from '../dist/server.js';
 import { parseUnifiedDiff } from '../dist/diff.js';
-import { discoverStoryCallSite } from '../dist/source-call-site.js';
+import { buildReviewModel, buildFullFileRows, rowsInNewRange } from '../dist/view-model.js';
+import { renderStoryStepPanel, renderFullFile, renderContextRows } from '../dist/render.js';
 
 if (process.env.NODE_ENV === 'production') throw new Error('This prototype is development-only.');
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -46,36 +47,42 @@ topic('wallet', 'b-wallet-route', 'Execute through a wallet');
 topic('forward', 'b-forward', 'Forward with account context');
 next.children.push('policy', 'schedule', 'wallet', 'forward');
 topic('change', 'b-signed-call', 'Call and its signatures');
-entry.children = ['route', 'change', 'replay', 'signatures', 'execution'];
+topic('submission', 'b-execute-signed', 'Submit the signed batch');
+entry.children = ['route', 'change', 'replay', 'signatures', 'execution', 'submission'];
 const git = (...args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 }).trimEnd();
 const base = git('rev-parse', `${tour.head}^`);
-const codeBlock = (step, range = step.viewport ?? step.range, label = 'Source') => {
-  const source = git('show', `${tour.head}:${step.file}`).split('\n');
-  return { type: 'code', label, file: step.file, revision: tour.head, stepId: step.id,
-    lines: source.slice(range[0] - 1, range[1]).map((text, index) => ({ number: range[0] + index, text })),
-    rangesByBeat: (step.beats ?? []).map(beat => beat.highlights ?? []) };
-};
+const sourceIds = ['root', 'route', 'signatures', 'policy', 'schedule', 'wallet', 'forward', 'submission'];
+const model = buildReviewModel(repo, tour, [], tour.head, {
+  detailedStepIndexes: new Set(nodes.filter(node => sourceIds.includes(node.id)).map(node => node.panelIndex - 1)),
+  detailedFilePaths: new Set(), includeTrustRows: false, baseRef: base,
+});
+const viewers = new Map();
 for (const node of nodes) {
   const step = ordered[node.panelIndex - 1];
   node.content = [{ type: 'text', panelIndex: node.panelIndex, beat: node.beat }];
-  if (['route', 'signatures', 'policy', 'schedule', 'wallet', 'forward'].includes(node.id)) {
-    const site = discoverStoryCallSite(repo, step, ordered, tour.head);
-    if (site) {
-      const caller = ordered.find(candidate => candidate.id === site.step);
-      const context = codeBlock(caller, [Math.max(1, site.range[0] - 2), site.range[1] + 2], 'Caller context');
-      context.rangesByBeat = [[site.range]]; context.stepId = `callsite:${node.id}`;
-      node.content.push(context);
-    }
-    node.content.push(codeBlock(step));
+  if (sourceIds.includes(node.id)) {
+    const viewerId = `source-${node.id}`;
+    viewers.set(viewerId, renderStoryStepPanel(repo, model, [], node.panelIndex - 1));
+    node.content.push({ type: 'code', viewerId, file: step.file, revision: tour.head,
+      rangesByBeat: (step.beats ?? []).map(beat => beat.highlights ?? []) });
   }
 }
-entry.content.push({ type: 'diagram', title: 'Checks before execution', labels: ['Deadline', 'Route', 'Signatures', 'Replay protection', 'Execute'] });
+entry.content.splice(1, 0, { type: 'diagram', title: 'Checks before execution', labels: ['Deadline', 'Route', 'Signatures', 'Replay protection', 'Execute'] });
 nodes.find(node => node.id === 'execution').content.push({ type: 'diagram', title: 'Execution after validation', labels: ['Timelock checks, if required', 'Wallet or gateway route', 'Execute'] });
 const diffFile = 'contracts/gateway/SymmioGatewayTypes.sol';
 const changes = parseUnifiedDiff(git('diff', '--no-ext-diff', '--no-color', '--unified=3', base, tour.head, '--', diffFile))[0];
-nodes.find(node => node.id === 'change').content.push({ type: 'diff', file: diffFile, base, head: tour.head,
-  rows: changes.hunks.flatMap(hunk => [{ kind: 'hunk', text: `@@ -${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines} @@` },
-    ...hunk.lines.map(line => ({ kind: line.type, text: line.content, oldLine: line.oldNo, newLine: line.newNo }))]) });
+const diffRange = [changes.hunks[0].newStart, Math.max(...changes.hunks.map(hunk => hunk.newStart + hunk.newLines - 1))];
+const diffStep = { ...ordered.find(step => step.id === 'b-signed-call'), kind: 'changed', range: diffRange, viewport: diffRange };
+const historical = { ...tour, subject: 'diff', steps: [diffStep], scope: { base, head: tour.head } };
+const diffModel = buildReviewModel(repo, historical, [changes], tour.head, { baseRef: base, includeTrustRows: false });
+let diffHtml = renderStoryStepPanel(repo, diffModel, [], 0);
+const historicalLines = git('show', `${tour.head}:${diffFile}`).split('\n');
+const historicalRows = buildFullFileRows(changes, historicalLines, []);
+const full = renderFullFile(historicalRows, { file: diffFile, newFile: false });
+diffHtml = diffHtml.replace('<div data-full-inner hidden></div>', `<div data-full-inner data-loaded="1" hidden>${full}</div>`);
+viewers.set('diff-change', diffHtml);
+nodes.find(node => node.id === 'change').content.push({ type: 'diff', viewerId: 'diff-change', file: diffFile, base, head: tour.head,
+  rangesByBeat: (diffStep.beats ?? []).map(beat => beat.highlights ?? []) });
 const data = { nodes, commit: tour.head, title: tour.title, sourceStory: storyId,
   path: ['root', 'change', 'route', 'signatures', 'replay', 'policy', 'execution', 'schedule', 'wallet', 'forward'] };
 const bundled = await build({ entryPoints: [join(root, 'client/surfaces/review/story-map.prototype.tsx')],
@@ -94,6 +101,19 @@ const proxy = createServer((req, res) => {
     res.writeHead(403).end('Local prototype requests only.'); return;
   }
   const url = new URL(req.url, 'http://localhost');
+  if (url.pathname === '/_prototype/context') {
+    if (url.searchParams.get('file') !== diffFile) { res.writeHead(404).end(); return; }
+    const from = Number(url.searchParams.get('from'));
+    const to = url.searchParams.get('to') === 'eof' ? historicalLines.length : Math.min(Number(url.searchParams.get('to')), historicalLines.length);
+    if (!Number.isInteger(from) || from < 1 || !Number.isInteger(to)) { res.writeHead(400).end(); return; }
+    const layout = url.searchParams.get('layout') === 'split' ? 'split' : 'unified';
+    const html = renderContextRows(rowsInNewRange(historicalRows, [from, to]), layout, { file: diffFile, newFile: false, servedRange: [from, to] });
+    res.writeHead(200, { 'content-type': 'text/html', 'cache-control': 'no-store' }).end(html); return;
+  }
+  if (url.pathname === '/_prototype/viewer') {
+    const html = viewers.get(url.searchParams.get('id'));
+    res.writeHead(html ? 200 : 404, { 'content-type': 'text/html', 'cache-control': 'no-store' }).end(html ?? 'Unknown viewer'); return;
+  }
   if (url.pathname.startsWith('/_prototype/')) {
     const content = { '/_prototype/map.js': ['text/javascript', js], '/_prototype/map.css': ['text/css', css],
       '/_prototype/map.json': ['application/json', JSON.stringify(data)] }[url.pathname];

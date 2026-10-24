@@ -237,7 +237,7 @@ export function startReviewEngine(options){
     });
     if(persist){try{localStorage.setItem('ds-line-wrap',on?'1':'0');}catch(e){}}
     syncSplitPaneLayouts();
-    if(changed)$all('.ds-callsite-scroll').forEach(function(scroll){scroll._dsCallsiteCentered=false;syncCallerWindow(closest(scroll,'.ds-step'));});
+    if(changed)$all('.ds-callsite-scroll').forEach(function(scroll){scroll._dsCallsiteCentered=false;syncCallerWindow(closest(scroll,'.ds-step,[data-map-native-viewer]'));});
   }
   function loadLineWrap(){
     var on=false;try{on=localStorage.getItem('ds-line-wrap')==='1';}catch(e){}
@@ -1354,7 +1354,7 @@ export function startReviewEngine(options){
     cancelFocusScroll();
     storyFocusIndex=-1;storyFocusGroup=-1;
     $all('.ds-step.is-story-active').forEach(function(p){p.classList.remove('is-story-active');});
-    $all('.ds-row.is-story-focus,.ds-urow.is-story-focus').forEach(function(r){r.classList.remove('is-story-focus');});
+    $all('.ds-row.is-story-focus,.ds-urow.is-story-focus').forEach(function(r){if(!closest(r,'[data-map-native-viewer]'))r.classList.remove('is-story-focus');});
     $all('.ds-beat.is-selected').forEach(function(b){b.classList.remove('is-selected');b.setAttribute('aria-pressed','false');});
     $all('.ds-railbeat.is-selected').forEach(function(b){b.classList.remove('is-selected');b.classList.add('is-visited');b.setAttribute('aria-pressed','false');});
   }
@@ -1450,7 +1450,7 @@ export function startReviewEngine(options){
     var hide=button.getAttribute('aria-expanded')==='true',pane=$('.ds-callsite-pane',pair),divider=$('[data-callsite-divider]',pair);
     pair.classList.toggle('is-caller-hidden',hide);if(pane)pane.hidden=hide;if(divider)divider.hidden=hide;
     button.setAttribute('aria-expanded',String(!hide));button.textContent=hide?'Show caller':'Hide caller';
-    syncCallerWindow(closest(pair,'.ds-step'));syncSplitPaneLayouts(pair);updateStickyMetrics();
+    syncCallerWindow(closest(pair,'.ds-step,[data-map-native-viewer]'));syncSplitPaneLayouts(pair);updateStickyMetrics();
   }
   function returnToCaller(button){
     var index=Number(button.getAttribute('data-callsite-return')),panel=stepPanels&&stepPanels[index];if(!panel)return;
@@ -1460,7 +1460,7 @@ export function startReviewEngine(options){
   function setCallerWidth(divider,value){
     var pair=closest(divider,'[data-code-pair]');if(!pair)return;
     value=Math.max(25,Math.min(65,value));pair.style.setProperty('--ds-caller-width',String(value));divider.setAttribute('aria-valuenow',String(Math.round(value)));
-    var scroll=$('.ds-callsite-scroll',pair);if(scroll)scroll._dsCallsiteCentered=false;syncCallerWindow(closest(pair,'.ds-step'));
+    var scroll=$('.ds-callsite-scroll',pair);if(scroll)scroll._dsCallsiteCentered=false;syncCallerWindow(closest(pair,'.ds-step,[data-map-native-viewer]'));
     syncSplitPaneLayouts(pair);updateStickyMetrics();
   }
   function callerDividerKey(e){
@@ -3056,7 +3056,9 @@ export function startReviewEngine(options){
     var layout=closest(gap,'[data-split-inner]')?'split':'unified';
     var btns=[].slice.call(gap.querySelectorAll('.ds-gapbtn')).concat(mirrorGap?[].slice.call(mirrorGap.querySelectorAll('.ds-gapbtn')):[]);
     btns.forEach(function(b){b.disabled=true;});
-    fetch(reviewPageUrl('/api/diff/context?file='+encodeURIComponent(file)+'&from='+rf+'&to='+rt+'&layout='+layout))
+    var contextRequest=reviewPageUrl('/api/diff/context?file='+encodeURIComponent(file)+'&from='+rf+'&to='+rt+'&layout='+layout);
+    if(closest(gap,'[data-map-native-viewer="diff-change"]'))contextRequest=contextRequest.replace('/api/diff/context','/_prototype/context');
+    fetch(contextRequest)
       .then(diffResponseText)
       .then(function(html){
         gap.setAttribute('aria-busy','false');
@@ -4415,7 +4417,7 @@ export function startReviewEngine(options){
     document.addEventListener('keydown',onKey);
     document.addEventListener('keydown',callerDividerKey,true);
     document.addEventListener('pointerdown',startCallerResize);
-    window.addEventListener('resize',function(){$all('.ds-callsite-scroll').forEach(function(scroll){scroll._dsCallsiteCentered=false;syncCallerWindow(closest(scroll,'.ds-step'));});});
+    window.addEventListener('resize',function(){$all('.ds-callsite-scroll').forEach(function(scroll){scroll._dsCallsiteCentered=false;syncCallerWindow(closest(scroll,'.ds-step,[data-map-native-viewer]'));});});
     document.addEventListener('wheel',onSplitPaneWheel,{passive:false});
     window.addEventListener('message',onConceptFrameMessage);
     // A dirty composer holds an unqueued draft; stash it and warn before the
@@ -4488,5 +4490,24 @@ export function startReviewEngine(options){
     prepareStepNarration(active===0?1:active);
   }
 
+  // THROWAWAY bridge: map cards use the ordinary renderer and delegated viewer
+  // controls. Their display fragments are not duplicate narrative step panels.
+  document.addEventListener('codestory:map-viewer',function(event){
+    var root=event.target,detail=event.detail||{};
+    if(!document.body.classList.contains('sm-prototyping')||!root.hasAttribute('data-map-native-viewer'))return;
+    if(detail.initialize||detail.attach)setLineWrap(document.body.classList.contains('ds-line-wrap'),false);
+    if(detail.initialize||detail.mode){
+      var mode=detail.mode|| (compactScreen()?'diff':'split'),button=$('[data-mode="'+mode+'"]',root);
+      if(button&&button.getAttribute('aria-pressed')!=='true')setMode(button,{persist:false});
+    }
+    if(detail.reflow)$all('.ds-callsite-scroll',root).forEach(function(scroll){scroll._dsCallsiteCentered=false;});
+    syncSplitPaneLayouts(root);syncCallerWindow(root);$all('.ds-diff',root).forEach(updateChangeNav);
+    var ranges=detail.ranges||[],rows=$all('.ds-row,.ds-urow',root).filter(function(row){
+      var line=Number(row.getAttribute('data-line')),stamped=row.getAttribute('data-step-focus');
+      var on=stamped!==null&&Number(stamped)===detail.beat||row.getAttribute('data-side')!=='left'&&ranges.some(function(range){return line>=range[0]&&line<=range[1];});
+      row.classList.toggle('is-story-focus',on);return on;
+    });
+    if(detail.center&&rows.length)centerFocusRows(rows,true);
+  });
   init();
 }
