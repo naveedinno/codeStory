@@ -217,9 +217,10 @@ try {
       // Inspect caller evidence, including its source link.
       await page.locator('#ds-tab-tour').click();
       await page.locator('[data-thread-node="3"]').click();
-      await page.locator('.ds-step:not([hidden]) .ds-caller-evidence > summary').click();
-      assert.match(await page.locator('.ds-step:not([hidden]) .ds-caller-evidence').innerText(),/Text match only/);
+      await page.locator('.ds-step:not([hidden])').getByRole('button',{name:'Source references',exact:true}).click();
+      assert.match(await page.getByRole('dialog',{name:'Source references',exact:true}).innerText(),/Invocation in this caller/);
       await page.locator('.ds-step:not([hidden]) [data-caller-source]').first().click();
+      await page.keyboard.press('Escape');
       // Change the real source, reload, and drive the production drift/refresh route.
       const limits=join(repo,'src/limits.ts');
       writeFileSync(limits,readFileSync(limits,'utf8').replace('MONTHLY_CAP - spent','Math.max(0, MONTHLY_CAP - spent)'));

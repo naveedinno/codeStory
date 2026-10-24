@@ -37,7 +37,8 @@ const code=story.steps.find(step=>step.id==='s2');code.order=4;code.title='Check
 delete code.calls;delete code.returnsTo;
 delete code.moves;
 const caller=story.steps.find(step=>step.id==='s1');caller.order=3;caller.calls=['s2'];delete caller.returnsTo;
-code.callSite={step:'s1',range:[9,9],viewport:[5,16]};
+// Existing stories should export the same automatic caller/helper pairing.
+delete code.callSite;
 // Make the later beat genuinely offscreen at first: a two-frame capture used
 // to race the story camera's 120ms centering timer. These comments are fixture
 // context only; the spending logic and caller invocation stay unchanged.

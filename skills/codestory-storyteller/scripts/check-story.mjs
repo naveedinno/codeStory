@@ -2872,14 +2872,15 @@ function orderedSteps(tour) {
   return [...tour.steps].sort((a, b) => a.order - b.order);
 }
 
-// src/landing-verify.ts
-var SYMBOL_NAME = /^[.#]?[A-Za-z_$][\w$-]*$/;
+// src/source-symbol.ts
 function landingSearchName(raw) {
   const name = raw.trim().replace(/\(.*\)\s*$/, "").trim();
   if (/^[.#]/.test(name)) return name;
-  const parts = name.split(/::|\./).filter(Boolean);
-  return parts.at(-1) ?? name;
+  return name.split(/::|\./).filter(Boolean).at(-1) ?? name;
 }
+
+// src/landing-verify.ts
+var SYMBOL_NAME = /^[.#]?[A-Za-z_$][\w$-]*$/;
 function filesMentioning(repo, name, head, cache) {
   const cached = cache.get(name);
   if (cached) return cached;

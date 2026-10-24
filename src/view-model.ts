@@ -15,7 +15,7 @@
 import { changedRanges, rangesOverlap } from './diff.js';
 import { readFileRange, readWholeFile, resolveCommit } from './git.js';
 import { isCodeStory, orderedSteps } from './tour.js';
-import { landingSearchName, callerEvidence, type CallerEvidence } from './landing-verify.js';
+import { callerEvidence, type CallerEvidence } from './landing-verify.js';
 import { claimedRanges } from './types.js';
 import { computeCoverage, filesForStoryCoverage, regeneratedCommandFor } from './coverage.js';
 import { matchGlob } from './noise.js';
@@ -24,6 +24,8 @@ import { isCodeStep, isPageConcept } from './types.js';
 import { narrative, narrativeText, type Narrative } from './narrative.js';
 import { runSides, type IntraSides } from './intra-line.js';
 import { projectStoryStepScene } from './story-scenes.js';
+import { discoverStoryCallSite } from './source-call-site.js';
+import { landingSearchName, sourceSymbolKey } from './source-symbol.js';
 import { cachedEvolutionVerification } from './evolution.js';
 import { createHash } from 'node:crypto';
 import type {
@@ -684,19 +686,20 @@ function buildCodeStep(
   const focusExplicit = beats.length > 0 || highlights.length > 0;
   const moves = buildLogicMoves(step, diffFile?.oldPath ?? step.file, ordered ?? []);
   const pairedView = pairedMoveFor(step)?.id;
-  const callerIndex = step.callSite ? (ordered ?? []).findIndex((candidate) => candidate.id === step.callSite!.step) : -1;
+  const site = step.callSite ?? (detailed && !pairedView ? discoverStoryCallSite(repo, step, ordered ?? [], headRef) : undefined);
+  const callerIndex = site ? (ordered ?? []).findIndex((candidate) => candidate.id === site.step) : -1;
   const caller = callerIndex < 0 ? undefined : ordered?.[callerIndex];
-  const callSite = step.callSite && caller && isCodeStep(caller)
+  const callSite = site && caller && isCodeStep(caller)
     ? {
         stepId: caller.id,
         panelIndex: callerIndex + 1,
         symbol: caller.landing?.symbol ? narrativeText(caller.landing.symbol) : narrativeText(caller.title),
         file: caller.file,
-        range: step.callSite.range,
-        viewport: step.callSite.viewport ?? stepViewport(caller),
+        range: site.range,
+        viewport: site.viewport ?? stepViewport(caller),
         ...(detailed ? stepBlocks(repo, {
           id: caller.id, order: caller.order, title: caller.title, kind: 'context', file: caller.file,
-          range: step.callSite.range, viewport: step.callSite.viewport ?? stepViewport(caller), why: '',
+          range: site.range, viewport: site.viewport ?? stepViewport(caller), why: '',
         }, files, headRef, baseRef, unreadableNote) : { blocks: [] }),
       }
     : undefined;
@@ -742,6 +745,7 @@ function buildCodeStep(
             file: step.file.split('/').pop() ?? step.file,
             callers: (step.landing.calledBy ?? []).map((caller) => ({
               ...landingCaller(caller, step.id, landingGraph),
+              ...(callSite && sourceSymbolKey(caller) === sourceSymbolKey(callSite.symbol) ? { panelIndex: callSite.panelIndex } : {}),
               ...(detailed ? { evidence: callerEvidence(repo, step.landing!.symbol, caller, headRef) } : {}),
             })),
             ...(step.landing.role
@@ -753,7 +757,7 @@ function buildCodeStep(
                 }
               : {}),
             ...(step.landing.when ? { when: narrativeText(step.landing.when) } : {}),
-            callees: (step.calls ?? []).flatMap((id) => landingCallee(id, landingGraph)),
+            callees: landingCallees(step, landingGraph),
           },
         }
       : {}),
@@ -833,18 +837,41 @@ function buildLogicMoves(step: CodeTourStep, oldFile: string, ordered: TourStep[
 interface LandingGraphIndex {
   byId: Map<string, { step: TourStep; panelIndex: number }>;
   bySymbol: Map<string, { id: string; panelIndex: number }>;
+  byCaller: Map<string, string[]>;
 }
 
 function landingGraphIndex(ordered: TourStep[]): LandingGraphIndex {
   const byId = new Map<string, { step: TourStep; panelIndex: number }>();
   const bySymbol = new Map<string, { id: string; panelIndex: number }>();
+  const byCaller = new Map<string, string[]>();
   ordered.forEach((step, index) => {
     byId.set(step.id, { step, panelIndex: index + 1 });
     if (!isCodeStep(step) || !step.landing) return;
-    const name = landingSearchName(step.landing.symbol);
+    const name = sourceSymbolKey(step.landing.symbol);
     if (name && !bySymbol.has(name)) bySymbol.set(name, { id: step.id, panelIndex: index + 1 });
+    if (/\([^)]*\)\s*$/.test(step.landing.symbol)) for (const caller of step.landing.calledBy ?? []) {
+      const key = sourceSymbolKey(caller);
+      byCaller.set(key, [...(byCaller.get(key) ?? []), step.id]);
+    }
   });
-  return { byId, bySymbol };
+  return { byId, bySymbol, byCaller };
+}
+
+/** Reverse the story's own named caller relationships into useful helper jumps. */
+function landingCallees(step: CodeTourStep, graph: LandingGraphIndex): LandingNodeView[] {
+  const related = step.landing ? graph.byCaller.get(sourceSymbolKey(step.landing.symbol)) ?? [] : [];
+  const explicit = [...new Set(step.calls ?? [])];
+  const identity = (id: string) => {
+    const target = graph.byId.get(id)?.step;
+    return target && isCodeStep(target) && target.landing ? `${target.file}:${sourceSymbolKey(target.landing.symbol)}` : id;
+  };
+  const seen = new Set(explicit.map(identity));
+  const inferred = related.filter(id => (graph.byId.get(id)?.step.order ?? 0) > step.order).filter(id => {
+      const key = identity(id);
+      if (seen.has(key)) return false;
+      seen.add(key); return true;
+    });
+  return [...explicit, ...inferred].flatMap(id => landingCallee(id, graph));
 }
 
 /**
@@ -852,7 +879,12 @@ function landingGraphIndex(ordered: TourStep[]): LandingGraphIndex {
  * checker verified the name, not the edge, so nothing here is inferred.
  */
 function landingCaller(caller: string, selfId: string, graph: LandingGraphIndex): LandingNodeView {
-  const target = graph.bySymbol.get(landingSearchName(caller));
+  const key = sourceSymbolKey(caller);
+  let target = graph.bySymbol.get(key);
+  if (!target && key === landingSearchName(caller)) {
+    const matches = [...graph.bySymbol].filter(([name]) => landingSearchName(name) === key);
+    if (matches.length === 1) target = matches[0][1];
+  }
   return {
     label: narrativeText(caller),
     ...(target && target.id !== selfId ? { panelIndex: target.panelIndex } : {}),

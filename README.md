@@ -123,8 +123,10 @@ including two locations in the same file. The panes scroll independently;
 resize them by dragging the separator or using its arrow keys, hide the caller
 for more room, or return to its previous beat and position. Narrow windows
 stack the panes. The helper's normal narration and video export include the
-explanation. Existing stories need a rewrite or targeted repair to author the
-new stops and call-site anchors; opening them does not invent missing detail.
+explanation. Existing stories with named caller/helper steps can pair automatically
+when the app finds the invocation inside an earlier caller's source window.
+Explicit call-site anchors can choose a different crop. Opening a story preserves
+its narration; a rewrite or targeted repair can expand the explanation itself.
 
 ## Code Stories
 

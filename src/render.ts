@@ -150,13 +150,13 @@ function codeStepPanel(
       <div class="ds-step-titlerow">
         <h1 class="ds-step-title">${s.title.html}</h1>
         <div class="ds-step-actions">
+          ${sourceReferencesControl(s, diffRegionId)}
           <span class="ds-badge ds-badge-${s.kind === "new-file" ? "new" : s.kind}">${esc(s.kindLabel)}</span>
           ${s.sweep ? `<span class="ds-badge ds-badge-sweep" title="${esc(`Sweeps ${s.sweep.files} changed ${s.sweep.files === 1 ? "file" : "files"} matching ${s.sweep.glob}; each carries the same changed lines as this instance`)}">Sweep · ${s.sweep.files}</span>` : ""}
           ${storyRepairMenu(s, true)}
         </div>
       </div>
       ${landingLine(s)}
-      ${s.landing?.callers.length ? `<details class="ds-caller-evidence"><summary>Caller evidence · agent-reported relationships</summary><p>Text matches locate the named symbols. They do not prove a call or runtime reachability.</p><ul>${s.landing.callers.map((caller) => `<li><code>${esc(caller.label)}</code>${caller.evidence ? ` — <button type="button" data-caller-source data-caller-step="${esc(s.id)}" data-caller-name="${esc(caller.label)}">${esc(caller.evidence.file)}:${caller.evidence.line}</button><span>Text match only</span><pre>${esc(caller.evidence.text)}</pre>` : ' — No source match available'}</li>`).join('')}</ul></details>` : ''}
     </div>
     ${
       s.hotspot
@@ -193,6 +193,19 @@ function codeStepPanel(
     ${s.callSite ? '</div></div>' : ''}
     ${stepStoryHtml(s, diffRegionId, i + 1)}
   </section>`;
+}
+
+/** Source inspection is optional chrome, never a block above the reading stage. */
+function sourceReferencesControl(s: CodeStepView, regionId: string): string {
+  if (!s.landing?.callers.length) return '';
+  const id = `${regionId}-sources`;
+  return `<button type="button" class="ds-source-info" popovertarget="${id}" aria-haspopup="dialog" aria-label="Source references">Source</button>
+    <div id="${id}" class="ds-source-references ds-caller-evidence" popover="auto" role="dialog" aria-labelledby="${id}-title">
+      <button type="button" class="ds-source-close" popovertarget="${id}" popovertargetaction="hide" aria-label="Close source references">×</button>
+      <h2 id="${id}-title">Source references</h2>
+      <p>Inspect the story's named callers here. A source location is a navigation aid, not a runtime trace.</p>
+      <ul>${s.landing.callers.map(caller => `<li><code>${esc(caller.label)}</code>${caller.evidence ? `<span>${caller.evidence.level === 'invocation' ? 'Invocation in this caller' : 'Name match only'}</span><button type="button" data-caller-source data-caller-step="${esc(s.id)}" data-caller-name="${esc(caller.label)}">${esc(caller.evidence.file)}:${caller.evidence.line}</button><pre>${esc(caller.evidence.text)}</pre>` : '<span>No source location found</span>'}</li>`).join('')}</ul>
+    </div>`;
 }
 
 /** Independent source windows, not the before/after sides of a diff. */

@@ -1111,6 +1111,7 @@ export function startReviewEngine(options){
   function activateStep(i,autoSpeak){
     if(i<0)i=0;if(i>total-1)i=total-1;var previous=active;
     if(previous!==i&&stepPanels&&stepPanels[previous]){
+      $all('.ds-source-references:popover-open').forEach(function(panel){panel.hidePopover();});
       var oldPanel=stepPanels[previous],oldScroll=$('.ds-diffscroll',oldPanel);
       if(oldScroll)oldPanel._dsReadingPosition={group:storyFocusIndex===previous?storyFocusGroup:0,top:oldScroll.scrollTop,left:oldScroll.scrollLeft};
     }
@@ -4185,6 +4186,8 @@ export function startReviewEngine(options){
     });
   }
   function onKey(e){
+    // Native popover keys belong to source inspection, not story navigation.
+    if($('.ds-source-references:popover-open'))return;
     if(e.key==='Escape'&&blameOpen()){e.preventDefault();e.stopPropagation();closeBlame(true);return;}
     if(e.key==='Escape'&&e.target&&closest(e.target,'[data-remove-confirm]')){e.preventDefault();cancelRemoveConfirm(closest(e.target,'[data-remove-confirm]'));return;}
     if(e.key==='Escape'){

@@ -7,10 +7,13 @@ import { execFileSync } from "node:child_process";
 import { readWholeFile } from "./git.js";
 import { orderedSteps } from "./tour.js";
 import { isCodeStep, type Tour } from "./types.js";
+import { landingSearchName } from './source-symbol.js';
+import { callerInvocationLines } from './source-call-site.js';
+export { landingSearchName } from './source-symbol.js';
 
 const SYMBOL_NAME = /^[.#]?[A-Za-z_$][\w$-]*$/;
 
-export interface CallerEvidence { file: string; line: number; text: string; level: 'text-match'; }
+export interface CallerEvidence { file: string; line: number; text: string; level: 'text-match' | 'invocation'; }
 
 /** A source occurrence for inspection. Intentionally makes no call-graph claim. */
 export function callerEvidence(repo: string, symbol: string, caller: string, head?: string): CallerEvidence | null {
@@ -20,20 +23,15 @@ export function callerEvidence(repo: string, symbol: string, caller: string, hea
   const candidates = [...filesMentioning(repo, name, head, cache)].filter((file) =>
     !/(^|\/)(\.codestory|\.diffstory|\.env[^/]*)($|\/)/.test(file) && filesMentioning(repo, symbolName, head, cache).has(file)).sort();
   const word = new RegExp(`(?:^|[^\\w$])${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=$|[^\\w$])`);
+  let fallback: CallerEvidence | null = null;
   for (const file of candidates.slice(0, 20)) {
     const lines = readWholeFile(repo, file, head);
+    const invocation = lines && callerInvocationLines(lines, symbol, caller)[0];
+    if (lines && invocation) return { file, line: invocation, text: lines[invocation - 1].slice(0, 500), level: 'invocation' };
     const index = lines?.findIndex((line) => word.test(line)) ?? -1;
-    if (lines && index >= 0) return { file, line: index + 1, text: lines[index].slice(0, 500), level: 'text-match' };
+    if (!fallback && lines && index >= 0) fallback = { file, line: index + 1, text: lines[index].slice(0, 500), level: 'text-match' };
   }
-  return null;
-}
-
-/** The name to search for: "GaslessLayer.relayBatch()" -> "relayBatch"; ".ds-main" stays. */
-export function landingSearchName(raw: string): string {
-  const name = raw.trim().replace(/\(.*\)\s*$/, "").trim();
-  if (/^[.#]/.test(name)) return name;
-  const parts = name.split(/::|\./).filter(Boolean);
-  return parts.at(-1) ?? name;
+  return fallback;
 }
 
 /** Files (at `head`, or in the working tree including untracked files) that mention `name` as a word. */

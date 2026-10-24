@@ -27,6 +27,15 @@ caller/helper source windows, and lifts concept placement rules.
 
 ## Caller and helper source windows
 
+Existing stories do not need new JSON to use paired source viewing. When a code
+step's `landing` names a function and its caller, the app can locate literal
+invocations inside an earlier step's named caller function and visible window.
+Comments, strings, declarations, and unrelated functions are excluded. The
+nearest earlier caller window with a local invocation span is used. Unsupported
+syntax or calls spread over more than 12 lines keep the existing single view.
+This source lookup does not change narration or claim runtime reachability.
+An explicit `callSite` takes precedence.
+
 A version 4 code step can carry `callSite: { step, range, viewport? }` to show
 an earlier caller's source beside its own code. `step` names an earlier code
 step; `range` identifies its invocation (1-12 lines). Both `range` and optional

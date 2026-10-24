@@ -22,10 +22,10 @@ execFileSync(process.execPath, [join(root, 'examples/demo.mjs')], {
 });
 const path = join(repo, '.codestory/story.json');
 const story = JSON.parse(readFileSync(path, 'utf8'));
-story.version = 4;
+// Exercise an existing story: no authored callSite fields or regeneration.
+story.version = 3;
 const crossFile = story.steps.find(step => step.id === 's2');
 delete crossFile.moves;
-crossFile.callSite = { step: 's1', range: [9, 9], viewport: [5, 16] };
 const caller = story.steps.find(step => step.id === 's4');
 story.steps.splice(story.steps.indexOf(caller) + 1, 0, {
   id: 'same-file-helper', kind: 'context', title: 'recordSpend() logs the accepted amount',
@@ -33,9 +33,10 @@ story.steps.splice(story.steps.indexOf(caller) + 1, 0, {
   why: 'The helper logs the accepted amount; it does not persist a new budget.',
   landing: { symbol: 'recordSpend()', calledBy: ['placeOrder()'] },
   beats: [{ text: 'This is recordSpend(), which placeOrder() calls after storing the order; it logs the amount without persisting a new budget.', highlights: [[10, 13]] }],
-  callSite: { step: 's4', range: [6, 6] }, returnsTo: 's4',
+  returnsTo: 's4',
 });
 story.steps.forEach((step, i) => { step.order = i + 1; });
+assert.equal(story.steps.some(step => step.callSite), false);
 writeFileSync(path, JSON.stringify(story)); loadTour(path);
 let status = { ok: true, service: 'aloud-speech-daemon', protocolVersion: 2, engine: 'kokoro', voice: 'af_heart', rate: 1, running: false, paused: false, state: {} };
 const spoken = [];
@@ -70,6 +71,21 @@ try {
     // A direct helper visit exercises lazy rendering without first visiting its caller.
     await go(3);
     await pair.waitFor();
+    const headingHeight = await page.locator('.ds-step:not([hidden]) .ds-step-top').evaluate(node => node.getBoundingClientRect().height);
+    const sourceButton = page.locator('.ds-step:not([hidden])').getByRole('button', { name: 'Source references', exact: true });
+    await sourceButton.click();
+    const sourceDialog = page.getByRole('dialog', { name: 'Source references', exact: true });
+    await sourceDialog.waitFor();
+    assert.match(await sourceDialog.innerText(), /Invocation in this caller/);
+    if (name === 'mobile') for (const control of [sourceButton, sourceDialog.getByRole('button', { name: 'Close source references', exact: true }), sourceDialog.locator('[data-caller-source]').first()]) {
+      const target = await control.boundingBox();
+      assert.ok(target.width >= 44 && target.height >= 44, 'source inspection controls have usable touch targets');
+    }
+    assert.equal(await page.locator('.ds-step:not([hidden]) .ds-step-top').evaluate(node => node.getBoundingClientRect().height), headingHeight, 'source inspection never expands the code header');
+    await page.keyboard.press('ArrowRight');
+    assert.equal(await page.locator('[data-dock-step="3"] .is-selected').getAttribute('data-focus-group'), '0', 'source inspection does not advance the story behind the popover');
+    await page.keyboard.press('Escape');
+    await sourceDialog.waitFor({ state: 'hidden' });
     assert.match(await pair.locator('.ds-callsite-path').innerText(), /src\/api.ts/);
     assert.match(await pair.locator('.ds-helper-scroll').innerText(), /src\/limits.ts/);
     assert.equal(await pair.locator('.ds-callsite-pane [data-step-focus]').count(), 0);
@@ -159,7 +175,7 @@ try {
       await page.locator('[data-aloud-stop]').click();
     }
     assert.deepEqual(errors, []);
-    console.log(`PASS ${name}: source pairing, independent focus, hide/show, resize/stack, return position, narration/export passages`);
+    console.log(`PASS ${name}: existing story without callSite, source popover, independent focus, hide/show, resize/stack, return position, narration/export passages`);
     await context.close();
   }
   console.log(`Caller/helper screenshots: ${output}`);

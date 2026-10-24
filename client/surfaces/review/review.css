@@ -832,6 +832,13 @@ body.ds-story-reload-pending #ds-toast{bottom:140px}
 .ds-code-pair-body{display:grid;grid-template-columns:minmax(0,calc((100% - 10px)*var(--ds-caller-width,40)/100)) 10px minmax(0,1fr);flex:1;min-height:0;min-width:0}
 .ds-callsite-pane{display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden;background:var(--panel3)}
 .ds-callsite-pane[hidden],.ds-callsite-divider[hidden]{display:none}
+.ds-source-info{min-width:44px;min-height:44px;padding:4px 9px;border:1px solid var(--diff-rule);border-radius:var(--radius-sm);background:var(--fill-1);color:var(--muted);font:inherit;font-size:var(--text-sm);cursor:pointer}
+.ds-source-info:focus-visible,.ds-source-close:focus-visible{outline:none;box-shadow:0 0 0 3px var(--accent-soft)}
+.ds-source-references.ds-caller-evidence{position:fixed;inset:0;margin:auto;width:min(600px,calc(100vw - 32px));max-height:calc(100dvh - 48px);overflow:auto;box-sizing:border-box;padding:22px;border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--panel3);color:var(--text);box-shadow:0 12px 40px rgb(0 0 0 / .22);font:var(--text-md)/1.5 var(--sans)}
+.ds-source-references h2{margin:0 36px 14px 0;font-size:var(--text-lg)}.ds-source-references p{margin:0 0 16px;color:var(--muted)}
+.ds-source-references ul{margin:0;padding:0;list-style:none}.ds-source-references li+li{margin-top:20px}.ds-source-references li>code{display:block;font-weight:600}.ds-source-references.ds-caller-evidence li>span{display:block;margin:3px 0 7px;font-size:var(--text-sm);color:var(--dim)}
+.ds-source-references .ds-source-close{position:absolute;top:14px;right:14px;min-width:44px;min-height:44px;padding:0;border:0;border-radius:var(--radius-sm);background:var(--fill-1);color:var(--text);font:inherit;font-size:22px;text-decoration:none;cursor:pointer}
+.ds-source-references [data-caller-source]{display:block;min-width:44px;max-width:100%;min-height:44px;padding:4px 0;text-align:start;overflow-wrap:anywhere}
 .ds-callsite-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:10px 12px;background:var(--panel2)}
 .ds-callsite-heading>div{min-width:0;display:flex;flex-direction:column;gap:3px}.ds-callsite-heading code{font:600 var(--text-md) var(--mono);overflow-wrap:anywhere}
 .ds-callsite-label{font-size:var(--text-xs);font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--dim)}

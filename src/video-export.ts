@@ -255,7 +255,7 @@ async function renderVideo(input: RenderInput): Promise<void> {
       *,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
       .ds-rail,.ds-rail-resizer,.ds-reviewchrome,.ds-dock,.ds-toast,.ds-live-banner,.ds-history-banner,
       .ds-diffview-controls,.ds-story-tune,.ds-concept-page-fullscreen,[data-mermaid-fullscreen],
-      .ds-caller-evidence,.ds-intro-start,.ds-intro-utility,[data-story-health],
+      .ds-caller-evidence,.ds-source-info,.ds-intro-start,.ds-intro-utility,[data-story-health],
       [data-callsite-toggle],[data-callsite-return]{display:none!important}
       body{gap:0!important}.ds-layout{gap:0!important}.ds-main{width:100%!important}
       #ds-view-tour{gap:0!important}
