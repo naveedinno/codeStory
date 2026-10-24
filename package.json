@@ -21,6 +21,7 @@
     "README.md"
   ],
   "scripts": {
+    "prototype:story-map": "npm run build && node scripts/story-map-prototype.mjs",
     "prepare": "npm run build",
     "build": "tsc && npm run build:browser-assets && npm run build:client && npm run build:skill-checker",
     "build:browser-assets": "node scripts/build-browser-assets.mjs",

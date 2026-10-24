@@ -1086,7 +1086,8 @@ export function startReviewEngine(options){
     if(panel.getAttribute('data-step-loading')==='1')return;
     panel.setAttribute('data-step-loading','1');
     // pi-lens-ignore: ast-grep:no-inner-html-js
-    panel.innerHTML='<div class="ds-step-loading" role="status"><span class="ds-sk" style="width:34%"></span><span class="ds-sk" style="width:76%"></span><span class="ds-sk" style="width:58%"></span><span class="ds-step-loading-tx">Loading this review step…</span></div>';
+    var speechCache=$('[data-step-speech-cache]',panel);
+    panel.innerHTML=(speechCache?speechCache.outerHTML:'')+'<div class="ds-step-loading" role="status"><span class="ds-sk" style="width:34%"></span><span class="ds-sk" style="width:76%"></span><span class="ds-sk" style="width:58%"></span><span class="ds-step-loading-tx">Loading this review step…</span></div>';
     fetch(reviewPageUrl('/api/review/step-panel?index='+encodeURIComponent(String(i))))
       .then(reviewLazyText)
       .then(function(html){
@@ -1215,6 +1216,7 @@ export function startReviewEngine(options){
     });
   }
   function mustOnlyStep(i,delta){
+    var mapPath=prototypeMapPath();if(mapPath){var mapAt=mapPath.indexOf(i);return mapAt<0?i:mapPath[Math.max(0,Math.min(mapPath.length-1,mapAt+delta))];}
     // Sequential j/k walking skips skim stops in must-read-only mode.
     // Explicit jumps — rail clicks, goto links, the film thread — call setActive
     // directly and always land, so a skim stop stays one click away.
@@ -1316,7 +1318,9 @@ export function startReviewEngine(options){
     var beats=$all('[data-story-beat]',host),current=$('[data-beat-current]',host),prev=$('[data-beat-move="-1"]',host),next=$('[data-beat-move="1"]',host);
     var index=beats.findIndex(function(beat){return parseInt(beat.getAttribute('data-focus-group')||'-1',10)===selected;});if(index<0)index=0;
     var panelIndex=parseInt(panel.getAttribute('data-step-panel')||'-1',10);
-    if(current)current.textContent=String(index+1).padStart(2,'0');if(prev)prev.disabled=index<=0&&panelIndex<=1;if(next)next.disabled=index>=beats.length-1&&panelIndex>=total-1;
+    if(current)current.textContent=String(index+1).padStart(2,'0');
+    if(prev)prev.disabled=index<=0&&(panelIndex<=1||(prototypeMapPath()&&mustOnlyStep(panelIndex,-1)===panelIndex));
+    if(next)next.disabled=index>=beats.length-1&&(panelIndex>=total-1||(prototypeMapPath()&&mustOnlyStep(panelIndex,1)===panelIndex));
     var railCurrent=$('[data-story-step-node="'+panelIndex+'"] [data-rail-current]');
     if(railCurrent)railCurrent.textContent=(index+1)+' / '+beats.length;
   }
@@ -1408,8 +1412,8 @@ export function startReviewEngine(options){
     var panel=beatPanel(button);if(!panel)return false;
     var beats=$all('[data-story-beat]',beatHost(panel)),index=beats.indexOf(button);if(index<0||!beats.length)return false;
     var stepIndex=parseInt(panel.getAttribute('data-step-panel')||'0',10);
-    if(delta>0&&index===beats.length-1&&stepIndex<total-1){focusStoryStepBoundary(mustOnlyStep(stepIndex,1),false);return true;}
-    if(delta<0&&index===0&&stepIndex>1){focusStoryStepBoundary(mustOnlyStep(stepIndex,-1),true);return true;}
+    if(delta>0&&index===beats.length-1&&stepIndex<total-1){if(prototypeMapPath()&&mustOnlyStep(stepIndex,1)===stepIndex)return false;focusStoryStepBoundary(mustOnlyStep(stepIndex,1),false);return true;}
+    if(delta<0&&index===0&&stepIndex>1){if(prototypeMapPath()&&mustOnlyStep(stepIndex,-1)===stepIndex)return false;focusStoryStepBoundary(mustOnlyStep(stepIndex,-1),true);return true;}
     var next=Math.max(0,Math.min(beats.length-1,index+delta)),target=beats[next];
     var group=parseInt(target.getAttribute('data-focus-group')||'0',10);
     selectStoryFocus(stepIndex,group,true);target.focus();return true;
@@ -1706,7 +1710,9 @@ export function startReviewEngine(options){
   }
   function speechSequenceFrom(stepIndex,unitIndex,manual){
     var sequence=[],last=manual?stepIndex:total-1;
-    for(var s=stepIndex;s<=last;s++){
+    var mapPath=!manual&&prototypeMapPath(),readingPath=mapPath?(mapPath.indexOf(stepIndex)<0?[stepIndex]:mapPath.slice(mapPath.indexOf(stepIndex))):Array.from({length:last-stepIndex+1},function(_,n){return stepIndex+n;});
+    for(var pathIndex=0;pathIndex<readingPath.length;pathIndex++){
+      var s=readingPath[pathIndex];
       // An explicit single-step play keeps its skim step; a must-read-only
       // "play story" run skips them.
       if(!manual&&mustOnly()&&isSkimPanel(stepPanels[s]))continue;
@@ -1754,11 +1760,15 @@ export function startReviewEngine(options){
   function mustOnly(){return document.body.hasAttribute('data-must-only');}
   function isSkimPanel(panel){return !!panel&&panel.getAttribute&&panel.getAttribute('data-step-weight')==='skim';}
   function speakablePanel(j){var panel=stepPanels[j];if(!panel||!stepSpeechUnits(panel).length)return false;return !mustOnly()||!isSkimPanel(panel);}
+  // THROWAWAY: only the local mind-map runner sets this attribute. Main is unchanged.
+  function prototypeMapPath(){var raw=document.body.getAttribute('data-prototype-reading-path');return raw?raw.split(',').map(Number).filter(function(i){return i>0&&i<total;}):null;}
   function nextSpeakableStep(i){
+    var mapPath=prototypeMapPath();if(mapPath){var mapAt=mapPath.indexOf(i);return mapAt>=0&&mapAt+1<mapPath.length?mapPath[mapAt+1]:-1;}
     for(var j=i+1;j<total;j++){if(speakablePanel(j))return j;}
     return -1;
   }
   function previousSpeakableStep(i){
+    var mapPath=prototypeMapPath();if(mapPath){var mapAt=mapPath.indexOf(i);return mapAt>0?mapPath[mapAt-1]:-1;}
     for(var j=i-1;j>=1;j--){if(speakablePanel(j))return j;}
     return -1;
   }
@@ -1947,7 +1957,7 @@ export function startReviewEngine(options){
     currentSpeechStep=unit.stepIndex;currentSpeechUnit=unit.unitIndex;
     var apply=function(){
       if(aloudSequenceIndex!==index)return;
-      if(active!==unit.stepIndex)activateStep(unit.stepIndex,false);
+      if(active!==unit.stepIndex||(stepPanels[unit.stepIndex]&&stepPanels[unit.stepIndex].hidden))activateStep(unit.stepIndex,false);
       setActiveBeat(unit.stepIndex,unit.group);
       warmSpeechSequence(aloudSequence,index);
     };
@@ -4277,7 +4287,7 @@ export function startReviewEngine(options){
       if(currentView()==='review')return;
       e.preventDefault();
       if(filesView&&!filesView.hidden)selectFile(selectedFile+(next?1:-1));
-      else if(tourView&&!tourView.hidden)setActive(mustOnlyStep(active,next?1:-1));
+      else if(tourView&&!tourView.hidden){var nextStop=mustOnlyStep(active,next?1:-1);if(!prototypeMapPath()||nextStop!==active)setActive(mustOnlyStep(active,next?1:-1));}
       return;
     }
     if(singleKeysEnabled()&&(e.key==='v'||e.key==='V')&&!isTextEntryTarget(e.target)&&filesView&&!filesView.hidden){
