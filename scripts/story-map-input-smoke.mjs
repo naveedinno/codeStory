@@ -52,6 +52,9 @@ try {
     if (variant === 'C') await key('Escape', 'route');
     const viewer = page.locator('.sm-map [data-map-native-viewer="source-route"]');
     await viewer.locator('.ds-code').first().waitFor({ state: 'attached' });
+    // On the transform canvas, Tab/focus brings an offscreen native control
+    // into the camera. Locator auto-scroll cannot move a transform camera.
+    if (variant === 'A') await viewer.getByRole('button', { name: 'Unified', exact: true }).focus();
     await viewer.getByRole('button', { name: 'Unified', exact: true }).click();
     const scroller = viewer.locator('.ds-helper-scroll');
     await scroller.focus();
@@ -63,6 +66,7 @@ try {
     await page.waitForTimeout(220);
     assert.ok(await scroller.evaluate(node => node.scrollTop) > before, 'inspection is not undone by delayed source centering');
     const repair = viewer.locator('summary[aria-label="Repair this story step"]');
+    if (variant === 'A') await repair.focus();
     await repair.click();
     await page.keyboard.press('Escape');
     assert.equal(await repair.evaluate(node => !node.closest('details').open && node === document.activeElement), true, 'Escape closes the native menu before leaving code');
@@ -70,7 +74,7 @@ try {
     if (inspectionTopic !== 'route') await key('ArrowLeft', 'route');
     // Closing Focus returns to its opener, which must still support map keys.
     if (variant === 'C') await page.getByRole('button', { name: 'Focus current card', exact: true }).click();
-    else await page.locator('[data-map-node="route"] .sm-card-actions button').click();
+    else { if (variant === 'A') await page.locator('[data-map-node="route"] .sm-card-actions button').focus(); await page.locator('[data-map-node="route"] .sm-card-actions button').click(); }
     const dialog = page.getByRole('dialog');
     await dialog.waitFor();
     const focusedRepair = dialog.locator('summary[aria-label="Repair this story step"]');

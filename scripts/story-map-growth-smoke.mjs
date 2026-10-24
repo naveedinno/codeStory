@@ -1,4 +1,4 @@
-// THROWAWAY prototype regression: exercise the docs' branch motion with live native viewers.
+// THROWAWAY reading-tree regression. Variant A's canvas is covered by story-map-canvas-smoke.mjs.
 import assert from 'node:assert/strict';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -11,8 +11,7 @@ mkdirSync(output, { recursive: true });
 const browser = await chromium.launch({ executablePath: videoCapabilities().browser, headless: true });
 try {
   for (const [variant, width, motion] of [
-    ['A', 1440, 'no-preference'], ['B', 1440, 'no-preference'],
-    ['A', 390, 'no-preference'], ['B', 320, 'no-preference'], ['A', 320, 'reduce'],
+    ['B', 1440, 'no-preference'], ['B', 320, 'no-preference'], ['B', 320, 'reduce'],
   ]) {
     const page = await browser.newPage({ viewport: { width, height: 1000 }, colorScheme: 'dark', reducedMotion: motion });
     const errors = []; page.on('pageerror', error => errors.push(error.message));

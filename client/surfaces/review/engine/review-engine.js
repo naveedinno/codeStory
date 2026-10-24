@@ -4517,7 +4517,25 @@ export function startReviewEngine(options){
       var on=stamped!==null&&Number(stamped)===detail.beat||row.getAttribute('data-side')!=='left'&&ranges.some(function(range){return line>=range[0]&&line<=range[1];});
       row.classList.toggle('is-story-focus',on);return on;
     });
-    if(detail.center&&rows.length)centerFocusRows(rows,true);
+    // Embedded viewers share source state with hidden narrative panels, but
+    // must not share their cancelFocusScroll timer. Native step activation can
+    // otherwise cancel the visible viewer's pending explanation scroll.
+    if(detail.center!==undefined)root._dsMapWantCenter=detail.center;
+    if(root._dsMapWantCenter){
+      cancelAnimationFrame(root._dsMapFocusFrame||0);
+      root._dsMapFocusFrame=requestAnimationFrame(function(){
+        root._dsMapFocusFrame=0;
+        var shown=rows.filter(function(row){return root.contains(row)&&!closest(row,'[hidden]')&&row.getClientRects().length>0&&closest(row,'.ds-diffscroll');});
+        var target=shown[Math.floor((shown.length-1)/2)];if(!target)return;
+        var scroll=closest(target,'.ds-diffscroll'),sr=scroll.getBoundingClientRect(),tr=target.getBoundingClientRect();
+        // Canvas zoom and Focus can change the presented row geometry while a
+        // shared split track still holds its previous measurement. Centre the
+        // displayed row in local scroll pixels, independent of that cache.
+        var scale=sr.height/(scroll.offsetHeight||sr.height)||1;
+        var top=scroll.scrollTop+(tr.top-sr.top)/scale-(scroll.clientHeight-tr.height/scale)/2;
+        root._dsMapWantCenter=false;scroll.scrollTo({top:Math.max(0,top),behavior:'auto'});
+      });
+    }else if(detail.center===false){cancelAnimationFrame(root._dsMapFocusFrame||0);root._dsMapFocusFrame=0;}
   });
   init();
 }

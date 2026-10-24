@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { createPortal } from 'react-dom';
 import type { ReviewPayload } from '../../../src/payloads';
 import { MapBranchMotion, branchExitStyle, mapScrollBounds, mapCardLayoutBox } from './story-map-motion.prototype';
+import { StoryMapCanvas, canvasFor } from './story-map-canvas.prototype';
 
 type ContentBlock =
   | { type: 'text'; panelIndex: number; beat: number }
@@ -27,6 +28,7 @@ const waitFor = (condition: () => boolean) => new Promise<void>(resolve => {
 const mapFrames = new WeakMap<HTMLElement, number>();
 function cancelMapMotion(map: HTMLElement | null) {
   if (!map) return;
+  canvasFor(map)?.interrupt();
   cancelAnimationFrame(mapFrames.get(map) ?? 0); mapFrames.delete(map);
 }
 function cameraEase(progress: number) {
@@ -39,6 +41,7 @@ function cameraEase(progress: number) {
 function revealInMap(element: HTMLElement | null, center = false, animate = true, headerOnly = false) {
   const map = element?.closest<HTMLElement>('.sm-map');
   if (!element || !map) return;
+  const canvas = canvasFor(map); if (canvas) { canvas.reveal(element, center, animate, headerOnly); return; }
   cancelMapMotion(map);
   const heading = element.querySelector('.sm-card-head') ?? element;
   const presented = heading.getBoundingClientRect(), card = mapCardLayoutBox(element), box = map.getBoundingClientRect();
@@ -199,20 +202,23 @@ function Prototype({ data }: { data: MapData }) {
   const [navigation, setNavigation] = useState(0);
   const selectedRef = useRef('root');
   const [branchMotion] = useState(() => new MapBranchMotion(new Map(data.nodes.flatMap(node => node.children.map(child => [child, node.id] as const)))));
+  const [canvas] = useState(() => new StoryMapCanvas(data.nodes));
+  const [zoom, setZoom] = useState(100);
+  const [overview, setOverview] = useState(true);
   const reflowed = useRef(false), focusByMap = useRef(false);
   const keyboardInput = useRef(false);
   const keyHandler = useRef<(event: KeyboardEvent) => void>(() => {});
   const pendingSource = useRef<{ panelIndex: number; beat: number } | null>(null);
   const [sourcePosition, setSourcePosition] = useState({ panelIndex: get('root').panelIndex, beat: 0 });
+  const sourcePositionRef = useRef(sourcePosition); sourcePositionRef.current = sourcePosition;
   const [expanded, setExpanded] = useState(new Set(['root']));
   const expandedRef = useRef(expanded); expandedRef.current = expanded;
-  const [detail, setDetail] = useState(true);
   const [visited, setVisited] = useState(new Set(['root']));
   const [focused, setFocused] = useState<string | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const optionsTrigger = useRef<HTMLButtonElement>(null);
   const map = useRef<HTMLElement>(null), options = useRef<HTMLDivElement>(null), optionsId = 'sm-options-' + useId();
-  const revealRequest = useRef<{ id: string; keyboard: boolean; focus: boolean } | null>(null);
+  const revealRequest = useRef<{ id: string; keyboard: boolean; focus: boolean; center?: boolean } | null>(null);
   const [transcript, setTranscript] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [beatNav, setBeatNav] = useState({ previous: false, next: false });
@@ -226,10 +232,29 @@ function Prototype({ data }: { data: MapData }) {
     document.body.dataset.prototypeReadingPath = [...new Set(indexes)].join(',');
     setReading(topic.id === 'root' ? 'Gateway' : topic.label);
   };
-  const prepareReflow = (anchor = selectedRef.current, layoutChange = false) => { if (map.current) branchMotion.capture(map.current, anchor, layoutChange); };
+  const prepareReflow = (anchor = selectedRef.current, layoutChange = false) => {
+    if (!map.current) return;
+    if (variant === 'A') for (const viewer of liveViewers.values()) {
+      rememberViewerScroll(viewer); viewer.restoring = true;
+      for (const saved of viewer.scrolls) saved.element.style.overflowAnchor = 'none';
+    }
+    canvas.capture(map.current, anchor, layoutChange); branchMotion.capture(map.current, anchor, layoutChange);
+  };
+  const allowViewerCenter = (panelIndex: number) => {
+    for (const topic of data.nodes) if (topic.panelIndex === panelIndex) for (const block of topic.content) {
+      if (block.type !== 'code' && block.type !== 'diff') continue;
+      const viewer = liveViewers.get(block.viewerId); if (!viewer) continue;
+      // A new explanation intentionally reveals different code. Inspection
+      // restoration only owns moves of the same explanation (Fit or Focus).
+      for (const saved of viewer.scrolls) saved.element.style.overflowAnchor = saved.anchor;
+      viewer.restoring = false;
+    }
+  };
   const choose = (topic: Topic, intent: NavigationIntent = {}) => {
     const keyboard = intent.keyboard ?? keyboardInput.current;
     prepareReflow(selectedRef.current, ancestors(topic.id).some(item => !expandedRef.current.has(item.id)));
+    if (variant === 'A' && (sourcePositionRef.current.panelIndex !== topic.panelIndex || sourcePositionRef.current.beat !== topic.beat)) allowViewerCenter(topic.panelIndex);
+    setOverview(false);
     cancelMapMotion(map.current);
     revealRequest.current = { id: topic.id, keyboard, focus: intent.focus ?? keyboard };
     setNavigation(value => value + 1);
@@ -254,12 +279,15 @@ function Prototype({ data }: { data: MapData }) {
     setExpanded(old => { const next = new Set(old); next.has(id) ? next.delete(id) : next.add(id); return next; });
   };
   const changeVariant = (next: Variant) => {
-    cancelMapMotion(map.current); branchMotion.reset();
+    cancelMapMotion(map.current); branchMotion.reset(); canvas.reset();
     const url = new URL(location.href); url.searchParams.set('variant', next); history.replaceState(null, '', url);
     revealRequest.current = { id: selectedRef.current, keyboard: keyboardInput.current, focus: false }; setVariant(next);
   };
   const focusCard = (id: string) => { focusByMap.current = true; try { cardFor(id)?.querySelector<HTMLElement>('[data-map-focus]')?.focus({ preventScroll: true }); } finally { focusByMap.current = false; } };
   const findCurrent = () => {
+    if (variant === 'A' && overview) {
+      prepareReflow(); setOverview(false); revealRequest.current = { id: selectedRef.current, keyboard: keyboardInput.current, focus: true, center: true }; setNavigation(value => value + 1); return;
+    }
     setExpanded(old => { const ids = ancestors(selectedRef.current).map(item => item.id); return ids.every(id => old.has(id)) ? old : new Set([...old, ...ids]); });
     focusCard(selectedRef.current);
     revealInMap(cardFor(selectedRef.current), true, !keyboardInput.current);
@@ -337,20 +365,31 @@ function Prototype({ data }: { data: MapData }) {
       return owner?.stepId === topic.stepId ? owner.id : topic.id;
     });
   }, [selected]);
-  useLayoutEffect(() => { reflowed.current = map.current ? branchMotion.flush(map.current) : false; });
-  useEffect(() => () => branchMotion.reset(), []);
+  useLayoutEffect(() => {
+    reflowed.current = map.current ? variant === 'A' ? canvas.flush(map.current) : branchMotion.flush(map.current) : false;
+    if (variant === 'A') for (const viewer of liveViewers.values()) if (viewer.restoring) settleViewerScroll(viewer);
+  });
+  useEffect(() => () => { branchMotion.reset(); canvas.reset(); }, []);
+  useEffect(() => {
+    const element = map.current!;
+    const moved = (event: Event) => setZoom((event as CustomEvent<number>).detail);
+    setZoom(Number(element.dataset.mapZoom) || 100);
+    element.addEventListener('codestory:map-camera', moved);
+    return () => element.removeEventListener('codestory:map-camera', moved);
+  }, []);
   useLayoutEffect(() => {
     const request = revealRequest.current;
     revealRequest.current = null;
     if (focused) { cancelMapMotion(map.current); return; }
+    if (variant === 'A' && overview) { canvas.fit(!keyboardInput.current); return; }
     const card = cardFor(request?.id ?? selected);
     if (!card) return;
     if (request?.focus) focusCard(selected);
     // Narration follows headers without taking the viewport away from inspection.
     if (!request && document.activeElement?.closest('[data-map-native-viewer]')) return;
-    revealInMap(card, reflowed.current, reflowed.current || (!!request && !request.keyboard), !reflowed.current && (!request || request.keyboard));
+    revealInMap(card, !!request?.center || reflowed.current, reflowed.current || (!!request && !request.keyboard), !request?.center && !reflowed.current && (!request || request.keyboard));
     return () => cancelMapMotion(map.current);
-  }, [selected, variant, detail, focused, navigation, expanded]);
+  }, [selected, variant, focused, navigation, expanded, overview]);
   useEffect(() => { document.body.dataset.mapTranscript = String(transcript); }, [transcript]);
   useEffect(() => {
     if (focused && !dialog.current?.open) dialog.current?.showModal();
@@ -382,7 +421,7 @@ function Prototype({ data }: { data: MapData }) {
     return () => window.removeEventListener('codestory:map-return', returned);
   }, []);
   useEffect(() => {
-    const pop = () => { branchMotion.reset(); setVariant(readVariant()); }; window.addEventListener('popstate', pop);
+    const pop = () => { branchMotion.reset(); canvas.reset(); setVariant(readVariant()); }; window.addEventListener('popstate', pop);
     const interrupt = () => cancelMapMotion(map.current);
     const pointer = () => { keyboardInput.current = false; interrupt(); };
     const key = (event: KeyboardEvent) => { keyboardInput.current = true; keyHandler.current(event); if (!event.defaultPrevented) interrupt(); };
@@ -394,7 +433,8 @@ function Prototype({ data }: { data: MapData }) {
   }, []);
   useEffect(() => {
     const view = document.querySelector('#ds-view-tour')!;
-    const observer = new MutationObserver(() => {
+    const observer = new MutationObserver(records => {
+      if (records.every(record => (record.target as Element).closest('.sm-prototype'))) return;
       const active = view.querySelector<HTMLElement>('.ds-step:not([hidden])');
       const panel = Number(active?.dataset.stepPanel);
       const beat = Number(document.querySelector(`[data-dock-step="${panel}"] [data-story-beat].is-selected`)?.getAttribute('data-focus-group') ?? 0);
@@ -411,7 +451,9 @@ function Prototype({ data }: { data: MapData }) {
       setOutside('');
       const requested = get(selectedRef.current);
       const exact = requested.panelIndex === panel && requested.beat === beat ? requested : matches.find(topic => !topic.children.length && topic.beat === beat) ?? matches[0];
+      if (exact.id !== 'root' || beat > 0) setOverview(false);
       if (ancestors(exact.id).some(topic => !expandedRef.current.has(topic.id))) prepareReflow(selectedRef.current, true);
+      if (sourcePositionRef.current.panelIndex !== panel || sourcePositionRef.current.beat !== beat) allowViewerCenter(panel);
       selectedRef.current = exact.id;
       setSelected(exact.id); setVisited(old => old.has(exact.id) ? old : new Set([...old, exact.id]));
       setExpanded(old => { const ids = ancestors(exact.id).map(item => item.id); return ids.every(id => old.has(id)) ? old : new Set([...old, ...ids]); });
@@ -425,7 +467,14 @@ function Prototype({ data }: { data: MapData }) {
   function Content({ topic, full = false }: { topic: Topic; full?: boolean }) {
     const currentBeat = sourcePosition.panelIndex === topic.panelIndex && parent(topic.id)?.stepId !== topic.stepId ? sourcePosition.beat : topic.beat;
     return <div className={`sm-card-content ${full ? 'is-full' : ''}`}>{topic.content.map((block, index) => {
-      if (block.type === 'text') return <p className="sm-prose" key={index}>{payload.steps[block.panelIndex - 1]?.beats[currentBeat]?.text.text}</p>;
+      if (block.type === 'text') {
+        const step = payload.steps[block.panelIndex - 1];
+        const prose = <p className="sm-prose">{step?.beats[currentBeat]?.text.text}</p>;
+        // Reserve the tallest authored passage in a source card. Narration can
+        // then change its text/highlights without moving the connected canvas.
+        if (variant === 'A' && !full && topic.content.some(item => item.type === 'code' || item.type === 'diff')) return <div className="sm-prose-stack" key={index}>{prose}{step?.beats.map((beat, i) => <p key={i} className="sm-prose-measure" aria-hidden="true">{beat.text.text}</p>)}</div>;
+        return <p className="sm-prose" key={index}>{step?.beats[currentBeat]?.text.text}</p>;
+      }
       if (block.type === 'diagram') return <figure className="sm-diagram" key={index}><figcaption>{block.title}</figcaption>
         <ol aria-label={block.title}>{block.labels.map((label, i) => <li key={label}><span>{String(i + 1).padStart(2, '0')}</span>{label}</li>)}</ol></figure>;
       if (block.viewerId === 'source-root') return <details key={block.viewerId} className="sm-native-disclosure" open={full}><summary>Read _executeCall() code</summary><NativeViewer block={block} beat={currentBeat} current={sourcePosition.panelIndex === topic.panelIndex} full={full} /></details>;
@@ -435,7 +484,7 @@ function Prototype({ data }: { data: MapData }) {
   function Node({ topic, compact = false, disclosure = true, full = false, summaryOnly = false, modal = false }: { topic: Topic; compact?: boolean; disclosure?: boolean; full?: boolean; summaryOnly?: boolean; modal?: boolean }) {
     const active = selected === topic.id;
     return <article className={`sm-node ${active ? 'is-current' : ''} ${compact ? 'is-small' : ''}`} aria-label={topic.label} data-map-node={full ? undefined : topic.id} data-map-detail={full && !modal ? topic.id : undefined} data-card-kind={kindOf(topic)}>
-      <header className="sm-card-head"><div><span className="sm-card-type">{kindOf(topic)}</span>
+      <header className="sm-card-head"><div>{variant === 'A' && !full && parent(topic.id)?.id === 'root' && <span className="sm-map-order" aria-hidden="true">{get('root').children.indexOf(topic.id) + 1}</span>}<span className="sm-card-type">{kindOf(topic)}</span>
         {modal ? <h3>{topic.label}</h3> : <button type="button" className="sm-select" data-map-focus={topic.id} tabIndex={active && !(variant === 'C' && summaryOnly) ? 0 : -1} aria-current={active ? 'location' : undefined} aria-label={`Read ${topic.label}`} onClick={() => choose(topic)} onFocus={event => { if (!focusByMap.current && event.currentTarget.matches(':focus-visible')) revealInMap(event.currentTarget.closest('[data-map-node],[data-map-detail]'), false, false, true); }}><strong>{topic.label}</strong></button>}
         <code className="sm-symbol">{topic.symbol}</code></div>
         {disclosure && !!topic.children.length && <button type="button" className="sm-expand" aria-label={`${expanded.has(topic.id) ? 'Collapse' : 'Expand'} ${topic.label}`} aria-expanded={expanded.has(topic.id)} onClick={() => toggle(topic.id)}>{expanded.has(topic.id) ? '−' : '+'}</button>}
@@ -446,14 +495,14 @@ function Prototype({ data }: { data: MapData }) {
   }
 
   function VariantA() {
-    const world = (id: string): React.ReactNode => {
-      const topic = get(id), open = expanded.has(id) && !!topic.children.length;
-      return <div className={`sm-world-row ${open ? 'has-children' : ''}`} key={id}>
-        <div className={`sm-world-card ${detail ? 'is-reading' : ''}`}>{Node({ topic, compact: !detail })}</div>
-        {!!topic.children.length && <BranchPresence open={open} branchId={id} className="sm-world-children">{topic.children.map(world)}</BranchPresence>}
+    return <div className="sm-canvas-world">{data.nodes.map(topic => {
+      const visible = ancestors(topic.id).every(owner => expanded.has(owner.id));
+      const reading = !overview && (selected === topic.id || (topic.id !== 'root' && ancestors(selected).some(owner => owner.id === topic.id)));
+      const kind = topic.id === 'root' ? 'root' : parent(topic.id)?.id === 'root' ? 'chapter' : !!topic.children.length ? 'question' : 'detail';
+      return <div key={topic.id} className={`sm-canvas-item sm-canvas-${kind}`} data-canvas-node={topic.id} data-canvas-open={visible} data-reading={reading}>
+        {Node({ topic })}
       </div>;
-    };
-    return <div className="sm-world">{world('root')}</div>;
+    })}</div>;
   }
   function Tree({ id }: { id: string }) {
     const n = get(id);
@@ -482,6 +531,7 @@ function Prototype({ data }: { data: MapData }) {
     <header className="sm-command-bar">
       <nav className="sm-breadcrumbs" aria-label="Map location">{path.map((item, index) => <span key={item.id}>{index > 0 && <span aria-hidden="true">/</span>}<button type="button" onClick={() => choose(item)} aria-current={item.id === selected ? 'location' : undefined}>{item.id === 'root' ? 'Gateway' : item.label}</button></span>)}</nav>
       <div className="sm-map-actions">
+        {variant === 'A' && <><button type="button" aria-label="Fit whole map" title="Whole map" onClick={() => { prepareReflow(); setOverview(true); canvas.fit(!keyboardInput.current); }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M9 3H3v6m12-6h6v6M3 15v6h6m12-6v6h-6"/></svg></button><button type="button" className="sm-zoom-label" aria-label={`Map zoom ${zoom} percent. Reset to readable size`} onClick={findCurrent}>{zoom}%</button></>}
         <button type="button" aria-label="Find current card" title="Center current card" onClick={findCurrent}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><circle cx="12" cy="12" r="7"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg></button>
         <button type="button" className="sm-focus" aria-label="Focus current card" onClick={() => openCard(node)}><span className="sm-focus-label">Focus</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button>
         <button ref={optionsTrigger} type="button" aria-label="Map options" aria-haspopup="dialog" aria-expanded={optionsOpen} aria-controls={optionsId} popoverTarget={optionsId} title="Map options"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
@@ -490,12 +540,12 @@ function Prototype({ data }: { data: MapData }) {
     {createPortal(<div ref={options} id={optionsId} popover="auto" className="sm-options" role="dialog" aria-label="Map options" onToggle={event => setOptionsOpen(event.currentTarget.matches(':popover-open'))} onKeyDown={event => event.stopPropagation()}>
       <div className="sm-options-head"><strong>Map options</strong><button type="button" aria-label="Close map options" onClick={() => options.current?.hidePopover()}>×</button></div>
       <label>Layout<select aria-label="Map layout" value={variant} onChange={event => changeVariant(event.target.value as Variant)}>{(['A', 'B', 'C'] as Variant[]).map(key => <option key={key} value={key}>{variants[key]}</option>)}</select></label>
-      {variant === 'A' && <label className="sm-check"><input type="checkbox" checked={detail} onChange={event => { prepareReflow(selectedRef.current, true); setDetail(event.target.checked); }} />Show card content</label>}
+      {variant === 'A' && <div className="sm-options-zoom"><button type="button" aria-label="Zoom out map" onClick={() => canvas.zoom(1 / 1.2)}>−</button><span>{zoom}%</span><button type="button" aria-label="Zoom in map" onClick={() => canvas.zoom(1.2)}>+</button></div>}
       <label className="sm-check"><input type="checkbox" checked={transcript} onChange={event => setTranscript(event.target.checked)} />Show narration transcript</label>
       <div className="sm-options-reading"><span className="sm-section-label">Reading path · {reading}</span><button type="button" onClick={() => follow(get('root'))}>Follow gateway</button><button type="button" onClick={() => follow(node)}>Follow this branch</button></div>
       <details><summary>Keyboard shortcuts</summary><dl><dt>→ / ←</dt><dd>Enter first detail / return to parent</dd><dt>↑ / ↓</dt><dd>Previous / next sibling</dd><dt>Home</dt><dd>Gateway overview</dd><dt>Enter</dt><dd>Center the current card</dd><dt>Escape</dt><dd>Leave code, or go up one level</dd><dt>Tab</dt><dd>Inspect card controls and source</dd></dl></details>
     </div>, document.body)}
-    <nav ref={map} className="sm-map" tabIndex={-1} aria-label="Gateway story map" aria-describedby="sm-map-key-help" onClick={mapClick}>{variant === 'A' ? VariantA() : variant === 'B' ? VariantB() : VariantC()}</nav>
+    <nav ref={map} className={`sm-map ${variant === 'A' ? 'sm-canvas' : ''}`} tabIndex={-1} aria-label="Gateway story map" aria-describedby="sm-map-key-help" onClick={mapClick}>{variant === 'A' ? VariantA() : variant === 'B' ? VariantB() : VariantC()}</nav>
     {outside && <div className="sm-outside">Reading elsewhere in the story.<button type="button" onClick={() => choose(node)}>Return to this branch</button></div>}
     <span id="sm-map-key-help" className="ds-sr-only">Arrow keys navigate the map. Enter centers the current card. Escape returns from code to the map.</span>
     <span className="ds-sr-only" role="status">{outside || `Reading ${node.label}. ${visited.size} topics visited.`}</span>

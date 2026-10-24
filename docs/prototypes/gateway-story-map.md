@@ -1,23 +1,11 @@
-# Gateway content-card prototype
+# Gateway story-map prototype
 
-Question: can the story itself live in connected cards, with prose, diagrams,
-source code and real code diffs inside the map?
-
-The owner clarified that the map is the reading surface. Each topic now owns
-`content` blocks: `text`, `diagram`, `code`, or `diff`. A card can combine blocks.
-The map changes navigation and composition. Code and diff blocks embed the
-existing CodeStory viewers, produced by `renderStoryStepPanel`, with the same
-syntax highlighting, word diffs, split/unified/full-file modes, wrapping and
-resizing controls. Caller/helper blocks keep the native paired source windows.
-Focus card reparents the same live viewer element, preserving its display mode,
-pane visibility/widths, loaded context and inspection position. It does not
-reconstruct the viewer when entering or leaving Focus.
-The underlying lazy story panels still own narration state; embedded viewer
-fragments are not duplicate narrative steps.
-
-Status: owner comparison pending. Captured on `prototype/story-map-gateway`,
-based on `ce912c9`; the earlier navigation-only version is commit `4f8d37e`.
-Main and installed CodeStory remain unchanged.
+The owner wants connected story cards with the quality of the Ivy documentation
+map, while preserving CodeStory's native code and diff viewers. The earlier
+scrolling-card implementation copied motion timings but missed Ivy's balanced
+world, camera and visual hierarchy. Variant A now replaces that outer structure.
+Owner comparison remains pending. This is a local prototype on
+`prototype/story-map-gateway`; main and the installed app are unchanged.
 
 Run from this checkout:
 
@@ -25,160 +13,95 @@ Run from this checkout:
 npm run prototype:story-map -- --repo /path/to/core --story stories/code-complete-tour.json
 ```
 
-The development runner prints the local URL on port 7799 and injects this
-prototype on the existing review route. `NODE_ENV=production` refuses to run.
-It reads the real story and its pinned Git revision, uses a temporary app home,
-and rejects mutations except local narration. It never writes a story file.
+The runner serves the existing review route on port 7799, refuses production
+mode, uses a temporary app home, and rejects mutations except local narration.
+It reads the real story and its pinned source; it never rewrites story bytes.
+Map options retains the comparison layouts: A is the Ivy canvas, B is the
+reading tree, and C is focused cards.
 
-Compare three content layouts in Map options (the top-right ••• button):
+## Ivy canvas
 
-- `?variant=A`: connected cards with their content visible inside the map.
-- `?variant=B`: an expandable reading tree containing the same rich cards.
-- `?variant=C`: branch selection and one focused content card.
+Reference: `core/docs/site/assets/map.js` (`layoutWorld`, `reflow`, camera and
+input handlers) and `map.css`. `story-map-canvas.prototype.ts` adapts their
+geometry and motion to the existing React cards:
 
-The gateway overview combines prose with a small validation-order diagram.
-Route/signature cards contain pinned source with native beat-based highlights.
-Their native caller/helper panes support Hide/Show, resizing and Return to caller.
-The overview also offers its native `_executeCall()` viewer in a disclosure.
-Its caller, `executeSigned()`, has a submission card so returning up the call
-chain stays inside the map, including Focus and its guided reading scope.
-Replay and other explanation cards contain prose. The Call/SignedCall card contains a real
-historical diff of `SymmioGatewayTypes.sol`, from `d8a23d4` to the story's
-`6399ecf`. Its old/new revisions and historical scope are labeled explicitly;
-it is not a working-tree diff or a fabricated example. Its complete-file mode
-uses `buildFullFileRows` and `renderFullFile` for the same historical comparison.
-Native context expansion is routed through `/_prototype/context` with that same
-historical dataset, so old and new line numbers keep the correct revisions.
+- One clipped viewport, one absolutely positioned world, one transform camera.
+- Measured subtree sizes; parents centred beside children; 180px root gaps,
+  100px deeper gaps and a vertical outline below 1120px.
+- Distinct root, numbered chapter and explanation-leaf shapes, inset frames,
+  larger overview titles and heavier root connectors. CodeStory keeps its own
+  fonts, surfaces and signal-blue accent; no unauthored actor colours.
+- Whole-map overview shows compact topic cards. Selecting a code/diff topic
+  reveals the actual native viewer at readable scale. Fit restores the overview;
+  Find returns to the current reading card. This is selection-based disclosure,
+  not a second rendering of code at each zoom tier.
+- Camera framing preserves space beyond edge cards so they can centre. Tall
+  cards start at the heading. Background drag and ordinary wheel pan; Ctrl/Cmd
+  wheel or the Map options controls zoom around the pointer. Native viewers
+  retain their own scrolling and resize gestures. Mouse text selection remains
+  available in prose and source.
+- Children enter from the parent side at 94% scale and zero opacity over 440ms
+  after a 230ms delay; existing cards translate over 440ms. Exits take 220ms.
+  SVG paths morph directly and draw over 520ms or retract over 320ms, using
+  `cubic-bezier(.22,.8,.22,1)`. The camera uses a 350ms transform transition with
+  `cubic-bezier(.25,.7,.15,1)`. There is no per-frame DOM geometry polling or
+  temporary scroll extent in variant A. New gestures sample the presented
+  camera before taking over. Reduced motion makes durations/delays zero.
 
-The two-row header retains the story identity and native Story/Files/Review
-choices, then one map command row with breadcrumbs, Find current, Focus and
-Map options. The large floating layout switcher, repeated Gateway heading and
-guided-reading footer are removed. A/B/C and content density live in Map options.
-One compact native narration strip shows playback, current explanation and
-previous/next controls. Transcript text is optional in Map options; the story
-cards already contain the explanation. Follow gateway/branch remains there too.
+## Native content and navigation
 
-The map owns navigation from initial page focus, its background and card text;
-card titles keep roving Tab focus. Clicking card text selects and focuses its
-card without stealing interactions from the embedded viewers. Right opens and enters
-the first child in one command; Left folds the level being left and returns
-to its parent in one command. Down from the overview enters its first topic. Up/Down move among
-siblings without wrapping. Home returns to the gateway. Escape goes up one level,
-and Enter explicitly centers the current card. Keyboard focus and selection
-update together immediately. Branch opening animates the geometry while focus
-already belongs to its destination. Other keyboard movement reveals obscured
-headers immediately. Native tabs,
-inputs, code/diff scroll regions and resize handles keep their own keys. Code inspection retains native arrow scrolling; Escape returns to the current
-map explanation without resetting its beat or reading position. Open native
-menus close first, including inside Focus. Page arrows navigate the selected map branch, never layouts or slides. A focused card is a
-modal dialog with native Escape, Tab containment, and a Close card action. The source and diff regions
-are independently scrollable without selecting the card or changing playback.
-Focus preserves the active explanation and follows narration into the next
-card. Its header mirrors the existing Play/Pause/Resume and Stop controls.
+Cards combine authored prose, small diagrams, code and historical diffs. The
+code/diff blocks still come from `renderStoryStepPanel`: syntax/word highlights,
+Split/Unified/Full file, wrapping, caller/helper panes, resizing, source links
+and Return to caller. One cached live panel exists per viewer ID. Reflow,
+overview/reading disclosure and Focus reuse that element; none clone or rebuild
+it. Inspection offsets are saved before layout changes, with scroll anchoring
+suspended through restoration. The existing per-axis requested/applied tracking
+preserves positions clamped by a larger Focus viewport.
+Changing the explanation releases restoration for its active viewer so the
+native controller can reveal its highlighted lines. Fit/Find/Focus of the same
+explanation preserve inspection coordinates. Source-card prose reserves the
+tallest authored passage so narration does not keep resizing the canvas.
+Embedded viewers have an independent centering request, so hidden narrative
+activation cannot cancel their scroll. It uses displayed row geometry converted
+back to local scroll pixels, including canvas zoom and Focus changes.
 
-Selecting a card updates the existing step/beat and scopes reading to its
-function branch, stopping old playback. Explanation leaves use their parent's
-helper scope. Narration progress selects the corresponding card without
-triggering manual rescoping. Follow branch resets to its introduction; Follow
-gateway restores the curated reading path. The engine preserves speech caches
-during lazy loading and reveals a freshly loaded narration target.
+Source cards read `6399ecf`. The Call/SignedCall diff compares `d8a23d4` to
+`6399ecf`, including complete-file mode and context expansion through the
+historical endpoint. These are pinned revisions, not fabricated examples or a
+working-tree comparison. The map organises authored explanations; it does not
+claim compiler-resolved call relationships.
 
-Reference: `core/docs/site/assets/map.js` (`reflow`) and `map.css`. A/B now use
-its branch-growth sequence: connectors draw over 520ms; new cards enter from
-the parent side at 94% scale and zero opacity over 440ms after a 230ms delay.
-Surviving cards translate into the new layout over 440ms. Exiting cards fade
-and shrink to 96% over 220ms; connectors retract over 320ms. The branch curve
-is `cubic-bezier(.22,.8,.22,1)`. Vertical layouts enter from above. Previously
-opened branches retain their exact DOM while hidden, keeping native viewer
-state; exiting branches immediately become inert and hidden to accessibility.
-One coordinator samples presented positions before retargeting, compensates
-the surviving parent before panning, and draws connectors from moving boxes.
-Rapid reversals cancel old completions rather than queueing transitions.
-If a collapse pan is interrupted, the viewport retains enough temporary space
-to keep its current offsets. That space shrinks as the reader scrolls back;
-an exit-completion timer cannot clamp the viewport to the abandoned destination.
+Body/background/prose arrows navigate from first load. Right enters the first
+child; Left folds the level being left and returns to its parent. Up/Down move
+among siblings without wrapping; Home returns to the gateway. Selection/focus
+update immediately. Structural growth animates; nonstructural keyboard framing
+settles immediately. Enter/Find centres the current card. Native code arrows
+scroll code; Escape returns to the map without resetting the explanation.
+Open native menus close first, including inside Focus. Inputs, tabs, popovers
+and separators retain their own keys. Tab focus brings offscreen controls into
+the canvas camera rather than leaving an independent browser scroll offset.
 
-The owner explicitly requested this growth for keyboard opening too, after
-confirming the repaired keyboard semantics. Selection and focus stay immediate;
-branch geometry and its viewport follow the docs' motion. One interruptible
-350ms outer-scroll controller uses `cubic-bezier(.25,.7,.15,1)`. An already-visible
-heading stays stationary during ordinary selection; explicit Find centers it.
-Native viewer rendering and inner scrolling stay intact. Wheel, touch, pointer interaction,
-resizing or another command cancels at the current offsets. Reduced motion uses
-zero durations and delays. Nonstructural keyboard paths, including Enter and
-keyboard-activated Find, settle immediately. Hidden native source-step and mode changes
-bypass workspace snapshot/fallback animations so they cannot freeze or crossfade
-the visible map. Genuine Story/Files workspace transitions retain native behavior.
-Narration follows headers without moving an actively inspected
-native viewer. Growth applies to the connected map and reading tree; C retains
-its focused-card navigation.
-The topology organizes authored explanations and does not claim to be a
-compiler-resolved call graph.
+Selection and narration still use the existing source step/beat controller.
+Manual selection stops the previous playback and scopes reading to the chosen
+branch; explanation leaves keep their helper scope. Narration selects the
+corresponding card and Focus follows it. Caller Return reaches the actual
+caller, including the executeSigned submission card. Hidden native step/mode
+updates bypass workspace snapshot animations; Story/Files changes retain them.
+The compact native narration strip keeps its optional transcript and mirrored
+explanation navigation. The map header retains breadcrumbs, Fit, Find, Focus
+and Map options; layout/voice details remain out of the main reading surface.
 
-Implementation: `story-map.prototype.tsx`, `story-map-motion.prototype.ts`, `story-map.prototype.css`, and
-`scripts/story-map-prototype.mjs`. State stays in memory; only the layout key is
-stored in the URL. No variant has been promoted to the application. Keep this
-prototype off main and implement the chosen direction after owner feedback.
+## Verification
 
-`npm run check` passes all 1,123 tests, including build and client typecheck.
-Native-viewer browser checks pass for all three layouts plus 390px and 320px
-widths: syntax tokens, split/unified/full-file modes, wrapping, caller Hide/Show,
-resizing, caller Return and focus-mode retention. The source full-file request
-uses the pinned story commit; historical Full file retains its additions and
-removals. Story bytes stay unchanged. Mocked narration checks pass for progression
-from overview to diff to helper, matching prose/highlights, Pause/Resume/Stop,
-independent keyboard scrolling and the return chain back through `executeSigned()`.
-The embedded viewer owns its focus paint, so native narrative-step cleanup cannot
-erase its highlights. The narration dock is compact on phones; its optional
-transcript retains scrollable text below the complete playback row. Focus
-preserves caller visibility and widths in both directions; historical expansion verifies old line 68 against new line 76.
-Native wheel checks retain 600px when opening Focus, 1,150px when closing it,
-and the same position after Escape across A/B/C and both phone widths. Scroll
-offsets are captured before detach and restored after layout; native scroll
-anchoring is suspended only for that handoff and then restored.
-If Focus's larger viewport clamps a coordinate, the original requested offset
-survives until the reader actually scrolls that axis. Boundary probes cover
-`(300,500)` clamping to `(165,273)` and restoring on Close/Escape, while explicit
-horizontal movement updates only the horizontal coordinate.
-Audible synthesis and native installation are outside this
-prototype's verification scope.
-
-Chrome/navigation verification for this revision: browser probes cover A/B/C
-hierarchy keys, sibling boundaries, same-selection Home focus, roving Tab entry,
-native Story/Files tab arrows, transcript toggle, mirrored Previous/Next and
-44px phone targets. Normal-motion framing has intermediate rendered offsets;
-wheel input and opening Map options cancel it without a destination snap.
-Reduced motion frames immediately. Fresh 1440px, 390px and 320px captures show
-no page overflow. Follow actions retain focus on the Map options trigger through
-native activation, including when the transcript is visible. Source and UI
-review findings were patched and rechecked.
-The native viewer, historical-context, clamped-scroll and mocked narration
-checks remain separate from audible synthesis or native installation.
-
-Input regression after owner feedback: the earlier title-focused/reduced-motion
-checks missed initial-body and prose focus, and normal-motion native workspace
-snapshots. `node scripts/story-map-input-smoke.mjs` against the running prototype
-covers those paths with normal motion, held arrows, code inspection/Escape,
-keyboard Find and native widget ownership across A/B/C and phone widths.
-The same initial-body/prose and snapshot assertions were run failing before
-this fix. A separate code-row reproduction confirmed native horizontal scrolling
-and failed Escape-to-map before the handoff fix.
-
-The map owner also accepts arrows from its own toolbar, card-footer Focus and
-root-link controls, so returning from Focus does not strand keyboard navigation.
-Keyboard immediacy and focus destination are separate: layout selection retains
-its native select focus, and Follow restores the options trigger.
-
-Branch-motion verification: `node scripts/story-map-growth-smoke.mjs` covers
-painted intermediate entry/connector frames, immediate logical focus, hidden
-exit accessibility, rapid reversals, retained native DOM/Full-file mode and
-nonzero inspection offsets. It checks A/B desktop, A390, B320 and reduced
-motion; held arrows keep the final heading visible, and pointer Find completes
-centering. Exact interruption regressions cover Home 80ms into a branch entry,
-and wheel input during collapse followed by extent release and scrolling back.
-The input regression still passes A/B/C and phone widths. Native caller/Focus
-state, historical old68/new76 expansion and mocked narration progression were
-also rechecked. Fresh independent UI and behavior reviews closed the identified
-Home/extent issues. The actual normal-motion browser recording and desktop/phone
-captures accompany the handoff. Audible playback and native installation remain
-outside this iteration.
+`story-map-canvas-smoke.mjs` checks variant A's balanced overview, native source
+identity and real nonzero offsets, branch growth, camera interruption/zoom,
+Focus, native arrows/Escape, phones and reduced motion.
+`story-map-input-smoke.mjs` covers input ownership across all three layouts.
+On a transform canvas, it uses focus (the Tab path) before activating an
+offscreen native control: locator auto-scroll cannot operate a camera.
+`story-map-growth-smoke.mjs` retains the older reading-tree motion coverage for B.
+These browser checks are distinct from full-suite checks, audible synthesis,
+physical touch performance or native-app installation. Capture the implemented
+canvas and compare with the actual Ivy map at matching viewport/theme before
+calling a visual iteration complete.
