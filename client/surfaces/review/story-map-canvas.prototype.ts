@@ -93,7 +93,7 @@ export class StoryMapCanvas {
         cancelAnimationFrame(this.resizeFrame); this.resizeFrame = requestAnimationFrame(() => {
           if (!this.map || !this.world) return;
           const viewport = this.viewWidth !== this.map.clientWidth || this.viewHeight !== this.map.clientHeight;
-          if (!viewport && ![...this.nodes.values()].some(n => n.dirty)) return;
+          if (!viewport && ![...this.nodes.values()].some(n => n.visible && n.dirty)) return;
           const wasHome = this.home, requestedScale = this.cam.s;
           this.reflow(!viewport);
           if (wasHome) this.fit(false); else if (!document.activeElement?.closest('[data-map-native-viewer]')) {
@@ -118,12 +118,12 @@ export class StoryMapCanvas {
       }); this.resize.observe(map); this.nodes.forEach(n => this.resize!.observe(n.el));
     }
     const pending = this.pending; this.pending = null;
-    if (!first && this.currentSignature() === this.signature && ![...this.nodes.values()].some(n => n.dirty)) return false;
+    if (!first && this.currentSignature() === this.signature && ![...this.nodes.values()].some(n => n.visible && n.dirty)) return false;
     this.reflow(!first, undefined, pending?.anchor);
     if (first) this.fit(false);
     return pending?.structural ?? false;
   }
-  private readingState(n: Card) { return n.el.dataset.reading === 'true' && (!n.el.classList.contains('sm-canvas-detail') || n.kind === 'Code' || n.kind === 'Code diff'); }
+  private readingState(n: Card) { return n.el.dataset.reading === 'true' && (!n.el.classList.contains('sm-canvas-detail') || n.kind === 'Code' || n.kind === 'Code diff' || n.kind === 'Story + diagram'); }
   private currentSignature() { return [...this.nodes.values()].map(n => `${n.el.dataset.canvasOpen}:${this.readingState(n)}`).join(','); }
   private reflow(animate: boolean, before = this.presented(), anchorId = this.target) {
     if (!this.map || !this.world || !this.svg) return;
@@ -138,7 +138,7 @@ export class StoryMapCanvas {
       if (visible && !n.visible) n.dirty = true;
       n.visible = visible;
       const reading = this.readingState(n), kind = n.kind;
-      const inspection = reading && (kind === 'Code' || kind === 'Code diff');
+      const inspection = reading && (kind === 'Code' || kind === 'Code diff' || !!n.el.querySelector('[data-map-page]'));
       const openedCode = inspection && (n.id !== 'root' || !!n.el.querySelector('.sm-native-disclosure[open]'));
       // Give live code the desktop canvas, while retaining the existing fit on
       // smaller screens. The root stays compact until its source is opened.
@@ -146,7 +146,7 @@ export class StoryMapCanvas {
       const width = Math.min(openedCode ? inspectionWidth : n.id === 'root' || !n.parent?.parent ? 720 : 460, Math.max(280, this.map.clientWidth - (inspection ? 24 : 48)));
       if (width !== n.w || reading !== n.reading) n.dirty = true;
       n.w = width; n.reading = reading;
-      if (n.dirty) { measuring.push({ n, hidden: n.el.hidden }); n.el.style.width = width + 'px'; n.el.hidden = false; }
+      if (n.dirty && n.visible) { measuring.push({ n, hidden: n.el.hidden }); n.el.style.width = width + 'px'; n.el.hidden = false; }
     }
     // Batch writes, then measure only invalidated live cards in one layout.
     for (const { n } of measuring) { n.h = n.el.offsetHeight; n.dirty = false; }

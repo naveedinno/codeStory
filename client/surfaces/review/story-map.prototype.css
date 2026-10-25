@@ -325,3 +325,10 @@ body[data-read-view="tour"] .sm-prototype{display:flex;flex-direction:column}
  .sm-focus-dialog.is-fullscreen .sm-diagram li{flex:none;padding:12px;overflow-wrap:normal}
  .sm-focus-dialog.is-fullscreen .sm-diagram li+li::before{display:block;content:'↓';top:-23px;left:calc(50% - 5px);right:auto;font-size:16px}
 }
+
+/* Original concept pages keep their sandbox and interactive controls. */
+.sm-viewer-block[data-map-page]{border:0}
+.sm-viewer-block[data-map-page] .ds-concept-page-stage{height:100%;box-sizing:border-box;padding:0}
+.sm-viewer-block[data-map-page] .ds-concept-heading{display:none}
+.sm-viewer-block[data-map-page] .ds-concept-page{min-height:0}
+.sm-focus-dialog.is-fullscreen .sm-viewer-block[data-map-page]{min-height:300px}

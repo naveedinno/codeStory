@@ -62,7 +62,7 @@ function control(t){return !!(t&&t.closest&&t.closest('button,a,[role="button"],
 window.addEventListener('keydown',function(e){if(e.isComposing||keys.indexOf(e.key)<0||typing(e.target))return;if(e.key===' '&&control(e.target))return;
 setTimeout(function(){if(e.defaultPrevented)return;
 parent.postMessage({type:'codestory:key',key:e.key,shiftKey:e.shiftKey,altKey:e.altKey,ctrlKey:e.ctrlKey,metaKey:e.metaKey,repeat:e.repeat},'*');},0);});
-window.addEventListener('message',function(e){if(e.source!==parent)return;var d=e.data;if(d&&d.type==='codestory:theme'&&(d.theme==='light'||d.theme==='dark'))root.setAttribute('data-ds-theme',d.theme);});
+window.addEventListener('message',function(e){if(e.source!==parent)return;var d=e.data;if(d&&d.type==='codestory:theme'&&(d.theme==='light'||d.theme==='dark'))root.setAttribute('data-ds-theme',d.theme);if(d&&d.type==='codestory:map-keys')keys=keys.concat(['f','F','Escape']);});
 })();</script>`;
 }
 

@@ -20,8 +20,47 @@ It reads the real story and its pinned source; it never rewrites story bytes.
 Map options retains the comparison layouts: A is the Ivy canvas, B is the
 reading tree, and C is focused cards.
 
-Every card has a number derived from its branch: the root is `01`, its chapters
-are `02`–`07`, and their children are `02.1`, `02.2`, and so on. Numbers stay the
+## Complete original tour
+
+Add `&scope=full&variant=A` to the review URL to try the complete original story:
+
+```text
+http://localhost:7799/repo/core/review?story=stories%2Fcode-complete-tour.json&scope=full&variant=A
+```
+
+This view keeps all 129 authored steps, their 32 chapters and pinned source at
+`6399ecf`. Seven section branches group the existing chapter boundaries; they
+add navigation, not new protocol claims. Step cards retain their authored order,
+and explanation leaves retain the original step/beat ownership. The original
+story file is never rewritten. The smaller curated gateway view remains the
+default without `scope=full`.
+
+Only opened media request a native viewer. Hidden, unopened cards are not
+measured for layout. The six authored HTML diagrams use the native sandboxed,
+leased concept-page endpoint, preserving their interactions. Focus/fullscreen
+and layout handoffs reuse the live iframe with state-preserving DOM moves when
+the browser supports them. Its F/Escape bridge accepts messages only from the
+focused, visible frame for the active story panel. Ordinary review-frame keys
+and lifecycle remain unchanged.
+
+Sections and chapters remain selected while browsing their summaries. Starting
+narration hands selection to their first authored step; progress follows actual
+steps and explanations without narrowing the reading path. Follow whole tour
+queues the original order; Follow this branch scopes playback to that branch.
+The dock shows the original step position out of 129. Full-tour source cards
+stay source cards; the historical gateway demonstration diff is not invented
+for the original source-only tour.
+
+`story-map-full-smoke.mjs` checks the complete hierarchy, zero embedded-viewer
+requests at overview, keyboard paths through chapters, original interactive
+diagrams, F/Escape and layout state, live source identity, caller returns and
+the last sibling boundary across desktop and phones. A silent narration fixture
+checks the whole-tour queue, selection/Focus synchronization and transport;
+it does not verify audible synthesis.
+
+Every card has a number derived from its branch: the root is `01`, the gateway's
+chapters are `02`–`07`, and their children are `02.1`, `02.2`, and so on. The full
+tour uses the same rule through sections, chapters, steps and explanations. Numbers stay the
 same through expansion, selection, Focus and layout changes. The number links
 back to the parent. Quiet dots show the card's position among its siblings;
 previous/next controls appear in the selected header. No navigation row splits

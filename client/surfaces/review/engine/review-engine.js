@@ -552,9 +552,10 @@ export function startReviewEngine(options){
   function mountConceptPages(panel){
     var live=stepPanels&&stepPanels[active];
     $all('[data-concept-frame]',panel).forEach(function(frame){
-      if(frame._dsMounted||!live||!live.contains(frame))return;frame._dsMounted=true;
+      var embedded=closest(frame,'[data-map-native-viewer]');
+      if(frame._dsMounted||(!embedded&&(!live||!live.contains(frame))))return;frame._dsMounted=true;
       var figure=closest(frame,'[data-concept-page]');
-      frame.addEventListener('load',function(){if(!frame._dsMounted)return;if(figure)figure.classList.add('is-loaded');if(frame.contentWindow)frame.contentWindow.postMessage({type:'codestory:theme',theme:conceptPageTheme()},'*');});
+      frame.addEventListener('load',function(){if(!frame._dsMounted)return;if(figure)figure.classList.add('is-loaded');if(frame.contentWindow){frame.contentWindow.postMessage({type:'codestory:theme',theme:conceptPageTheme()},'*');if(embedded)frame.contentWindow.postMessage({type:'codestory:map-keys'},'*');}});
       frame.src=reviewPageUrl('/api/review/concept-page?index='+encodeURIComponent(frame.getAttribute('data-concept-index')||'')+'&theme='+conceptPageTheme());
     });
   }
@@ -562,7 +563,7 @@ export function startReviewEngine(options){
   // has no address, so it stays empty until its step is active again.
   function unloadConceptPages(keep){
     $all('[data-concept-frame]').forEach(function(frame){
-      if(!frame._dsMounted||(keep&&keep.contains(frame)))return;frame._dsMounted=false;
+      if(closest(frame,'[data-map-native-viewer]')||!frame._dsMounted||(keep&&keep.contains(frame)))return;frame._dsMounted=false;
       var figure=closest(frame,'[data-concept-page]'),blank=frame.cloneNode(false);blank.removeAttribute('src');
       if(figure&&document.fullscreenElement===figure&&document.exitFullscreen)document.exitFullscreen().catch(function(){});
       frame.replaceWith(blank);if(figure)figure.classList.remove('is-loaded');
@@ -589,13 +590,19 @@ export function startReviewEngine(options){
   // forwards exactly this list.
   var CONCEPT_FRAME_KEYS=['ArrowLeft','ArrowRight','j','k',' '];
   function conceptFrameForMessage(e){
-    var d=e.data;if(!d||d.type!=='codestory:key'||typeof d.key!=='string'||CONCEPT_FRAME_KEYS.indexOf(d.key)<0)return null;
+    var d=e.data;if(!d||d.type!=='codestory:key'||typeof d.key!=='string')return null;
+    var ordinary=CONCEPT_FRAME_KEYS.indexOf(d.key)>=0,extra=['f','F','Escape'].indexOf(d.key)>=0;
+    if(!ordinary&&!extra)return null;
     var panel=stepPanels&&stepPanels[active];if(!panel)return null;
-    var frame=null;$all('[data-concept-frame]',panel).forEach(function(f){if(f.contentWindow===e.source)frame=f;});
+    var frame=null;if(ordinary)$all('[data-concept-frame]',panel).forEach(function(f){if(f.contentWindow===e.source)frame=f;});
+    if(!frame&&document.body.classList.contains('sm-prototyping'))$all('[data-map-native-viewer] [data-concept-frame]').forEach(function(f){
+      if(Number(f.getAttribute('data-concept-index'))===active&&f.getClientRects().length&&f.contentWindow===e.source)frame=f;
+    });
     return frame&&document.activeElement===frame?frame:null;
   }
   function onConceptFrameMessage(e){
     var frame=conceptFrameForMessage(e);if(!frame)return;var d=e.data;
+    if(closest(frame,'[data-map-native-viewer]')){frame.dispatchEvent(new window.KeyboardEvent('keydown',{key:d.key,bubbles:true,cancelable:true,shiftKey:!!d.shiftKey,altKey:!!d.altKey,ctrlKey:!!d.ctrlKey,metaKey:!!d.metaKey,repeat:!!d.repeat}));return;}
     onKey({key:d.key,code:d.key===' '?'Space':'',shiftKey:!!d.shiftKey,altKey:!!d.altKey,ctrlKey:!!d.ctrlKey,metaKey:!!d.metaKey,repeat:!!d.repeat,isComposing:false,target:frame,defaultPrevented:false,preventDefault:function(){},stopPropagation:function(){}});
   }
   var STORY_MODELS={
@@ -4511,6 +4518,7 @@ export function startReviewEngine(options){
     var root=event.target,detail=event.detail||{};
     if(!document.body.classList.contains('sm-prototyping')||!root.hasAttribute('data-map-native-viewer'))return;
     if(detail.initialize||detail.attach)setLineWrap(document.body.classList.contains('ds-line-wrap'),false);
+    if(detail.initialize||detail.attach||detail.geometry)mountConceptPages(root);
     if(detail.initialize||detail.mode){
       var mode=detail.mode|| (compactScreen()?'diff':'split'),button=$('[data-mode="'+mode+'"]',root);
       if(button&&button.getAttribute('aria-pressed')!=='true')setMode(button,{persist:false});

@@ -43,12 +43,15 @@ function bridge() {
     { frames: [hiddenFrame], contains: (f) => f === hiddenFrame },
     { frames: [activeFrame], contains: (f) => f === activeFrame },
   ];
-  const calls = [];
+  const calls = [], replayed = [];
+  const mapFrame = { contentWindow: win('map'), embedded:true, index:2, visible:true, getAttribute:()=>String(mapFrame.index), getClientRects:()=>mapFrame.visible?[{}]:[], dispatchEvent:event=>replayed.push(event) };
   const context = vm.createContext({
     stepPanels: panels,
     active: 2,
-    document: { activeElement: activeFrame },
-    $all: (selector, root) => (root ? root.frames : panels.flatMap((p) => p.frames)),
+    document: { activeElement: activeFrame, body:{classList:{contains:()=>false}} },
+    window:{KeyboardEvent:function(type,init){Object.assign(this,{type},init);}},
+    closest:(node)=>node.embedded?{}:null,
+    $all: (selector, root) => selector.startsWith('[data-map-native-viewer]')?[mapFrame]:(root ? root.frames : panels.flatMap((p) => p.frames)),
     onKey: (event) => calls.push(event),
   });
   assert.ok(keysDecl, 'the engine declares its concept key allowlist');
@@ -59,7 +62,7 @@ function bridge() {
     vm.runInContext(source, context);
   }
   const send = (source, key, extra = {}) => context.onConceptFrameMessage({ source, data: { type: 'codestory:key', key, ...extra } });
-  return { context, calls, send, activeWin, hiddenWin, activeFrame, hiddenFrame };
+  return { context, calls, send, activeWin, hiddenWin, activeFrame, hiddenFrame, mapFrame, replayed };
 }
 
 test('a focused frame on the active step can press story navigation keys', () => {
@@ -103,6 +106,18 @@ test('a forged key code cannot turn an allowed key into another shortcut', () =>
   b.send(b.activeWin, 'j', { code: 'Space' });
   b.send(b.activeWin, ' ', { code: 'KeyC' });
   assert.deepEqual(b.calls.map((e) => [e.key, e.code]), [['j', ''], [' ', 'Space']]);
+});
+
+test('map diagrams replay F/Escape through their own DOM, with focus and active-step guards', () => {
+  const b=bridge();b.context.document.body.classList.contains=()=>true;
+  b.context.document.activeElement=b.mapFrame;
+  b.send(b.mapFrame.contentWindow,'f');b.send(b.mapFrame.contentWindow,'Escape');
+  assert.deepEqual(b.replayed.map(event=>event.key),['f','Escape']);assert.equal(b.calls.length,0);
+  b.mapFrame.index=1;b.send(b.mapFrame.contentWindow,'f');
+  b.mapFrame.index=2;b.mapFrame.visible=false;b.send(b.mapFrame.contentWindow,'Escape');
+  b.mapFrame.visible=true;b.context.document.activeElement=b.activeFrame;b.send(b.mapFrame.contentWindow,'f');
+  b.send(b.activeWin,'f');b.send(b.mapFrame.contentWindow,'c');
+  assert.equal(b.replayed.length,2,'hidden, off-step, unfocused, native and arbitrary keys cannot enter the map bridge');
 });
 
 test('the engine accepts exactly the keys the page shim forwards', async () => {

@@ -12,6 +12,7 @@ import { serve } from '../dist/server.js';
 import { parseUnifiedDiff } from '../dist/diff.js';
 import { buildReviewModel, buildFullFileRows, rowsInNewRange } from '../dist/view-model.js';
 import { renderStoryStepPanel, renderFullFile, renderContextRows } from '../dist/render.js';
+import { fullStoryMap } from './story-map-full-data.mjs';
 
 if (process.env.NODE_ENV === 'production') throw new Error('This prototype is development-only.');
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -83,6 +84,8 @@ diffHtml = diffHtml.replace('<div data-full-inner hidden></div>', `<div data-ful
 viewers.set('diff-change', diffHtml);
 nodes.find(node => node.id === 'change').content.push({ type: 'diff', viewerId: 'diff-change', file: diffFile, base, head: tour.head,
   rangesByBeat: (diffStep.beats ?? []).map(beat => beat.highlights ?? []) });
+const fullStory = fullStoryMap(tour); fullStory.data.sourceStory = storyId;
+const fullViewers = new Map();
 const data = { nodes, commit: tour.head, title: tour.title, sourceStory: storyId,
   path: ['root', 'change', 'route', 'signatures', 'replay', 'policy', 'execution', 'schedule', 'wallet', 'forward'] };
 const bundled = await build({ entryPoints: [join(root, 'client/surfaces/review/story-map.prototype.tsx')],
@@ -111,12 +114,18 @@ const proxy = createServer((req, res) => {
     res.writeHead(200, { 'content-type': 'text/html', 'cache-control': 'no-store' }).end(html); return;
   }
   if (url.pathname === '/_prototype/viewer') {
-    const html = viewers.get(url.searchParams.get('id'));
+    const id = url.searchParams.get('id');
+    if (!viewers.has(id) && fullStory.viewers.has(id) && !fullViewers.has(id)) {
+      const index = fullStory.viewers.get(id);
+      const detail = buildReviewModel(repo, tour, [], tour.head, { detailedStepIndexes:new Set([index]), detailedFilePaths:new Set(), includeTrustRows:false, baseRef:base });
+      fullViewers.set(id, renderStoryStepPanel(repo, detail, [], index));
+    }
+    const html = viewers.get(id) ?? fullViewers.get(id);
     res.writeHead(html ? 200 : 404, { 'content-type': 'text/html', 'cache-control': 'no-store' }).end(html ?? 'Unknown viewer'); return;
   }
   if (url.pathname.startsWith('/_prototype/')) {
     const content = { '/_prototype/map.js': ['text/javascript', js], '/_prototype/map.css': ['text/css', css],
-      '/_prototype/map.json': ['application/json', JSON.stringify(data)] }[url.pathname];
+      '/_prototype/map.json': ['application/json', JSON.stringify(url.searchParams.get('scope') === 'full' ? fullStory.data : data)] }[url.pathname];
     if (!content) { res.writeHead(404).end(); return; }
     res.writeHead(200, { 'content-type': content[0], 'cache-control': 'no-store' }).end(content[1]); return;
   }
@@ -142,5 +151,6 @@ const proxy = createServer((req, res) => {
 proxy.listen(Number(arg('--port', '7799')), '127.0.0.1');
 await once(proxy, 'listening');
 console.log(`\nGateway mind-map prototype → http://localhost:${proxy.address().port}/repo/${basename(repo)}/review?story=${encodeURIComponent(storyId)}&variant=A`);
+console.log(`Full tour → http://localhost:${proxy.address().port}/repo/${basename(repo)}/review?story=${encodeURIComponent(storyId)}&scope=full&variant=A`);
 console.log('A: Content map · B: Reading tree · C: Focused cards. Local read-only prototype; source story is preserved.');
 process.on('SIGINT', () => { proxy.close(); backend.close(); process.exit(); });
