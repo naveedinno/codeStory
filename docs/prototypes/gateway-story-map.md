@@ -108,10 +108,51 @@ geometry and motion to the existing React cards:
 - Children enter from the parent side at 94% scale and zero opacity over 440ms
   after a 230ms delay; existing cards translate over 440ms. Exits take 220ms.
   SVG paths morph directly and draw over 520ms or retract over 320ms, using
-  `cubic-bezier(.22,.8,.22,1)`. The camera uses a 350ms transform transition with
-  `cubic-bezier(.25,.7,.15,1)`. There is no per-frame DOM geometry polling or
+  `cubic-bezier(.22,.8,.22,1)`. Camera travel during a reflow shares that 440ms
+  curve and start time with card translation and reveal. Travel without a
+  geometry change keeps the 350ms `cubic-bezier(.25,.7,.15,1)` transition.
+  There is no per-frame DOM geometry polling or
   temporary scroll extent in variant A. New gestures sample the presented
   camera before taking over. Reduced motion makes durations/delays zero.
+
+Moving to another card changes selection, focus and source immediately, while
+the outgoing reading surface keeps its size through camera travel. It compacts
+after motion settles and it is completely outside the map viewport. Context
+that is still visible remains open until a subsequent pan moves it out of view.
+Cleanup compensates around the destination without launching another centering
+flight, preserving its screen position and zoom. Native inspection focus defers
+cleanup. This presentation hold is separate from the actual reading selection;
+Fit and reduced motion clear it immediately. Live viewers remain cached.
+
+Incoming reading cards reveal their measured additional area through a clip;
+native code uses its final dimensions and is not scaled. Interrupted reveals
+sample their current clip. Unchanged connectors do not restart animations.
+The second native selection acknowledgement preserves an existing flight,
+rather than cancelling it before the next paint. An outgoing explanation keeps
+its last prose and highlights until it is revisited.
+Tab or pointer focus inside a card's controls takes inspection ownership:
+linked card/connector/reveal movement settles before the control is framed,
+and that card becomes the geometry anchor. Native scrolling and its requested
+offsets stay independent. Map-title focus used for navigation keeps the motion.
+
+External interaction references, checked 2026-10-25:
+
+- [MindNode](https://www.mindnode.com/features) separates focus dimming from
+  folding, preserving surrounding context while directing attention.
+- [MindMeister navigation](https://support.mindmeister.com/hc/en-us/articles/360017469020-Navigate-a-Mind-Map)
+  separates selection/navigation, recentering and visible depth.
+- [Xmind folding](https://xmind.com/user-guide/fold-unfold-subtopic-new) keeps
+  explicit branch controls and counts at the topic edge.
+
+These inform interaction policy, not copied animation timings. Selection leaves
+an already readable, unchanged card stationary; Enter/Find explicitly centres
+it. CodeStory retains its native code/diff viewers and the Ivy spatial hierarchy.
+The runner now uses optimized React by default; `--react-development` enables
+development diagnostics. Transport polling deduplicates unchanged UI state.
+An instrumented local desktop comparison of three source navigations measured
+272–285ms navigation long tasks with development React and no long tasks over
+50ms with the optimized runtime. These are bounded browser observations, not
+a device frame-rate guarantee.
 
 ## Native content and navigation
 
@@ -163,8 +204,8 @@ claim compiler-resolved call relationships.
 Body/background/prose arrows navigate from first load. Right enters the first
 child; Left folds the level being left and returns to its parent. Up/Down move
 among siblings without wrapping; Home returns to the gateway. Selection/focus
-update immediately. Visual keyboard travel, Enter and Find follow Ivy's 350ms
-camera curve; new commands retarget the presented position. Sibling selection
+update immediately. Visual keyboard travel, Enter and Find follow the camera
+curves above; new commands retarget the presented position. Sibling selection
 keeps card dimensions stable and leaves unfinished branch entrances running.
 Enter/Find centres the current card. Native code arrows
 scroll code; Escape returns to the map without resetting the explanation.
@@ -205,6 +246,12 @@ source synchronization after reselection and reading widths for code leaves.
 A captured Chromium
 comparison exposed the previous 30-layout sibling step; cached dimensions,
 batched measurement and highlight-only native refreshes reduce that steady
-step to 3 layouts on desktop/390px (4 under reduced motion at 320px). SVG path
+step to 2 layouts on desktop/390px and under reduced motion at 320px. SVG path
 animation is measured separately because it legitimately performs layout work.
 These are browser measurements, not a physical-device frame-rate guarantee.
+
+`story-map-handoff-smoke.mjs` checks outgoing card dimensions during navigation,
+offscreen folding, destination anchoring, fast reversal, native media reuse and
+Focus/F/Escape across large source/diagram cards, phones and reduced motion.
+It also samples actual painted frames for prompt feedback, maintained sibling
+spacing during clipped growth and landing without overshoot.

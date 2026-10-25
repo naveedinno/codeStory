@@ -118,6 +118,9 @@ try {
     await viewer.getByRole('button', { name: 'Unified', exact: true }).click();
     const scroller = viewer.locator('.ds-helper-scroll');
     await scroller.focus();
+    // Let the mode change finish framing its active lines before beginning
+    // independent code inspection (the faster runtime can reach this sooner).
+    await page.waitForTimeout(250);
     await scroller.evaluate(node => { node.scrollTop = 0; });
     const before = await scroller.evaluate(node => node.scrollTop);
     await page.keyboard.press('ArrowDown');

@@ -90,7 +90,9 @@ const data = { nodes, commit: tour.head, title: tour.title, sourceStory: storyId
   path: ['root', 'change', 'route', 'signatures', 'replay', 'policy', 'execution', 'schedule', 'wallet', 'forward'] };
 const bundled = await build({ entryPoints: [join(root, 'client/surfaces/review/story-map.prototype.tsx')],
   bundle: true, write: false, format: 'esm', platform: 'browser', jsx: 'automatic', target: 'es2022',
-  define: { 'process.env.NODE_ENV': '"development"' }, minify: false });
+  // Measure the map with the same optimized React runtime a shipped UI uses.
+  // Keep readable output and an explicit diagnostics option for development.
+  define: { 'process.env.NODE_ENV': JSON.stringify(args.includes('--react-development') ? 'development' : 'production') }, minify: false });
 const js = bundled.outputFiles[0].text;
 const css = readFileSync(join(root, 'client/surfaces/review/story-map.prototype.css'), 'utf8');
 const home = mkdtempSync(join(tmpdir(), 'codestory-map-prototype-'));

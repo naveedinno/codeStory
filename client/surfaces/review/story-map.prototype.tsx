@@ -50,7 +50,7 @@ function cameraEase(progress: number) {
 function revealInMap(element: HTMLElement | null, center = false, animate = true, headerOnly = false) {
   const map = element?.closest<HTMLElement>('.sm-map');
   if (!element || !map) return;
-  const canvas = canvasFor(map); if (canvas) { canvas.reveal(element, center, animate, headerOnly); return; }
+  const canvas = canvasFor(map); if (canvas) { canvas.reveal(element, center, animate); return; }
   cancelMapMotion(map);
   const heading = element.querySelector('.sm-card-head') ?? element;
   const presented = heading.getBoundingClientRect(), card = mapCardLayoutBox(element), box = map.getBoundingClientRect();
@@ -312,6 +312,7 @@ function Prototype({ data }: { data: MapData }) {
   const pendingSource = useRef<{ panelIndex: number; beat: number } | null>(null);
   const [sourcePosition, setSourcePosition] = useState({ panelIndex: get('root').panelIndex, beat: 0 });
   const sourcePositionRef = useRef(sourcePosition); sourcePositionRef.current = sourcePosition;
+  const lastBeats = useRef(new Map<number, number>()); lastBeats.current.set(sourcePosition.panelIndex, sourcePosition.beat);
   const [expanded, setExpanded] = useState(new Set(['root']));
   const expandedRef = useRef(expanded); expandedRef.current = expanded;
   const [visited, setVisited] = useState(new Set(['root']));
@@ -324,6 +325,7 @@ function Prototype({ data }: { data: MapData }) {
   const optionsTrigger = useRef<HTMLButtonElement>(null);
   const map = useRef<HTMLElement>(null), options = useRef<HTMLDivElement>(null), optionsId = 'sm-options-' + useId();
   const revealRequest = useRef<{ id: string; keyboard: boolean; focus: boolean; center?: boolean } | null>(null);
+  const lastRevealedSelection = useRef({ id: '', variant });
   const [transcript, setTranscript] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [beatNav, setBeatNav] = useState({ previous: false, next: false });
@@ -397,6 +399,13 @@ function Prototype({ data }: { data: MapData }) {
       for (const saved of viewer.scrolls) saved.element.style.overflowAnchor = 'none';
     }
   };
+  useEffect(() => {
+    const element = map.current!;
+    const restore = () => { for (const viewer of liveViewers.values()) if (viewer.restoring) settleViewerScroll(viewer); };
+    element.addEventListener('codestory:map-retire', preserveInspection);
+    element.addEventListener('codestory:map-retired', restore);
+    return () => { element.removeEventListener('codestory:map-retire', preserveInspection); element.removeEventListener('codestory:map-retired', restore); };
+  }, []);
   const exitFullscreen = () => {
     preserveInspection(); setFullscreen(false);
     const previous = fullscreenReturn.current;
@@ -549,14 +558,18 @@ function Prototype({ data }: { data: MapData }) {
     revealRequest.current = null;
     if (focused) { cancelMapMotion(map.current); return; }
     if (variant === 'A' && overview) { canvas.fit(!keyboardInput.current); return; }
+    const changed = lastRevealedSelection.current.id !== selected || lastRevealedSelection.current.variant !== variant;
+    lastRevealedSelection.current = { id: selected, variant };
+    // Native activation acknowledges the same selection in a second commit.
+    // It must not cancel an already running camera flight and snap to its end.
+    if (!changed && !request && !reflowed.current) return;
     const card = cardFor(request?.id ?? selected);
     if (!card) return;
     if (request?.focus) focusCard(selected);
     // Narration follows headers without taking the viewport away from inspection.
     if (!request && document.activeElement?.closest('[data-map-native-viewer]')) return;
-    const animate = variant === 'A' ? !!request || reflowed.current : reflowed.current || (!!request && !request.keyboard);
+    const animate = variant === 'A' ? changed || !!request || reflowed.current : reflowed.current || (!!request && !request.keyboard);
     revealInMap(card, !!request?.center || reflowed.current, animate, !request?.center && !reflowed.current && (!request || request.keyboard));
-    return () => cancelMapMotion(map.current);
   }, [selected, variant, focused, navigation, expanded, overview]);
   useEffect(() => { document.body.dataset.mapTranscript = String(transcript); }, [transcript]);
   useEffect(() => {
@@ -596,13 +609,19 @@ function Prototype({ data }: { data: MapData }) {
     const primary = document.querySelector<HTMLButtonElement>('[data-readaloud]');
     const stop = document.querySelector<HTMLButtonElement>('[data-aloud-stop]');
     if (!primary || !stop) return;
-    const sync = () => setTransport({ label: primary.querySelector('[data-readaloud-label]')?.textContent?.trim() || 'Play',
-      accessibleLabel: primary.getAttribute('aria-label') || 'Play narration', disabled: primary.disabled, canStop: !stop.hidden });
+    const sync = () => {
+      const next = { label: primary.querySelector('[data-readaloud-label]')?.textContent?.trim() || 'Play',
+        accessibleLabel: primary.getAttribute('aria-label') || 'Play narration', disabled: primary.disabled, canStop: !stop.hidden };
+      setTransport(old => old.label === next.label && old.accessibleLabel === next.accessibleLabel && old.disabled === next.disabled && old.canStop === next.canStop ? old : next);
+    };
     const observer = new MutationObserver(sync);
     observer.observe(primary, { attributes: true, childList: true, characterData: true, subtree: true });
     observer.observe(stop, { attributes: true, attributeFilter: ['hidden'] });
     const stage = document.querySelector('.ds-dock-stage')!;
-    const syncBeats = () => setBeatNav({ previous: !!stage.querySelector('[data-beat-dock]:not([hidden]) [data-beat-move="-1"]:not(:disabled)'), next: !!stage.querySelector('[data-beat-dock]:not([hidden]) [data-beat-move="1"]:not(:disabled)') });
+    const syncBeats = () => {
+      const next = { previous: !!stage.querySelector('[data-beat-dock]:not([hidden]) [data-beat-move="-1"]:not(:disabled)'), next: !!stage.querySelector('[data-beat-dock]:not([hidden]) [data-beat-move="1"]:not(:disabled)') };
+      setBeatNav(old => old.previous === next.previous && old.next === next.next ? old : next);
+    };
     const beats = new MutationObserver(syncBeats); beats.observe(stage, { subtree: true, childList: true, attributes: true, attributeFilter: ['disabled', 'hidden'] });
     sync(); syncBeats(); return () => { observer.disconnect(); beats.disconnect(); };
   }, []);
@@ -665,7 +684,7 @@ function Prototype({ data }: { data: MapData }) {
   const kindOf = (topic: Topic) => topic.structural ? (topic.structural === 'tour' ? 'Story map' : topic.structural === 'chapter' ? 'Chapter' : 'Section') : topic.content.some(block => block.type === 'diff') ? 'Code diff' : topic.content.some(block => block.type === 'code') ? 'Code' : topic.content.some(block => block.type === 'diagram' || block.type === 'page') ? 'Story + diagram' : 'Story';
   const openCard = (topic: Topic) => { if (get(selectedRef.current).stepId !== topic.stepId) choose(topic); setFocused(topic.id); };
   function Content({ topic, full = false }: { topic: Topic; full?: boolean }) {
-    const currentBeat = sourcePosition.panelIndex === topic.panelIndex && parent(topic.id)?.stepId !== topic.stepId ? sourcePosition.beat : topic.beat;
+    const currentBeat = parent(topic.id)?.stepId !== topic.stepId ? lastBeats.current.get(topic.panelIndex) ?? topic.beat : topic.beat;
     const activeMedia = topic.content.some((block, index) => mediaId(topic, block, index) === fullscreenMedia) ? fullscreenMedia : primaryMedia(topic);
     return <div className={`sm-card-content ${full ? 'is-full' : ''}`}>{topic.content.map((block, index) => {
       if (block.type === 'prose') return <p className="sm-prose" key={index}>{block.text}</p>;
@@ -767,7 +786,7 @@ function Prototype({ data }: { data: MapData }) {
       <div className="sm-options-reading"><span className="sm-section-label">Reading path · {reading}</span><button type="button" onClick={() => follow(get('root'))}>Follow {data.scope === 'full' ? 'whole tour' : 'gateway'}</button><button type="button" onClick={() => follow(node)}>Follow this branch</button></div>
       <details><summary>Keyboard shortcuts</summary><dl><dt>→ / ←</dt><dd>Enter first detail / return to parent</dd><dt>↑ / ↓</dt><dd>Previous / next sibling</dd><dt>Home</dt><dd>{data.rootLabel ?? 'Gateway'} overview</dd><dt>Enter</dt><dd>Center the current card</dd><dt>F</dt><dd>Full screen for a code or diagram card</dd><dt>Escape</dt><dd>Exit full screen, leave code, or go up one level</dd><dt>Tab</dt><dd>Inspect card controls and source</dd></dl></details>
     </div>, document.body)}
-    <nav ref={map} className={`sm-map ${variant === 'A' ? 'sm-canvas' : ''}`} tabIndex={-1} aria-label={data.scope === 'full' ? 'Full story map' : 'Gateway story map'} aria-describedby="sm-map-key-help" onClick={mapClick}>{variant === 'A' ? VariantA() : variant === 'B' ? VariantB() : VariantC()}</nav>
+    <nav ref={map} className={`sm-map ${variant === 'A' ? 'sm-canvas' : ''}`} data-map-overview={overview} tabIndex={-1} aria-label={data.scope === 'full' ? 'Full story map' : 'Gateway story map'} aria-describedby="sm-map-key-help" onClick={mapClick}>{variant === 'A' ? VariantA() : variant === 'B' ? VariantB() : VariantC()}</nav>
     {outside && <div className="sm-outside">Reading elsewhere in the story.<button type="button" onClick={() => choose(node)}>Return to this branch</button></div>}
     <span id="sm-map-key-help" className="ds-sr-only">Arrow keys navigate the map. Enter centers the current card. Escape returns from code to the map.</span>
     <span className="ds-sr-only" role="status">{outside || `Reading ${node.label}. ${visited.size} topics visited.`}</span>

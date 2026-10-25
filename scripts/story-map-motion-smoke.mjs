@@ -15,7 +15,7 @@ try {
     const focus = id => page.waitForFunction(id => document.activeElement?.dataset.mapFocus === id, id);
     await page.keyboard.press('ArrowRight'); await focus('route');
     if (motion === 'reduce') assert.deepEqual(await flights(), []);
-    else assert.ok((await flights()).some(a => a.state === 'running' && a.duration === 350), 'ordinary keyboard travel animates with immediate logical focus');
+    else assert.ok((await flights()).some(a => a.state === 'running' && a.duration === 440), 'opening a card shares its 440ms layout clock, with immediate logical focus');
     await page.waitForTimeout(550);
     await page.keyboard.press('ArrowRight'); await focus('route-1');
     const leaf = page.locator('[data-canvas-node="route-1"]');
