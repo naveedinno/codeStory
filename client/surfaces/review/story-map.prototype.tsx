@@ -13,6 +13,13 @@ type ContentBlock =
   | { type: 'diff'; viewerId: string; file: string; base: string; head: string; rangesByBeat: [number, number][][] };
 interface Topic { id: string; stepId: string; panelIndex: number; label: string; symbol: string; beat: number; children: string[]; beats: number; content: ContentBlock[] }
 interface MapData { nodes: Topic[]; commit: string; title: string; path: string[] }
+const hasMedia = (topic: Topic) => topic.content.some(block => block.type === 'code' || block.type === 'diff' || block.type === 'diagram');
+const mediaId = (topic: Topic, block: ContentBlock, index: number) => block.type === 'diagram' ? `diagram-${topic.id}-${index}` : block.type === 'code' || block.type === 'diff' ? block.viewerId : undefined;
+const primaryMedia = (topic: Topic) => {
+  const index = topic.content.findIndex(block => block.type === 'code' || block.type === 'diff');
+  const fallback = index < 0 ? topic.content.findIndex(block => block.type === 'diagram') : index;
+  return fallback < 0 ? undefined : mediaId(topic, topic.content[fallback], fallback);
+};
 type Variant = 'A' | 'B' | 'C';
 type NavigationIntent = { keyboard?: boolean; focus?: boolean };
 const variants: Record<Variant, string> = { A: 'Content map', B: 'Reading tree', C: 'Focused cards' };
@@ -119,7 +126,7 @@ function placeViewer(viewer: LiveViewer) {
   viewer.initialized = true;
   settleViewerScroll(viewer);
 }
-function NativeViewer({ block, beat, current, full }: { block: ViewerBlock; beat: number; current: boolean; full: boolean }) {
+function NativeViewer({ block, beat, current, full, hidden = false }: { block: ViewerBlock; beat: number; current: boolean; full: boolean; hidden?: boolean }) {
   const host = useRef<HTMLDivElement>(null), id = useId(), positioned = useRef(false);
   const position = useRef({ beat, current }); position.current = { beat, current };
   useLayoutEffect(() => {
@@ -154,7 +161,7 @@ function NativeViewer({ block, beat, current, full }: { block: ViewerBlock; beat
         panel.querySelectorAll<HTMLElement>('[aria-controls],[aria-labelledby],[popovertarget]').forEach(node => {
           for (const attr of ['aria-controls', 'aria-labelledby', 'popovertarget']) if (node.hasAttribute(attr)) node.setAttribute(attr, node.getAttribute(attr)!.split(' ').map(value => ids.get(value) ?? value).join(' '));
         });
-        if (block.type === 'diff') panel.querySelectorAll<HTMLElement>('[data-open-full-diff]').forEach(node => { node.removeAttribute('data-open-full-diff'); node.setAttribute('data-map-open-full', ''); node.setAttribute('aria-label', 'Read the complete file at this historical change'); node.title = 'Read the complete file at this historical change'; });
+        if (block.type === 'diff') panel.querySelectorAll<HTMLElement>('[data-open-full-diff]').forEach(node => { node.removeAttribute('data-open-full-diff'); node.setAttribute('data-map-open-full', ''); node.setAttribute('aria-label', `Read ${block.file} at this historical change`); node.title = `Read ${block.file} at this historical change`; });
         viewer.panel = panel;
       }
       placeViewer(viewer);
@@ -168,7 +175,7 @@ function NativeViewer({ block, beat, current, full }: { block: ViewerBlock; beat
     return () => { rememberViewerScroll(viewer); cancelled = true; cancelAnimationFrame(frame); observer.disconnect(); resize.disconnect(); element.removeEventListener('scroll', scrolled, true); element.removeEventListener('codestory:map-position', update); viewer.hosts.delete(registration); placeViewer(viewer); };
   }, [block.viewerId]);
   useEffect(() => { host.current?.dispatchEvent(new CustomEvent('codestory:map-position', { detail: { center: current && (positioned.current || !full) } })); positioned.current = true; }, [beat, current]);
-  return <div className="sm-viewer-block"><div className="sm-viewer-revision">{block.type === 'code' ? `Code at ${block.revision.slice(0, 7)}` : `Historical change · ${block.base.slice(0, 7)} → ${block.head.slice(0, 7)}`}</div>
+  return <div className="sm-viewer-block" data-map-media={block.viewerId} hidden={hidden}><div className="sm-viewer-revision" aria-label={block.type === 'code' ? `Code at ${block.revision}` : `Historical change from ${block.base} to ${block.head}`}>{block.type === 'code' ? `Code · ${block.revision.slice(0, 7)}` : `${block.base.slice(0, 7)} → ${block.head.slice(0, 7)}`}</div>
     <div ref={host} data-map-native-viewer={block.viewerId} className="sm-native-viewer" onClick={event => {
       if ((event.target as HTMLElement).closest('[data-map-open-full]')) { event.stopPropagation(); host.current?.querySelector<HTMLButtonElement>('[data-mode="full"]')?.click(); }
       const caller = (event.target as HTMLElement).closest('[data-callsite-return]');
@@ -222,6 +229,9 @@ function Prototype({ data }: { data: MapData }) {
   const expandedRef = useRef(expanded); expandedRef.current = expanded;
   const [visited, setVisited] = useState(new Set(['root']));
   const [focused, setFocused] = useState<string | null>(null);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [fullscreenMedia, setFullscreenMedia] = useState<string | undefined>();
+  const fullscreenReturn = useRef<{ focused: boolean; element: HTMLElement | null; top: number; topic: string | null }>({ focused: false, element: null, top: 0, topic: null });
   const dialog = useRef<HTMLDialogElement>(null);
   const focusDestination = useRef(false);
   const optionsTrigger = useRef<HTMLButtonElement>(null);
@@ -294,6 +304,33 @@ function Prototype({ data }: { data: MapData }) {
     revealRequest.current = { id: selectedRef.current, keyboard: keyboardInput.current, focus: false }; setVariant(next);
   };
   const focusCard = (id: string) => { focusByMap.current = true; try { cardFor(id)?.querySelector<HTMLElement>('[data-map-focus]')?.focus({ preventScroll: true }); } finally { focusByMap.current = false; } };
+  const preserveInspection = () => {
+    for (const viewer of liveViewers.values()) if (viewer.panel?.getClientRects().length) {
+      rememberViewerScroll(viewer); viewer.restoring = true;
+      for (const saved of viewer.scrolls) saved.element.style.overflowAnchor = 'none';
+    }
+  };
+  const exitFullscreen = () => {
+    preserveInspection(); setFullscreen(false);
+    const previous = fullscreenReturn.current;
+    if (!previous.focused) setFocused(null);
+    requestAnimationFrame(() => {
+      if (previous.focused && dialog.current) dialog.current.scrollTop = previous.topic === focused ? previous.top : 0;
+      if (previous.element?.isConnected && previous.element.getClientRects().length) previous.element.focus({ preventScroll: true });
+      else if (!previous.focused) focusCard(selectedRef.current);
+    });
+  };
+  const enterFullscreen = (topic: Topic) => {
+    if (fullscreen) { exitFullscreen(); return; }
+    if (!hasMedia(topic)) return;
+    fullscreenReturn.current = { focused: !!focused, element: document.activeElement instanceof HTMLElement ? document.activeElement : null, top: dialog.current?.scrollTop ?? 0, topic: focused };
+    setFullscreenMedia(fullscreenReturn.current.element?.closest<HTMLElement>('[data-map-media]')?.dataset.mapMedia ?? primaryMedia(topic));
+    preserveInspection(); cancelMapMotion(map.current); setFocused(topic.id); setFullscreen(true);
+  };
+  const dismissCard = () => {
+    if (fullscreen && !fullscreenReturn.current.focused) { exitFullscreen(); return; }
+    preserveInspection(); setFullscreen(false); setFocused(null);
+  };
   const findCurrent = () => {
     if (variant === 'A' && overview) {
       prepareReflow(); setOverview(false); revealRequest.current = { id: selectedRef.current, keyboard: keyboardInput.current, focus: true, center: true }; setNavigation(value => value + 1); return;
@@ -303,14 +340,25 @@ function Prototype({ data }: { data: MapData }) {
     revealInMap(cardFor(selectedRef.current), true, variant === 'A' || !keyboardInput.current);
   };
   const mapKey = (event: KeyboardEvent) => {
-    if (event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.defaultPrevented) return;
+    if (event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.defaultPrevented) return;
     if (document.querySelector('[popover]:popover-open,.ds-command-root:not([hidden])')) return;
     const target = event.target as HTMLElement;
+    if (event.key.toLowerCase() === 'f' && target.closest('.sm-map,.sm-focus-dialog') && !target.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"])')) {
+      const owner = target.closest<HTMLElement>('[data-map-node],[data-map-detail]');
+      const topic = focused ? get(focused) : get(owner?.dataset.mapNode ?? owner?.dataset.mapDetail ?? selectedRef.current);
+      if (fullscreen || hasMedia(topic)) {
+        event.preventDefault(); event.stopPropagation();
+        if (!event.repeat) enterFullscreen(topic);
+        return;
+      }
+    }
+    if (event.shiftKey) return;
     const viewer = target.closest('[data-map-native-viewer]');
     if (viewer && event.key === 'Escape') {
       const menu = viewer.querySelector<HTMLDetailsElement>('details[open]');
       if (menu) { event.preventDefault(); event.stopPropagation(); menu.open = false; menu.querySelector<HTMLElement>('summary')?.focus({ preventScroll: true }); return; }
     }
+    if (fullscreen && event.key === 'Escape' && !document.fullscreenElement) { event.preventDefault(); event.stopPropagation(); exitFullscreen(); return; }
     if (focused || document.body.dataset.readView !== 'tour' || document.querySelector('dialog[open]')) return;
     if (viewer) {
       if (event.key === 'Escape') {
@@ -408,6 +456,29 @@ function Prototype({ data }: { data: MapData }) {
     if (focused && dialog.current) dialog.current.scrollTop = 0;
   }, [focused]);
   useLayoutEffect(() => {
+    for (const viewer of liveViewers.values()) if (viewer.restoring) settleViewerScroll(viewer);
+  }, [fullscreen]);
+  useEffect(() => {
+    if (!fullscreen || !dialog.current) return;
+    const root = dialog.current, initialFocus = document.activeElement;
+    const observer = new MutationObserver(() => { if (focusContent()) observer.disconnect(); });
+    const focusContent = () => {
+      // Do not take focus back after the reader has started another action.
+      if (document.activeElement !== initialFocus) return true;
+      const previous = fullscreenReturn.current.element;
+      const media = [...root.querySelectorAll<HTMLElement>('.sm-diagram,[data-map-native-viewer]')].find(element => element.getClientRects().length);
+      const pane = media?.matches('[data-map-native-viewer]')
+        ? [...media.querySelectorAll<HTMLElement>('.ds-helper-scroll')].find(element => element.getClientRects().length)
+          ?? [...media.querySelectorAll<HTMLElement>('.ds-diffscroll')].find(element => element.getClientRects().length)
+        : media;
+      const target = previous && root.contains(previous) && previous.closest('[data-map-native-viewer]') ? previous : pane;
+      if (!target) return false;
+      target.focus({ preventScroll: true }); return true;
+    };
+    const frame = requestAnimationFrame(() => { if (!focusContent()) observer.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden'] }); });
+    return () => { cancelAnimationFrame(frame); observer.disconnect(); };
+  }, [fullscreen]);
+  useLayoutEffect(() => {
     if (!focused || !focusDestination.current) return;
     focusDestination.current = false;
     dialog.current?.querySelector<HTMLElement>('#sm-focus-title')?.focus({ preventScroll: true });
@@ -482,6 +553,7 @@ function Prototype({ data }: { data: MapData }) {
   const openCard = (topic: Topic) => { if (get(selectedRef.current).stepId !== topic.stepId) choose(topic); setFocused(topic.id); };
   function Content({ topic, full = false }: { topic: Topic; full?: boolean }) {
     const currentBeat = sourcePosition.panelIndex === topic.panelIndex && parent(topic.id)?.stepId !== topic.stepId ? sourcePosition.beat : topic.beat;
+    const activeMedia = topic.content.some((block, index) => mediaId(topic, block, index) === fullscreenMedia) ? fullscreenMedia : primaryMedia(topic);
     return <div className={`sm-card-content ${full ? 'is-full' : ''}`}>{topic.content.map((block, index) => {
       if (block.type === 'text') {
         const step = payload.steps[block.panelIndex - 1];
@@ -491,10 +563,10 @@ function Prototype({ data }: { data: MapData }) {
         if (variant === 'A' && !full && topic.content.some(item => item.type === 'code' || item.type === 'diff')) return <div className="sm-prose-stack" key={index}>{prose}{step?.beats.map((beat, i) => <p key={i} className="sm-prose-measure" aria-hidden="true">{beat.text.text}</p>)}</div>;
         return <p className="sm-prose" key={index}>{step?.beats[currentBeat]?.text.text}</p>;
       }
-      if (block.type === 'diagram') return <figure className="sm-diagram" key={index}><figcaption>{block.title}</figcaption>
+      if (block.type === 'diagram') return <figure className="sm-diagram" key={index} data-map-media={mediaId(topic, block, index)} hidden={full && fullscreen && activeMedia !== mediaId(topic, block, index)} tabIndex={0} aria-keyshortcuts="F"><figcaption>{block.title}</figcaption>
         <ol aria-label={block.title}>{block.labels.map((label, i) => <li key={label}><span>{String(i + 1).padStart(2, '0')}</span>{label}</li>)}</ol></figure>;
-      if (block.viewerId === 'source-root') return <details key={block.viewerId} className="sm-native-disclosure" open={full}><summary>Read _executeCall() code</summary><NativeViewer block={block} beat={currentBeat} current={sourcePosition.panelIndex === topic.panelIndex} full={full} /></details>;
-      return <NativeViewer key={block.viewerId} block={block} beat={currentBeat} current={sourcePosition.panelIndex === topic.panelIndex} full={full} />;
+      if (block.viewerId === 'source-root' && !full) return <details key={block.viewerId} className="sm-native-disclosure"><summary>Read _executeCall() code</summary><NativeViewer block={block} beat={currentBeat} current={sourcePosition.panelIndex === topic.panelIndex} full={full} /></details>;
+      return <NativeViewer key={block.viewerId} block={block} beat={currentBeat} current={sourcePosition.panelIndex === topic.panelIndex} full={full} hidden={full && fullscreen && activeMedia !== block.viewerId} />;
     })}</div>;
   }
   function Node({ topic, compact = false, disclosure = true, full = false, summaryOnly = false, modal = false }: { topic: Topic; compact?: boolean; disclosure?: boolean; full?: boolean; summaryOnly?: boolean; modal?: boolean }) {
@@ -515,7 +587,7 @@ function Prototype({ data }: { data: MapData }) {
           <button type="button" disabled={!next} aria-label={next ? `Next sibling ${numberFor(next.id)}: ${next.label}` : 'No next sibling'} title={next ? `${next.label} (↓)` : 'Last sibling'} onClick={() => next && navigate(next)}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m6 10 6 6 6-6"/></svg></button>
         </div>}
         </div>
-        {modal ? <h3 tabIndex={-1}>{topic.label}</h3> : <h3 className="sm-card-heading"><button type="button" className="sm-select" data-map-focus={topic.id} tabIndex={active && !(variant === 'C' && summaryOnly) ? 0 : -1} aria-current={active ? 'location' : undefined} aria-label={`Read ${topic.label}`} onClick={() => choose(topic)} onFocus={event => { if (!focusByMap.current && event.currentTarget.matches(':focus-visible')) revealInMap(event.currentTarget.closest('[data-map-node],[data-map-detail]'), false, false, true); }}><strong>{topic.label}</strong></button></h3>}
+        {modal ? <h3 tabIndex={-1}>{topic.label}</h3> : <h3 className="sm-card-heading"><button type="button" className="sm-select" data-map-focus={topic.id} tabIndex={active && !(variant === 'C' && summaryOnly) ? 0 : -1} aria-current={active ? 'location' : undefined} aria-label={`Read ${topic.label}`} aria-keyshortcuts={hasMedia(topic) ? 'F' : undefined} onClick={() => choose(topic)} onFocus={event => { if (!focusByMap.current && event.currentTarget.matches(':focus-visible')) revealInMap(event.currentTarget.closest('[data-map-node],[data-map-detail]'), false, false, true); }}><strong>{topic.label}</strong></button></h3>}
         <code className="sm-symbol">{topic.symbol}</code></div>
       </header>
       {!summaryOnly && (!compact || active) && Content({ topic, full })}
@@ -555,10 +627,11 @@ function Prototype({ data }: { data: MapData }) {
 
   return <>
     {createPortal(<div className="sm-story-title">{data.title}</div>, document.querySelector('.ds-reviewchrome-main')!)}
-    {createPortal(<dialog ref={dialog} className="sm-focus-dialog" aria-labelledby="sm-focus-title" onCancel={event => { event.preventDefault(); setFocused(null); }} onKeyDown={event => event.stopPropagation()}><div className="sm-focus-head"><h2 id="sm-focus-title" tabIndex={-1}>{focused ? `${numberFor(focused)} ${get(focused).label}` : 'Read card'}</h2><div className="sm-focus-actions">
+    {createPortal(<dialog ref={dialog} className={`sm-focus-dialog ${fullscreen ? 'is-fullscreen' : ''} ${fullscreen && focused && hasMedia(get(focused)) ? 'has-fullscreen-media' : ''}`} aria-labelledby="sm-focus-title" onCancel={event => { event.preventDefault(); if (fullscreen) exitFullscreen(); else dismissCard(); }} onKeyDown={event => event.stopPropagation()}><div className="sm-focus-head"><h2 id="sm-focus-title" tabIndex={-1}>{focused ? `${numberFor(focused)} ${get(focused).label}` : 'Read card'}</h2><div className="sm-focus-actions">
       <button type="button" disabled={transport.disabled} aria-label={transport.accessibleLabel} onClick={() => document.querySelector<HTMLButtonElement>('[data-readaloud]')?.click()}>{transport.label}</button>
       {transport.canStop && <button type="button" onClick={() => document.querySelector<HTMLButtonElement>('[data-aloud-stop]')?.click()}>Stop narration</button>}
-      <button type="button" autoFocus onClick={() => setFocused(null)}>Close card</button></div></div>{focused && Node({ topic: get(focused), full: true, disclosure: false, modal: true })}</dialog>, document.body)}
+      {focused && (fullscreen || hasMedia(get(focused))) && <button type="button" className="sm-fullscreen-toggle" aria-label={fullscreen ? 'Exit full screen' : 'Enter full screen'} aria-keyshortcuts="F" title={fullscreen ? 'Exit full screen (F)' : 'Full screen (F)'} onClick={() => enterFullscreen(get(focused))}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d={fullscreen ? 'M9 3v6H3m12-6v6h6M9 21v-6H3m12 6v-6h6' : 'M9 3H3v6m12-6h6v6M3 15v6h6m12-6v6h-6'}/></svg></button>}
+      <button type="button" autoFocus onClick={dismissCard}>Close card</button></div></div>{focused && Node({ topic: get(focused), full: true, disclosure: false, modal: true })}</dialog>, document.body)}
     <header className="sm-command-bar">
       <nav className="sm-breadcrumbs" aria-label="Map location">{path.map((item, index) => <span key={item.id}>{index > 0 && <span aria-hidden="true">/</span>}<button type="button" onClick={() => choose(item)} aria-current={item.id === selected ? 'location' : undefined}>{item.id === 'root' ? 'Gateway' : item.label}</button></span>)}</nav>
       <div className="sm-map-actions">
@@ -574,7 +647,7 @@ function Prototype({ data }: { data: MapData }) {
       {variant === 'A' && <div className="sm-options-zoom"><button type="button" aria-label="Zoom out map" onClick={() => canvas.zoom(1 / 1.2)}>−</button><span>{zoom}%</span><button type="button" aria-label="Zoom in map" onClick={() => canvas.zoom(1.2)}>+</button></div>}
       <label className="sm-check"><input type="checkbox" checked={transcript} onChange={event => setTranscript(event.target.checked)} />Show narration transcript</label>
       <div className="sm-options-reading"><span className="sm-section-label">Reading path · {reading}</span><button type="button" onClick={() => follow(get('root'))}>Follow gateway</button><button type="button" onClick={() => follow(node)}>Follow this branch</button></div>
-      <details><summary>Keyboard shortcuts</summary><dl><dt>→ / ←</dt><dd>Enter first detail / return to parent</dd><dt>↑ / ↓</dt><dd>Previous / next sibling</dd><dt>Home</dt><dd>Gateway overview</dd><dt>Enter</dt><dd>Center the current card</dd><dt>Escape</dt><dd>Leave code, or go up one level</dd><dt>Tab</dt><dd>Inspect card controls and source</dd></dl></details>
+      <details><summary>Keyboard shortcuts</summary><dl><dt>→ / ←</dt><dd>Enter first detail / return to parent</dd><dt>↑ / ↓</dt><dd>Previous / next sibling</dd><dt>Home</dt><dd>Gateway overview</dd><dt>Enter</dt><dd>Center the current card</dd><dt>F</dt><dd>Full screen for a code or diagram card</dd><dt>Escape</dt><dd>Exit full screen, leave code, or go up one level</dd><dt>Tab</dt><dd>Inspect card controls and source</dd></dl></details>
     </div>, document.body)}
     <nav ref={map} className={`sm-map ${variant === 'A' ? 'sm-canvas' : ''}`} tabIndex={-1} aria-label="Gateway story map" aria-describedby="sm-map-key-help" onClick={mapClick}>{variant === 'A' ? VariantA() : variant === 'B' ? VariantB() : VariantC()}</nav>
     {outside && <div className="sm-outside">Reading elsewhere in the story.<button type="button" onClick={() => choose(node)}>Return to this branch</button></div>}

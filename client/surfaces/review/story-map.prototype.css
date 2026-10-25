@@ -250,3 +250,42 @@ body[data-read-view="tour"] .sm-prototype{display:flex;flex-direction:column}
 .sm-focus-dialog .sm-symbol{display:block;width:fit-content;max-width:100%;box-sizing:border-box;padding:4px 8px;border-radius:6px;background:var(--surface-2);color:var(--text);font:400 14px/1.5 var(--mono)}
 .sm-focus-dialog .sm-prose{font-size:16px;line-height:1.6;max-width:68ch}
 @media(max-width:760px){.sm-canvas-item .sm-card-head{padding:18px 20px 16px}.sm-canvas-item .sm-select strong{font-size:22px}.sm-canvas-detail .sm-select strong{font-size:21px}.sm-canvas-root[data-reading="true"] .sm-select strong{font-size:26px}.sm-canvas-item .sm-symbol{font-size:13px}.sm-canvas-item .sm-card-content,.sm-canvas-item[data-reading="true"] .sm-card-content{padding:0 20px 20px}.sm-node:has(>.sm-child-cards) .sm-symbol{padding-right:8px}.sm-canvas-item .sm-node>.sm-child-cards{top:72px}}
+
+/* Native source actions share the pinned-revision row; the next row belongs
+   to the file and its existing viewing controls. Keep every control live. */
+.sm-viewer-revision{height:44px;min-height:44px;box-sizing:border-box;display:flex;align-items:center;padding:0 124px 0 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sm-native-step>.ds-step-top{position:absolute;top:-44px;right:8px;height:44px;padding:0;display:flex;align-items:center;z-index:3}
+.sm-native-step .ds-step-titlerow{margin:0;gap:4px}
+.sm-native-step .ds-step-actions{gap:4px;align-items:center}
+.sm-native-step .ds-step-actions>.ds-badge{display:none}
+.sm-native-step .ds-source-info{min-width:44px;min-height:44px;height:44px;padding:0 8px;font-size:12px}
+.sm-native-step .ds-story-tune>summary{width:44px;min-height:44px;height:44px;box-sizing:border-box}
+.sm-native-step .ds-difftoolbar{min-height:44px;box-sizing:border-box;padding:0 10px;gap:4px 8px}
+.sm-native-step .ds-diff-path{min-height:44px;margin:0;padding:0 4px;font-size:12px}
+.sm-native-step .ds-diff-path .ds-dim{display:none}
+.sm-native-step .ds-diffview-controls{gap:4px}
+.sm-native-step .ds-modetoggle{padding:0;gap:0}
+.sm-native-step .ds-modetoggle button,.sm-native-step .ds-linewrap-toggle{min-height:44px;height:44px;font-size:12px}
+.sm-native-step .ds-linewrap-toggle{min-width:44px}
+.sm-fullscreen-toggle{display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;padding:0}
+.sm-focus-dialog.is-fullscreen[open]{display:flex;flex-direction:column;width:100vw;max-width:none;height:100dvh;max-height:none;box-sizing:border-box;margin:0;border:0;border-radius:0;overflow:hidden}
+.sm-focus-dialog.is-fullscreen>.sm-focus-head{position:static;flex:none}
+.sm-focus-dialog.is-fullscreen>.sm-node{display:flex;flex-direction:column;flex:1;min-height:0;overflow:auto}
+.sm-focus-dialog.is-fullscreen .sm-card-content{display:flex;flex-direction:column;flex:1;min-height:0}
+.sm-focus-dialog.is-fullscreen .sm-viewer-block{display:flex;flex-direction:column;flex:1;min-height:300px}
+.sm-focus-dialog.is-fullscreen .sm-viewer-revision{flex:none}
+.sm-focus-dialog.is-fullscreen .sm-native-viewer{flex:1;height:auto;min-height:0}
+.sm-focus-dialog.is-fullscreen .sm-diagram{display:flex;flex-direction:column;justify-content:center;flex:1;min-height:220px;padding:24px 0;box-sizing:border-box}
+.sm-focus-dialog.is-fullscreen .sm-diagram ol{justify-content:center}
+.sm-focus-dialog.is-fullscreen .sm-diagram li{padding:20px;font-size:16px}
+.sm-focus-dialog.is-fullscreen .sm-diagram figcaption{font-size:14px}
+.sm-focus-dialog.has-fullscreen-media>.sm-node>.sm-card-head,.sm-focus-dialog.has-fullscreen-media>.sm-node>.sm-child-cards,.sm-focus-dialog.has-fullscreen-media .sm-card-content>.sm-prose,.sm-focus-dialog.has-fullscreen-media .sm-prose-stack{display:none}
+.sm-focus-dialog .sm-viewer-block[hidden],.sm-focus-dialog .sm-diagram[hidden]{display:none}
+
+.sm-focus-dialog .sm-diagram:focus-visible{outline:2px solid var(--muted);outline-offset:3px;box-shadow:none}
+@media(max-width:760px){
+ .sm-focus-dialog.is-fullscreen .sm-diagram{padding-inline:12px}
+ .sm-focus-dialog.is-fullscreen .sm-diagram ol{flex-direction:column;flex-wrap:nowrap;gap:20px}
+ .sm-focus-dialog.is-fullscreen .sm-diagram li{flex:none;padding:12px;overflow-wrap:normal}
+ .sm-focus-dialog.is-fullscreen .sm-diagram li+li::before{display:block;content:'↓';top:-23px;left:calc(50% - 5px);right:auto;font-size:16px}
+}

@@ -81,6 +81,20 @@ overview/reading disclosure and Focus reuse that element; none clone or rebuild
 it. Inspection offsets are saved before layout changes, with scroll anchoring
 suspended through restoration. The existing per-axis requested/applied tracking
 preserves positions clamped by a larger Focus viewport.
+
+Embedded headers use two compact rows: pinned revisions with Source/repair,
+then the file name with Wrap and view modes. The full path remains in the native
+file control's accessible name and tooltip. Source relationships remain in the
+Source popover.
+
+Press **F** on a code, diff or diagram card to fill the viewport with that
+content. Inside a viewer or diagram, F enlarges that particular block. The
+same live native viewer and its inspection state survive the change. F or
+Escape returns to the previous map or Focus view; native menus and Source
+popovers consume Escape first. Typing fields and Ctrl/Cmd+F retain their native
+behavior. Text-only cards keep the ordinary Focus view. This is a viewport
+inspection mode, not browser/OS fullscreen.
+
 Changing the explanation releases restoration for its active viewer so the
 native controller can reveal its highlighted lines. Fit/Find/Focus of the same
 explanation preserve inspection coordinates. Source-card prose reserves the
@@ -123,6 +137,8 @@ and Map options; layout/voice details remain out of the main reading surface.
 identity and real nonzero offsets, branch growth, camera interruption/zoom,
 Focus, native arrows/Escape, phones and reduced motion.
 `story-map-input-smoke.mjs` covers input ownership across all three layouts.
+`story-map-fullscreen-smoke.mjs` checks compact header geometry, media targeting,
+F/Escape return paths, native menus and exact inspection-state preservation.
 On a transform canvas, it uses focus (the Tab path) before activating an
 offscreen native control: locator auto-scroll cannot operate a camera.
 `story-map-growth-smoke.mjs` retains the older reading-tree motion coverage for B.
