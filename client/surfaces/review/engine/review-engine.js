@@ -2911,8 +2911,13 @@ export function startReviewEngine(options){
     return true;
   }
 
+  function modeHolderFor(btn){
+    // Map cards can place the same native toolbar above both caller/helper panes.
+    var toolbar=closest(btn,'[data-map-toolbar-for]');
+    return toolbar&&document.getElementById(toolbar.getAttribute('data-map-toolbar-for'))||closest(btn,'.ds-filepanel')||closest(btn,'.ds-diff');
+  }
   function setMode(btn,opts){
-    var holder=closest(btn,'.ds-filepanel')||closest(btn,'.ds-diff');if(!holder)return;
+    var holder=modeHolderFor(btn);if(!holder)return;
     var file=holder.getAttribute('data-file');
     var mode=btn.getAttribute('data-mode');
     var diffInner=$('[data-diff-inner]',holder),fullInner=$('[data-full-inner]',holder),splitInner=$('[data-split-inner]',holder),hint=$('[data-difthint]',holder);
@@ -2920,7 +2925,7 @@ export function startReviewEngine(options){
     var needsLoad=mode==='full'?!!(fullInner&&!fullInner.getAttribute('data-loaded')&&file):mode==='split'?!!(splitInner&&!splitInner.getAttribute('data-loaded')&&file):false;
     if(needsLoad&&mode==='full')loadFull(fullInner,file);else if(needsLoad&&mode==='split')loadSplit(splitInner,file);
     var update=function(){
-      $all('.ds-modetoggle button',holder).forEach(function(b){var active=b.getAttribute('data-mode')===mode;b.classList.toggle('is-active',active);b.setAttribute('aria-pressed',active?'true':'false');});
+      $all('.ds-modetoggle button',holder._dsMapToolbar||holder).forEach(function(b){var active=b.getAttribute('data-mode')===mode;b.classList.toggle('is-active',active);b.setAttribute('aria-pressed',active?'true':'false');});
       if(mode==='full'){
         if(hint){if(!hint.getAttribute('data-diffhint'))hint.setAttribute('data-diffhint',hint.textContent);hint.textContent='Complete file';}
         if(diffInner)diffInner.hidden=true;if(splitInner)splitInner.hidden=true;if(fullInner)fullInner.hidden=false;
@@ -4176,7 +4181,7 @@ export function startReviewEngine(options){
     b=closest(t,'[data-change-next]');if(b){jumpRelativeChange(closest(b,'.ds-filepanel')||closest(b,'.ds-diff'),1);return;}
     b=closest(t,'[data-expand]');if(b){expandGap(b);return;}
     b=closest(t,'[data-line-wrap-toggle]');if(b){setLineWrap(b.getAttribute('aria-pressed')!=='true',true);return;}
-    b=closest(t,'[data-mode]');if(b){var modeHolder=closest(b,'[data-story-diff]');if(modeHolder)modeHolder.setAttribute('data-mode-user-set','1');setMode(b);return;}
+    b=closest(t,'[data-mode]');if(b){var modeHolder=modeHolderFor(b);if(modeHolder&&modeHolder.hasAttribute('data-story-diff'))modeHolder.setAttribute('data-mode-user-set','1');setMode(b);return;}
     b=closest(t,'[data-exclusions-ack]');if(b){setExclusionsAcknowledged(!!b.checked);return;}
     b=closest(t,'[data-inspect-excluded]');if(b){
       var excludedCard=closest(b,'[data-excluded-file]'),preview=excludedCard&&$('[data-excluded-preview]',excludedCard),excludedFile=b.getAttribute('data-inspect-excluded')||'';if(!preview)return;

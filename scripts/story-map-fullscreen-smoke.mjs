@@ -29,6 +29,12 @@ try {
     await page.waitForTimeout(750);
     const viewer = page.locator('[data-map-native-viewer="source-route"]');
     await viewer.locator('.ds-code').first().waitFor({ state: 'attached' });
+    const callerToggle = viewer.locator('[data-callsite-toggle]');
+    assert.ok(await callerToggle.evaluate(element => !!element.closest('.sm-viewer-toolbar')), 'caller toggle shares the viewing toolbar');
+    await callerToggle.focus(); await callerToggle.click();
+    assert.equal(await viewer.locator('.ds-callsite-pane').isHidden(), true);
+    await callerToggle.click();
+    assert.equal(await viewer.locator('.ds-callsite-pane').isVisible(), true);
     const full = viewer.getByRole('button', { name: 'Full file', exact: true });
     await full.focus(); await full.press('Enter');
     await viewer.locator('[data-full-inner] .ds-code').first().waitFor({ state: 'visible' });
@@ -67,9 +73,9 @@ try {
     assert.ok(await diff.locator('.ds-diff-path').evaluate(element => element.title.includes('contracts/gateway/SymmioGatewayTypes.sol') && element.getAttribute('aria-label').includes('contracts/gateway/SymmioGatewayTypes.sol')), 'compact historical filename retains the full path for hover and assistive technology');
     await page.screenshot({ path: `${output}/${variant}-${width}-compact.png` });
     assert.ok(await diff.evaluate(element => {
-      const revision = element.previousElementSibling.getBoundingClientRect(), actions = element.querySelector('.ds-step-top').getBoundingClientRect(), toolbar = element.querySelector('.ds-difftoolbar').getBoundingClientRect();
-      return element.previousElementSibling.offsetHeight === 44 && Math.abs(revision.top - actions.top) < 2 && Math.abs(toolbar.top - revision.bottom) < 2;
-    }), 'revision and Source/repair share one compact row directly above the view toolbar');
+      const toolbar = element.querySelector('.sm-viewer-toolbar');
+      return toolbar.offsetHeight <= (element.clientWidth > 680 ? 45 : 89) && toolbar.contains(element.querySelector('.sm-viewer-revision')) && toolbar.contains(element.querySelector('.ds-step-actions'));
+    }), 'one shared toolbar groups revision, modes and source actions above the panes');
     await page.locator('.sm-map [data-map-focus="change"]').last().focus();
     await page.keyboard.press('f'); await page.waitForTimeout(150);
     assert.ok(await page.evaluate(() => document.activeElement?.matches('.ds-diffscroll')), 'default fullscreen focus is the code viewport, not a horizontal scrollbar');
@@ -83,6 +89,8 @@ try {
     await page.keyboard.press('Escape');
     assert.equal(await dialog.evaluate(element => element.classList.contains('is-fullscreen')), true, 'Source popover owns Escape');
     await page.keyboard.press('f'); await dialog.waitFor({ state: 'hidden' });
+    await diff.locator('.ds-diff-path').focus(); await diff.locator('.ds-diff-path').click();
+    assert.equal(await diff.getByRole('button', { name: 'Full file', exact: true }).getAttribute('aria-pressed'), 'true', 'historical filename still opens its native complete file');
     // Root contains both diagram and source: F on the diagram enlarges that
     // media, while F on the card heading defaults to its native source viewer.
     await select('root');

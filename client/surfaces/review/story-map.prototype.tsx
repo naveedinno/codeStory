@@ -126,6 +126,39 @@ function placeViewer(viewer: LiveViewer) {
   viewer.initialized = true;
   settleViewerScroll(viewer);
 }
+// Keep the native controls and their listeners, but give every viewer one
+// toolbar above its scroll panes. Mode controls retain an explicit owner.
+function compactViewerHeader(panel: HTMLElement, block: ViewerBlock) {
+  const toolbar = panel.querySelector<HTMLElement>('.ds-difftoolbar');
+  const holder = toolbar?.closest<HTMLElement>('[data-story-diff]');
+  if (!toolbar || !holder) return;
+  toolbar.classList.add('sm-viewer-toolbar');
+  toolbar.dataset.mapToolbarFor = holder.id;
+  Object.assign(holder, { _dsMapToolbar: toolbar });
+  const meta = document.createElement('div'); meta.className = 'sm-viewer-meta';
+  const file = toolbar.querySelector('.ds-diff-path'); if (file) meta.append(file);
+  const revision = document.createElement('span'); revision.className = 'sm-viewer-revision';
+  revision.textContent = block.type === 'code' ? block.revision.slice(0, 7) : `${block.base.slice(0, 7)} → ${block.head.slice(0, 7)}`;
+  revision.title = block.type === 'code' ? `Code at ${block.revision}` : `Historical change from ${block.base} to ${block.head}`;
+  revision.setAttribute('aria-label', revision.title); meta.append(revision); toolbar.prepend(meta);
+  const actions = panel.querySelector('.ds-step-actions');
+  const toggle = panel.querySelector<HTMLButtonElement>('[data-callsite-toggle]');
+  if (toggle && actions) { toggle.setAttribute('aria-label', 'Caller context'); toggle.title = 'Show or hide caller context'; actions.prepend(toggle); }
+  if (actions) toolbar.append(actions);
+  const pairToolbar = panel.querySelector('.ds-code-pair-toolbar');
+  if (pairToolbar) pairToolbar.replaceWith(toolbar); else panel.prepend(toolbar);
+  panel.querySelector<HTMLElement>('.ds-step-top')?.setAttribute('hidden', '');
+  const callerPath = panel.querySelector<HTMLElement>('.ds-callsite-path');
+  const caller = panel.querySelector<HTMLElement>('.ds-callsite-heading code');
+  if (caller && callerPath) {
+    caller.title = callerPath.title;
+    const pane = panel.querySelector<HTMLElement>('.ds-callsite-pane');
+    pane?.setAttribute('aria-label', `${pane.getAttribute('aria-label')} in ${callerPath.title}`);
+    callerPath.hidden = true;
+  }
+  const back = panel.querySelector<HTMLElement>('[data-callsite-return]');
+  if (back) back.title = back.getAttribute('aria-label') ?? 'Return to caller';
+}
 function NativeViewer({ block, beat, current, full, hidden = false }: { block: ViewerBlock; beat: number; current: boolean; full: boolean; hidden?: boolean }) {
   const host = useRef<HTMLDivElement>(null), id = useId(), positioned = useRef(false);
   const position = useRef({ beat, current }); position.current = { beat, current };
@@ -162,6 +195,7 @@ function NativeViewer({ block, beat, current, full, hidden = false }: { block: V
           for (const attr of ['aria-controls', 'aria-labelledby', 'popovertarget']) if (node.hasAttribute(attr)) node.setAttribute(attr, node.getAttribute(attr)!.split(' ').map(value => ids.get(value) ?? value).join(' '));
         });
         if (block.type === 'diff') panel.querySelectorAll<HTMLElement>('[data-open-full-diff]').forEach(node => { node.removeAttribute('data-open-full-diff'); node.setAttribute('data-map-open-full', ''); node.setAttribute('aria-label', `Read ${block.file} at this historical change`); node.title = `Read ${block.file} at this historical change`; });
+        compactViewerHeader(panel, block);
         viewer.panel = panel;
       }
       placeViewer(viewer);
@@ -175,7 +209,7 @@ function NativeViewer({ block, beat, current, full, hidden = false }: { block: V
     return () => { rememberViewerScroll(viewer); cancelled = true; cancelAnimationFrame(frame); observer.disconnect(); resize.disconnect(); element.removeEventListener('scroll', scrolled, true); element.removeEventListener('codestory:map-position', update); viewer.hosts.delete(registration); placeViewer(viewer); };
   }, [block.viewerId]);
   useEffect(() => { host.current?.dispatchEvent(new CustomEvent('codestory:map-position', { detail: { center: current && (positioned.current || !full) } })); positioned.current = true; }, [beat, current]);
-  return <div className="sm-viewer-block" data-map-media={block.viewerId} hidden={hidden}><div className="sm-viewer-revision" aria-label={block.type === 'code' ? `Code at ${block.revision}` : `Historical change from ${block.base} to ${block.head}`}>{block.type === 'code' ? `Code · ${block.revision.slice(0, 7)}` : `${block.base.slice(0, 7)} → ${block.head.slice(0, 7)}`}</div>
+  return <div className="sm-viewer-block" data-map-media={block.viewerId} hidden={hidden}>
     <div ref={host} data-map-native-viewer={block.viewerId} className="sm-native-viewer" onClick={event => {
       if ((event.target as HTMLElement).closest('[data-map-open-full]')) { event.stopPropagation(); host.current?.querySelector<HTMLButtonElement>('[data-mode="full"]')?.click(); }
       const caller = (event.target as HTMLElement).closest('[data-callsite-return]');

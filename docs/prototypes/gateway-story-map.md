@@ -82,10 +82,15 @@ it. Inspection offsets are saved before layout changes, with scroll anchoring
 suspended through restoration. The existing per-axis requested/applied tracking
 preserves positions clamped by a larger Focus viewport.
 
-Embedded headers use two compact rows: pinned revisions with Source/repair,
-then the file name with Wrap and view modes. The full path remains in the native
-file control's accessible name and tooltip. Source relationships remain in the
-Source popover.
+Embedded viewers share one full-width toolbar above both caller/helper panes:
+file, pinned revision, Wrap/view modes, caller visibility and Source/repair. It
+uses one 44px control row on wide cards and two rows on narrow cards. These are
+the original native controls; an explicit owner links the relocated mode toolbar
+to its original diff holder. The caller retains a compact method/Return row;
+its full path remains in the method tooltip and pane label. The native file
+control also retains its full path in its accessible name and tooltip. Source
+relationships remain in the Source popover. Repeated Code/path/revision rows
+are omitted. Explanation prose uses the card's complete content width.
 
 Press **F** on a code, diff or diagram card to fill the viewport with that
 content. Inside a viewer or diagram, F enlarges that particular block. The
