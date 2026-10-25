@@ -45,10 +45,14 @@ Falsifiable checks — run each, do not skim:
 - Concept-gap test: before each code stop, the reviewer already has the
   terminology, roles, relationships, and state model needed to read it.
 - Page test: each concept page teaches one model with a concrete instance from
-  this diff and shows the model (something to drag, step, toggle, or watch);
-  a page that is mostly paragraphs fails. Its narration makes sense without
-  the page. Freeze the page mid-interaction: the still frame must still teach
-  the model, with no fact living only in motion, hover, or a transient state.
+  the source or diff. Concise prose and static diagrams are valid; interaction
+  must improve the explanation rather than decorate it. Its narration makes
+  sense without the page. The initial and reduced-motion states must teach the
+  model, with no fact living only in motion, hover, or a transient state.
+- Direct-entry test: open a middle chapter, a helper card and a later-beat
+  explanation without reading their predecessors. Each title and opening must
+  identify the subject and decision without relying on "as above" or a pronoun.
+  See `references/map-stories.md` for the map structure and media choices.
 
 ### Context and camera audit
 

@@ -1,15 +1,15 @@
 ---
 name: codestory-storyteller
-description: Use only when the user explicitly asks for a codeStory (or a diffStory, the app's name before its rename), a story, or a guided walkthrough of code changes ("make a diff story", "write the story for this"), or a code story that explains existing code with no diff ("explain this codebase as a story", "walk me through how X works"), or when a prompt says "Use the codestory-storyteller skill" (formerly diffstory-storyteller). Never on your own initiative, not after finishing code changes and not before a commit or push. Produces .codestory/story.json (or scoped stories under .codestory/stories/): a context-first, read-aloud reading path through the diff that opens with recovered intent and drives exact viewport and highlight beats.
+description: Use only when the user explicitly asks for a codeStory (or a diffStory, the app's former name), a story ("make a diff story"), a guided walkthrough of code changes, a code story that explains existing code with no diff, or "Use the codestory-storyteller skill" (formerly diffstory-storyteller). Never on your own initiative, not after finishing code changes and not before a commit or push. Authors .codestory story files for both map exploration and narrated reading, with clear chapters, self-contained cards, real-source viewports and exact highlight beats.
 ---
 
 # Writing a codeStory
 
-You just changed code. The reviewer has to understand it, distrust it in the
-right places, and get through it without reading a raw alphabetical diff. You
-write the story file — order and narrative only, never copied code. codeStory
-renders the real git diff and reads the story aloud while it glows the lines
-each sentence is about.
+Help the reader understand a code path or change and inspect its evidence.
+Write the story file — structure and narrative, never copied source. codeStory
+renders the real code or git diff and reads the story aloud while it glows the
+lines each sentence is about. Cards also need to make sense when opened
+directly from the map; a coherent narrated path remains available.
 
 Assume the reviewer remembers the requested outcome but not the app internals:
 module ownership, the existing call path, state flow, why nearby unchanged code
@@ -37,7 +37,7 @@ one command you run is the checker script that ships inside this skill folder
 2. Get the change set and its ledger (`check-story.mjs --ledger`).
 3. Reconstruct the app path around every change.
 4. Make a reviewer map, including the newcomer's questions.
-5. Choose the arc (`references/change-types.md`) and plan the reading path.
+5. Plan the cards and path (`references/map-stories.md`, `references/change-types.md`).
 6. Storyboard each stop and write its beats (`references/camera-and-coverage.md`, `references/moves.md`, `references/helper-depth.md`).
 7. Re-read `references/schema.md`, then write the JSON.
 8. Run the checker until it says READY; keep the story fresh after later edits.
@@ -223,10 +223,10 @@ beats follow it.
   designed the flow so X reaches Y, Y asks Z, and Z returns P." — then the
   chain: "To implement that flow, I first changed Y in Z, then wired U into P,
   then pinned it with tests." Each step continues that arc.
-- Thread rule: each code step's first beat picks up what the previous stop
-  established ("Now that the cap is stored, this is `readCap()`, which …").
-  After a concept page, apply its mental model directly to the code so the
-  steps read as one continuous story.
+- Thread rule: connect each stop to a named rule, value or result in the path;
+  keep enough context for direct map entry. "As above" cannot carry the meaning.
+  After a concept page, apply its model to the code. Read
+  `references/map-stories.md` before planning chapters, cards and their media.
 - Landing rule: the first beat of EVERY code step lands the listener before it
   says anything about the change, the way a colleague would orient you: "this
   is function x, in file z, that y calls when w." Name the symbol the camera is
@@ -280,7 +280,7 @@ small diff told as a changelog and as a story, and beats before and after.
 Make a scratch plan, one row per stop:
 
 ```text
-step | role | file:range | kind | leads to | reason this stop exists
+chapter/question | step | role | evidence/media | kind | leads to | reason
 ```
 
 Plan by code logic, not filenames:

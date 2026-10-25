@@ -41,7 +41,8 @@ replaced by this file.
    Search real symbols; never infer a path from file names. Note the three to
    seven parts the answer needs and how they relate, the terms a newcomer would
    ask about, and the test that pins the behavior.
-4. **Choose the arc** and plan the reading path (below).
+4. **Choose the arc** and plan the cards and reading path (below and
+   `references/map-stories.md`).
 5. **Storyboard** each stop with the camera rules in
    `references/camera-and-coverage.md`. The coverage half of that file does not
    apply; `range` is simply the tight anchor of what the stop explains.
@@ -82,8 +83,9 @@ most 200 characters, and check that the step titles follow it.
 - **Budget:** brief 4-8 stops, guided 8-14, detailed as many as the path needs,
   each still one camera shot. A focused tour of the right code beats a
   scattered tour of everything. Stories over 10 steps need chapters (SKILL.md).
-- **Never tour files.** "This file contains..." is a listing, not a story. Each
-  stop depends on the one before it.
+- **Never tour files.** "This file contains..." is a listing, not a story.
+  Connect stops through named concepts while keeping each opening clear to a
+  reader entering from the map instead of the preceding stop.
 
 ## Beats for explanation
 

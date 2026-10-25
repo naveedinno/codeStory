@@ -214,7 +214,6 @@ test('bundled codestory-storyteller skill teaches free concept pages', () => {
   const flat = skill.replace(/\s+/g, ' ');
   assert.ok(flat.includes('Put a concept page wherever its model helps most, first and last included; a page teaches a model the code needs, never a glossary.'));
   assert.doesNotMatch(flat, /never stack pages up front/);
-  assert.ok(flat.includes('shows the model (something to drag, step, toggle, or watch); a page that is mostly paragraphs fails.'));
   assert.ok(flat.includes('or focus is in a text field (input, textarea, select, contenteditable)'));
   assert.ok(flat.includes('Only story navigation keys leave the page: the left and right arrows, `j`, `k`, and Space.'));
 });

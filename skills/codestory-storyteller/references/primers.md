@@ -1,7 +1,7 @@
 # Concept pages
 
-Part of the codestory-storyteller skill. Read when a code stop needs a mental
-model the reviewer does not have yet.
+Part of the codestory-storyteller skill. Read when a card needs an explanation
+without source, or a code stop needs a mental model the reviewer lacks.
 
 ### 3.75. Test for concept gaps
 
@@ -18,8 +18,9 @@ Pages may open the story, close it, or sit back to back.
 - Starting ideas, not a menu: an interactive state machine the reviewer steps
   through; an animated money or data flow; a before/after toggle; a worked
   numeric example with sliders (a position's margin as price moves); a
-  lifecycle timeline; a table that fills in as you scrub. Build whatever
-  teaches best.
+  lifecycle timeline; a table that fills in as you scrub. A concise prose
+  explanation, static diagram or worked example can be enough. Add interaction
+  when changing an input or walking a state makes the rule easier to understand.
 
 ### 6.25. Write concept pages
 
@@ -39,6 +40,11 @@ Pages may open the story, close it, or sit back to back.
 - `page` is a complete HTML document. Anything goes: HTML, CSS, SVG, canvas,
   and JavaScript. It runs in a sandboxed frame that fills the stage, and it
   cannot reach codeStory or the reviewer's files.
+- In the map, the same page also appears inside a card. Use responsive layout,
+  readable text and a useful initial state at narrow widths; do not require
+  fullscreen or an interaction before the explanation becomes visible.
+  Plain text cards still use `kind: "concept"`, `page` and `narration`; there
+  is no new `text` step kind. Do not recreate native code/diff viewers in HTML.
 - The page is offline by default: every network request is blocked. Set
   `"network": true` on the step only when the page genuinely needs remote
   resources (a CDN library or font — d3, three.js, Chart.js…). Prefer inline
@@ -65,6 +71,9 @@ Pages may open the story, close it, or sit back to back.
   a text field (input, textarea, select, contenteditable), so claim the keys
   your page needs. Space on a button or link in your page stays with it. Every
   other key stays in the page.
+- The map prototype additionally manages F/Escape for its active media frame.
+  Leave fullscreen, Focus and map navigation to the app; claim only keys needed
+  by the page's own controls, without a blanket keyboard handler.
 - `preparesFor` (optional) names code steps the page sets up.
 - A concept step must not contain `file`, `range`, `ranges`, `viewport`,
   `highlights`, `beats`, `why`, `calls`, or `returnsTo`, nor legacy `focus`.
