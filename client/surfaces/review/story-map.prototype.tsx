@@ -323,7 +323,7 @@ function Prototype({ data }: { data: MapData }) {
       }
       return;
     }
-    const navigationControl = target.closest('[data-map-focus],.sm-expand,.sm-map-actions button,.sm-breadcrumbs button,.sm-card-actions button,.sm-card-relations button,.sm-root-link');
+    const navigationControl = target.closest('[data-map-focus],.sm-expand,.sm-map-actions button,.sm-breadcrumbs button,.sm-card-actions button,.sm-parent-card,.sm-sibling-cards button,.sm-root-link');
     if (!navigationControl && target.closest('button,a,input,textarea,select,summary,[contenteditable="true"],[role="separator"],[role="tab"],[role="slider"]')) return;
     const onMap = map.current?.contains(target) || !!target.closest('.sm-command-bar') || target === document.body || target === document.documentElement || target.matches('.ds-main,#ds-view-tour');
     if (!onMap) return;
@@ -501,30 +501,27 @@ function Prototype({ data }: { data: MapData }) {
     const active = selected === topic.id;
     const number = numberFor(topic.id), owner = parent(topic.id), siblings = owner?.children ?? [topic.id], index = siblings.indexOf(topic.id);
     const previous = byId.get(siblings[index - 1]), next = byId.get(siblings[index + 1]);
+    const readable = variant !== 'A' || !overview || modal;
+    const peerControls = readable && (active || modal);
     const navigate = (destination: Topic) => {
       choose(destination, { focus: !modal });
       if (modal) { focusDestination.current = true; setFocused(destination.id); }
     };
     return <article className={`sm-node ${active ? 'is-current' : ''} ${compact ? 'is-small' : ''}`} aria-label={`Card ${number}: ${topic.label}`} data-map-node={full ? undefined : topic.id} data-map-detail={full && !modal ? topic.id : undefined} data-card-kind={kindOf(topic)}>
-      <header className="sm-card-head"><div><div className="sm-card-meta"><span className="sm-map-order" aria-label={`Card ${number}`}>{number}</span><span className="sm-card-type">{kindOf(topic)}</span></div>
+      <header className="sm-card-head"><div><div className="sm-card-meta"><span className="sm-map-order" aria-label={`Card ${number}`}>{owner && readable ? <button type="button" className="sm-parent-card" aria-label={`Parent card ${numberFor(owner.id)}: ${owner.label}`} title={`Back to ${numberFor(owner.id)} · ${owner.label}`} onClick={() => navigate(owner)}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg>{number}</button> : number}</span><span className="sm-card-type">{kindOf(topic)}</span>
+        {owner && <span className="sm-peer-dots" role="img" aria-label={`Card ${index + 1} of ${siblings.length} siblings`} title={`${index + 1} of ${siblings.length} · ${owner.label}`}>{siblings.map((id, i) => <i key={id} className={i === index ? 'is-position' : ''} />)}</span>}
+        {owner && !summaryOnly && <div className="sm-sibling-cards" role="group" aria-label={`Card ${number} sibling navigation`} hidden={!peerControls}>
+          <button type="button" disabled={!previous} aria-label={previous ? `Previous sibling ${numberFor(previous.id)}: ${previous.label}` : 'No previous sibling'} title={previous ? `${previous.label} (↑)` : 'First sibling'} onClick={() => previous && navigate(previous)}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m6 14 6-6 6 6"/></svg></button>
+          <button type="button" disabled={!next} aria-label={next ? `Next sibling ${numberFor(next.id)}: ${next.label}` : 'No next sibling'} title={next ? `${next.label} (↓)` : 'Last sibling'} onClick={() => next && navigate(next)}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m6 10 6 6 6-6"/></svg></button>
+        </div>}
+        </div>
         {modal ? <h3 tabIndex={-1}>{topic.label}</h3> : <button type="button" className="sm-select" data-map-focus={topic.id} tabIndex={active && !(variant === 'C' && summaryOnly) ? 0 : -1} aria-current={active ? 'location' : undefined} aria-label={`Read ${topic.label}`} onClick={() => choose(topic)} onFocus={event => { if (!focusByMap.current && event.currentTarget.matches(':focus-visible')) revealInMap(event.currentTarget.closest('[data-map-node],[data-map-detail]'), false, false, true); }}><strong>{topic.label}</strong></button>}
         <code className="sm-symbol">{topic.symbol}</code></div>
-        {disclosure && !!topic.children.length && <button type="button" className="sm-expand" aria-label={`${expanded.has(topic.id) ? 'Collapse' : 'Expand'} ${topic.label}`} aria-expanded={expanded.has(topic.id)} onClick={() => toggle(topic.id)}>{expanded.has(topic.id) ? '−' : '+'}</button>}
       </header>
-      {variant === 'A' && overview && !modal ? <div className="sm-card-links-summary" title="Select this card for navigation controls">
-        {owner && <span>{siblings.length > 1 ? `${siblings.length - 1} ${siblings.length === 2 ? 'sibling' : 'siblings'}` : 'No siblings'}</span>}
-        <span>{topic.children.length ? `${topic.children.length} ${topic.children.length === 1 ? 'child' : 'children'}` : 'No children'}</span>
-      </div> : <div className="sm-card-relations" role="group" aria-label={`Card ${number} navigation`} data-card-navigation={topic.id}>
-        {owner && <button type="button" className="sm-parent-card" aria-label={`Parent card ${numberFor(owner.id)}: ${owner.label}`} title={`Parent: ${owner.label} (←)`} onClick={() => navigate(owner)}><span aria-hidden="true">←</span> {numberFor(owner.id)}</button>}
-        {owner && <div className="sm-sibling-cards">
-          <button type="button" disabled={!previous} aria-label={previous ? `Previous sibling ${numberFor(previous.id)}: ${previous.label}` : 'No previous sibling'} title={previous ? `${previous.label} (↑)` : 'First sibling'} onClick={() => previous && navigate(previous)}>↑</button>
-          <span>Sibling <b>{index + 1} / {siblings.length}</b></span>
-          <button type="button" disabled={!next} aria-label={next ? `Next sibling ${numberFor(next.id)}: ${next.label}` : 'No next sibling'} title={next ? `${next.label} (↓)` : 'Last sibling'} onClick={() => next && navigate(next)}>↓</button>
-        </div>}
-        {!!topic.children.length ? <button type="button" className="sm-child-cards" aria-label={`Enter ${topic.children.length} children of card ${number}: ${topic.label}`} onClick={() => navigate(get(topic.children[0]))}>{topic.children.length} {topic.children.length === 1 ? 'child' : 'children'} <span aria-hidden="true">→</span></button> : <span className="sm-no-children">No children</span>}
-      </div>}
       {!summaryOnly && (!compact || active) && Content({ topic, full })}
       {!full && !summaryOnly && <footer className="sm-card-actions"><span>{visited.has(topic.id) ? '✓ Visited' : 'Not visited'}</span><button type="button" onClick={() => openCard(topic)} aria-label={`Focus ${topic.label}`}>Focus card ↗</button></footer>}
+      {!!topic.children.length && (disclosure || modal || variant === 'C') && <button type="button" className={`sm-expand sm-child-cards ${readable ? '' : 'is-map-count'}`} disabled={!readable} aria-label={modal || variant === 'C' ? `Enter ${topic.children.length} children of card ${number}: ${topic.label}` : `${expanded.has(topic.id) ? 'Collapse' : 'Expand'} ${topic.label}`} aria-expanded={modal || variant === 'C' ? undefined : expanded.has(topic.id)} title={`${topic.children.length} child cards · ${modal || variant === 'C' ? 'Go deeper' : expanded.has(topic.id) ? 'Collapse branch' : 'Expand branch'}`} onClick={() => modal || variant === 'C' ? navigate(get(topic.children[0])) : toggle(topic.id)}><span>{topic.children.length}</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d={modal || variant === 'C' ? 'm9 5 7 7-7 7' : expanded.has(topic.id) ? 'M5 12h14' : 'M5 12h14M12 5v14'}/></svg></button>}
+      {!topic.children.length && <span className="ds-sr-only sm-no-children">No child cards</span>}
     </article>;
   }
 

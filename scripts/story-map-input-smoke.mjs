@@ -41,24 +41,38 @@ try {
     await go();
     const card = id => page.locator(variant === 'C' ? `.sm-detail-column > [data-map-detail="${id}"]` : `.sm-map [data-map-node="${id}"]`);
     const number = id => card(id).locator('.sm-map-order').innerText();
-    const enterChildren = id => card(id).locator('.sm-child-cards').click();
+    const enterChildren = async id => {
+      const control = card(id).locator('.sm-child-cards');
+      if (variant === 'C') await control.click();
+      else {
+        if (await control.getAttribute('aria-expanded') !== 'true') {
+          await control.click(); await selected(id);
+          assert.equal(await control.getAttribute('aria-expanded'), 'true', 'edge count unfolds the branch without replacing the parent');
+        }
+        await page.keyboard.press('ArrowRight');
+      }
+    };
+    const hitAreas = id => card(id).locator('.sm-parent-card,.sm-sibling-cards button,.sm-child-cards').evaluateAll(buttons => buttons.length >= 3 && buttons.every(button => { const rect = button.getBoundingClientRect(); return rect.width >= 44 && rect.height >= 44; }));
     assert.equal(await number('root'), '01');
     if (variant === 'A') {
-      assert.equal(await page.locator('.sm-card-relations button').count(), 0, 'zoomed-out overview has passive branch counts instead of tiny active controls');
+      assert.equal(await page.locator('.sm-sibling-cards:not([hidden]),.sm-child-cards.is-map-count:not(:disabled)').count(), 0, 'zoomed-out overview has passive edge counts instead of tiny active controls');
       await card('route').locator('.sm-select').click(); await selected('route');
       await page.waitForTimeout(750);
-      assert.ok(await card('route').locator('.sm-card-relations button').evaluateAll(buttons => buttons.every(button => { const rect = button.getBoundingClientRect(); return rect.width >= 44 && rect.height >= 44; })), 'direct chapter selection opens full-size navigation, without going through the root first');
+      assert.ok(await hitAreas('route'), 'direct chapter selection opens full-size navigation, without going through the root first');
       await go();
       await card('root').locator('.sm-select').click();
     }
     await enterChildren('root'); await selected('route'); await focused('route');
     assert.equal(await number('route'), '02');
     await page.waitForTimeout(450);
-    assert.ok(await card('route').locator('.sm-card-relations button').evaluateAll(buttons => buttons.every(button => { const rect = button.getBoundingClientRect(); return rect.width >= 44 && rect.height >= 44; })), 'navigation hit areas remain at least 44px at the readable canvas scale');
+    assert.ok(await hitAreas('route'), 'navigation hit areas remain at least 44px at the readable canvas scale');
+    if (variant === 'A') assert.ok(await card('route').locator('.sm-child-cards').evaluate(button => { const r = button.getBoundingClientRect(), map = button.closest('.sm-map').getBoundingClientRect(); return r.left >= map.left && r.right <= map.right && r.top >= map.top && r.bottom <= map.bottom; }), 'the branch port stays fully inside the canvas viewport');
     assert.equal(await card('route').getByRole('button', { name: 'No previous sibling', exact: true }).isDisabled(), true);
     await enterChildren('route'); await selected('route-1'); await focused('route-1');
     assert.equal(await number('route-1'), '02.1');
-    assert.equal(await card('route-1').locator('.sm-no-children').innerText(), 'No children');
+    assert.equal(await card('route-1').locator('.sm-child-cards').count(), 0, 'leaf cards have no child port');
+    assert.equal(await card('route-1').locator('.sm-peer-dots').getAttribute('aria-label'), 'Card 1 of 4 siblings');
+    assert.equal(await card('route-1').locator('.sm-card-relations').count(), 0, 'navigation never interrupts the card body');
     await card('route-1').getByRole('button', { name: /^Next sibling/ }).click(); await selected('route-2'); await focused('route-2');
     assert.equal(await number('route-2'), '02.2');
     await key('ArrowUp', 'route-1');

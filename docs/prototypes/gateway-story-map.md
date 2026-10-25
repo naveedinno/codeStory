@@ -22,13 +22,19 @@ reading tree, and C is focused cards.
 
 Every card has a number derived from its branch: the root is `01`, its chapters
 are `02`–`07`, and their children are `02.1`, `02.2`, and so on. Numbers stay the
-same through expansion, selection, Focus and layout changes. Each card shows
-its parent, sibling position with previous/next controls, and a child count
-that enters its first child. Leaves say “No children”; sibling arrows disable
-at the first/last card. These use the existing navigation and motion. Focus
-navigation keeps the dialog open and moves focus to the destination title.
-The zoomed-out canvas overview shows passive branch counts; selecting a card
-reveals its navigation controls at reading scale.
+same through expansion, selection, Focus and layout changes. The number links
+back to the parent. Quiet dots show the card's position among its siblings;
+previous/next controls appear in the selected header. No navigation row splits
+the prose from the title. A count at the branch edge folds/unfolds children in
+the canvas/tree, or enters the first child in Focus and layout C. Leaves have
+no branch control. On phones the count stays within the header. Overview counts
+are passive until selection restores reading scale. Focus navigation keeps
+the dialog open and moves focus to the destination title.
+
+Visual references: [Xmind's node-edge fold control](https://xmind.com/user-guide/fold-unfold-subtopic-new)
+and [Whimsical's mind-map examples](https://whimsical.com/learn/get-started/mind-maps).
+The references inform disclosure and hierarchy; native viewers, input ownership
+and the approved animation curves/durations remain unchanged.
 
 ## Ivy canvas
 
