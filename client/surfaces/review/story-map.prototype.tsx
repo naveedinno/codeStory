@@ -114,10 +114,16 @@ function settleViewerScroll(viewer: LiveViewer) {
   // Restore after layout, then return anchoring to its original native setting.
   requestAnimationFrame(() => { restoreViewerScroll(viewer); requestAnimationFrame(() => restoreViewerScroll(viewer, true)); });
 }
+function closeViewerOptions(menu: HTMLDetailsElement) {
+  menu.open = false;
+  const popup = menu.querySelector<HTMLElement>('.sm-viewer-options-pop');
+  if (popup?.matches(':popover-open')) popup.hidePopover();
+}
 function placeViewer(viewer: LiveViewer) {
   const owner = [...viewer.hosts].find(host => host.modal) ?? [...viewer.hosts][0];
   if (!owner || !viewer.panel) return;
   if (viewer.panel.parentElement !== owner.element) {
+    viewer.panel.querySelectorAll<HTMLDetailsElement>('.sm-viewer-options[open]').forEach(closeViewerOptions);
     rememberViewerScroll(viewer); viewer.restoring = true;
     for (const saved of viewer.scrolls) saved.element.style.overflowAnchor = 'none';
     owner.element.replaceChildren(viewer.panel);
@@ -143,8 +149,35 @@ function compactViewerHeader(panel: HTMLElement, block: ViewerBlock) {
   revision.setAttribute('aria-label', revision.title); meta.append(revision); toolbar.prepend(meta);
   const actions = panel.querySelector('.ds-step-actions');
   const toggle = panel.querySelector<HTMLButtonElement>('[data-callsite-toggle]');
-  if (toggle && actions) { toggle.setAttribute('aria-label', 'Caller context'); toggle.title = 'Show or hide caller context'; actions.prepend(toggle); }
-  if (actions) toolbar.append(actions);
+  if (toggle && actions) { toggle.removeAttribute('aria-label'); toggle.title = 'Show or hide caller context'; actions.prepend(toggle); }
+  const wrap = toolbar.querySelector<HTMLElement>('[data-line-wrap-toggle]');
+  if (wrap && actions) {
+    const label = wrap.querySelector('[data-line-wrap-label]'); if (label) label.textContent = 'Wrap long lines';
+    actions.prepend(wrap);
+  }
+  const source = actions?.querySelector('.ds-source-info'); if (source) source.textContent = 'Source references';
+  const repair = actions?.querySelector('summary[aria-label="Repair this story step"]');
+  if (repair) { const label = document.createElement('span'); label.className = 'sm-viewer-action-label'; label.textContent = repair.getAttribute('aria-label') ?? 'Repair story step'; repair.append(label); }
+  if (actions) {
+    const options = document.createElement('details'); options.className = 'sm-viewer-options';
+    const trigger = document.createElement('summary'); trigger.setAttribute('aria-label', 'Viewer options'); trigger.title = 'Viewer options'; trigger.textContent = '⋯';
+    const menu = document.createElement('div'); menu.className = 'sm-viewer-options-pop'; menu.setAttribute('popover', 'manual'); menu.append(actions);
+    options.append(trigger, menu);
+    const position = () => {
+      if (!menu.matches(':popover-open')) return;
+      const anchor = trigger.getBoundingClientRect(), box = menu.getBoundingClientRect();
+      const width = document.documentElement.clientWidth, height = window.innerHeight;
+      const below = anchor.bottom + 5, above = anchor.top - box.height - 5;
+      menu.style.left = `${Math.max(8, Math.min(width - box.width - 8, anchor.right - box.width))}px`;
+      menu.style.top = `${Math.max(8, below + box.height <= height - 8 ? below : above)}px`;
+    };
+    options.addEventListener('toggle', () => {
+      if (options.open) { menu.showPopover(); position(); }
+      else { closeViewerOptions(options); options.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(detail => { detail.open = false; }); }
+    });
+    repair?.parentElement?.addEventListener('toggle', position);
+    toolbar.append(options);
+  }
   const pairToolbar = panel.querySelector('.ds-code-pair-toolbar');
   if (pairToolbar) pairToolbar.replaceWith(toolbar); else panel.prepend(toolbar);
   panel.querySelector<HTMLElement>('.ds-step-top')?.setAttribute('hidden', '');
@@ -375,22 +408,25 @@ function Prototype({ data }: { data: MapData }) {
   };
   const mapKey = (event: KeyboardEvent) => {
     if (event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.defaultPrevented) return;
-    if (document.querySelector('[popover]:popover-open,.ds-command-root:not([hidden])')) return;
+    if (document.querySelector('[popover]:popover-open:not(.sm-viewer-options-pop),.ds-command-root:not([hidden])')) return;
     const target = event.target as HTMLElement;
     if (event.key.toLowerCase() === 'f' && target.closest('.sm-map,.sm-focus-dialog') && !target.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"])')) {
       const owner = target.closest<HTMLElement>('[data-map-node],[data-map-detail]');
       const topic = focused ? get(focused) : get(owner?.dataset.mapNode ?? owner?.dataset.mapDetail ?? selectedRef.current);
       if (fullscreen || hasMedia(topic)) {
         event.preventDefault(); event.stopPropagation();
-        if (!event.repeat) enterFullscreen(topic);
+        if (!event.repeat) {
+          const menu = target.closest<HTMLDetailsElement>('.sm-viewer-options'); if (menu) closeViewerOptions(menu);
+          enterFullscreen(topic);
+        }
         return;
       }
     }
     if (event.shiftKey) return;
     const viewer = target.closest('[data-map-native-viewer]');
     if (viewer && event.key === 'Escape') {
-      const menu = viewer.querySelector<HTMLDetailsElement>('details[open]');
-      if (menu) { event.preventDefault(); event.stopPropagation(); menu.open = false; menu.querySelector<HTMLElement>('summary')?.focus({ preventScroll: true }); return; }
+      const menu = target.closest<HTMLDetailsElement>('details[open]') ?? viewer.querySelector<HTMLDetailsElement>('details[open]');
+      if (menu) { event.preventDefault(); event.stopPropagation(); if (menu.matches('.sm-viewer-options')) closeViewerOptions(menu); else menu.open = false; menu.querySelector<HTMLElement>('summary')?.focus({ preventScroll: true }); return; }
     }
     if (fullscreen && event.key === 'Escape' && !document.fullscreenElement) { event.preventDefault(); event.stopPropagation(); exitFullscreen(); return; }
     if (focused || document.body.dataset.readView !== 'tour' || document.querySelector('dialog[open]')) return;
@@ -446,6 +482,22 @@ function Prototype({ data }: { data: MapData }) {
     scope(topic, false);
   };
 
+  useEffect(() => {
+    const dismiss = (event: Event) => {
+      for (const menu of document.querySelectorAll<HTMLDetailsElement>('.sm-viewer-options[open]')) {
+        if (!menu.contains(event.target as Node)) closeViewerOptions(menu);
+      }
+    };
+    const closeAll = () => document.querySelectorAll<HTMLDetailsElement>('.sm-viewer-options[open]').forEach(closeViewerOptions);
+    document.addEventListener('pointerdown', dismiss);
+    document.addEventListener('focusin', dismiss);
+    document.addEventListener('wheel', dismiss, { capture: true, passive: true });
+    window.addEventListener('resize', closeAll);
+    return () => { document.removeEventListener('pointerdown', dismiss); document.removeEventListener('focusin', dismiss); document.removeEventListener('wheel', dismiss, true); window.removeEventListener('resize', closeAll); };
+  }, []);
+  useEffect(() => {
+    document.querySelectorAll<HTMLDetailsElement>('.sm-viewer-options[open]').forEach(closeViewerOptions);
+  }, [selected, focused, variant]);
   useEffect(() => {
     document.body.dataset.mapVariant = variant;
   }, [variant]);
@@ -505,7 +557,7 @@ function Prototype({ data }: { data: MapData }) {
         ? [...media.querySelectorAll<HTMLElement>('.ds-helper-scroll')].find(element => element.getClientRects().length)
           ?? [...media.querySelectorAll<HTMLElement>('.ds-diffscroll')].find(element => element.getClientRects().length)
         : media;
-      const target = previous && root.contains(previous) && previous.closest('[data-map-native-viewer]') ? previous : pane;
+      const target = previous && root.contains(previous) && previous.getClientRects().length && previous.closest('[data-map-native-viewer]') ? previous : pane;
       if (!target) return false;
       target.focus({ preventScroll: true }); return true;
     };

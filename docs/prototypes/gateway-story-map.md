@@ -82,11 +82,15 @@ it. Inspection offsets are saved before layout changes, with scroll anchoring
 suspended through restoration. The existing per-axis requested/applied tracking
 preserves positions clamped by a larger Focus viewport.
 
-Embedded viewers share one full-width toolbar above both caller/helper panes:
-file, pinned revision, Wrap/view modes, caller visibility and Source/repair. It
-uses one 44px control row on wide cards and two rows on narrow cards. These are
-the original native controls; an explicit owner links the relocated mode toolbar
-to its original diff holder. The caller retains a compact method/Return row;
+Embedded viewers share one full-width toolbar above both caller/helper panes.
+File/revision, flat underlined view tabs and one options disclosure remain in
+the bar. Wrap, caller visibility, Source references and story repair use labeled
+rows inside that disclosure. The floating options layer stays reachable above
+the canvas/dock at short phone heights. Escape dismisses repair, then options, then the
+viewer; outside pointer input also closes options. It uses one 44px control row
+on wide cards and two rows on narrow cards. These are the original native
+controls; an explicit owner links the relocated mode toolbar to its original
+diff holder. The caller retains a compact method/Return row;
 its full path remains in the method tooltip and pane label. The native file
 control also retains its full path in its accessible name and tooltip. Source
 relationships remain in the Source popover. Repeated Code/path/revision rows

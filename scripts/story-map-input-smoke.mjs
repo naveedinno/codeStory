@@ -125,11 +125,15 @@ try {
     await selected(inspectionTopic);
     await page.waitForTimeout(220);
     assert.ok(await scroller.evaluate(node => node.scrollTop) > before, 'inspection is not undone by delayed source centering');
+    const viewerOptions = viewer.locator('.sm-viewer-options > summary');
+    await viewerOptions.focus(); await viewerOptions.click();
     const repair = viewer.locator('summary[aria-label="Repair this story step"]');
     if (variant === 'A') await repair.focus();
     await repair.click();
     await page.keyboard.press('Escape');
     assert.equal(await repair.evaluate(node => !node.closest('details').open && node === document.activeElement), true, 'Escape closes the native menu before leaving code');
+    await page.keyboard.press('Escape');
+    assert.ok(await viewerOptions.evaluate(node => !node.parentElement.open && node === document.activeElement), 'the outer options disclosure owns the next Escape');
     await key('Escape', inspectionTopic);
     if (inspectionTopic !== 'route') await key('ArrowLeft', 'route');
     // Closing Focus returns to its opener, which must still support map keys.
@@ -137,11 +141,14 @@ try {
     else { if (variant === 'A') await page.locator('[data-map-node="route"] .sm-card-actions button').focus(); await page.locator('[data-map-node="route"] .sm-card-actions button').click(); }
     const dialog = page.getByRole('dialog');
     await dialog.waitFor();
+    await dialog.locator('.sm-viewer-options > summary').click();
     const focusedRepair = dialog.locator('summary[aria-label="Repair this story step"]');
     await focusedRepair.click();
     await page.keyboard.press('Escape');
     assert.equal(await focusedRepair.evaluate(node => !node.closest('details').open && node === document.activeElement), true, 'nested menu closes before Focus');
     assert.equal(await dialog.isVisible(), true);
+    await page.keyboard.press('Escape');
+    assert.ok(await dialog.locator('.sm-viewer-options').evaluate(node => !node.open));
     await page.keyboard.press('Escape');
     await page.getByRole('dialog').waitFor({ state: 'hidden' });
     await key('ArrowRight', 'route-1');
