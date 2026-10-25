@@ -94,9 +94,13 @@ export class StoryMapCanvas {
           if (!this.map || !this.world) return;
           const viewport = this.viewWidth !== this.map.clientWidth || this.viewHeight !== this.map.clientHeight;
           if (!viewport && ![...this.nodes.values()].some(n => n.dirty)) return;
-          const wasHome = this.home;
+          const wasHome = this.home, requestedScale = this.cam.s;
           this.reflow(!viewport);
-          if (wasHome) this.fit(false); else if (!document.activeElement?.closest('[data-map-native-viewer]')) this.center(this.nodes.get(this.target), !viewport, true);
+          if (wasHome) this.fit(false); else if (!document.activeElement?.closest('[data-map-native-viewer]')) {
+            // Reflow samples an unfinished camera flight. Keep its requested
+            // reading scale instead of replacing it with that intermediate zoom.
+            this.cam.s = requestedScale; this.center(this.nodes.get(this.target), !viewport, true);
+          }
         });
       }); this.resize.observe(map); this.nodes.forEach(n => this.resize!.observe(n.el));
     }

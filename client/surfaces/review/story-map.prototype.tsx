@@ -198,6 +198,12 @@ function Prototype({ data }: { data: MapData }) {
   const get = (id: string) => byId.get(id)!;
   const parent = (id: string) => data.nodes.find(node => node.children.includes(id));
   const ancestors = (id: string): Topic[] => { const p = parent(id); return p ? [...ancestors(p.id), p] : []; };
+  const numberFor = (id: string): string => {
+    const owner = parent(id);
+    if (!owner) return '01';
+    const index = owner.children.indexOf(id);
+    return owner.id === 'root' ? String(index + 2).padStart(2, '0') : `${numberFor(owner.id)}.${index + 1}`;
+  };
   const [variant, setVariant] = useState<Variant>(readVariant);
   const [selected, setSelected] = useState('root');
   const [navigation, setNavigation] = useState(0);
@@ -217,6 +223,7 @@ function Prototype({ data }: { data: MapData }) {
   const [visited, setVisited] = useState(new Set(['root']));
   const [focused, setFocused] = useState<string | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
+  const focusDestination = useRef(false);
   const optionsTrigger = useRef<HTMLButtonElement>(null);
   const map = useRef<HTMLElement>(null), options = useRef<HTMLDivElement>(null), optionsId = 'sm-options-' + useId();
   const revealRequest = useRef<{ id: string; keyboard: boolean; focus: boolean; center?: boolean } | null>(null);
@@ -316,7 +323,7 @@ function Prototype({ data }: { data: MapData }) {
       }
       return;
     }
-    const navigationControl = target.closest('[data-map-focus],.sm-expand,.sm-map-actions button,.sm-breadcrumbs button,.sm-card-actions button,.sm-root-link');
+    const navigationControl = target.closest('[data-map-focus],.sm-expand,.sm-map-actions button,.sm-breadcrumbs button,.sm-card-actions button,.sm-card-relations button,.sm-root-link');
     if (!navigationControl && target.closest('button,a,input,textarea,select,summary,[contenteditable="true"],[role="separator"],[role="tab"],[role="slider"]')) return;
     const onMap = map.current?.contains(target) || !!target.closest('.sm-command-bar') || target === document.body || target === document.documentElement || target.matches('.ds-main,#ds-view-tour');
     if (!onMap) return;
@@ -399,6 +406,11 @@ function Prototype({ data }: { data: MapData }) {
     if (focused && !dialog.current?.open) dialog.current?.showModal();
     else if (!focused && dialog.current?.open) dialog.current.close();
     if (focused && dialog.current) dialog.current.scrollTop = 0;
+  }, [focused]);
+  useLayoutEffect(() => {
+    if (!focused || !focusDestination.current) return;
+    focusDestination.current = false;
+    dialog.current?.querySelector<HTMLElement>('#sm-focus-title')?.focus({ preventScroll: true });
   }, [focused]);
   useEffect(() => {
     const primary = document.querySelector<HTMLButtonElement>('[data-readaloud]');
@@ -487,12 +499,30 @@ function Prototype({ data }: { data: MapData }) {
   }
   function Node({ topic, compact = false, disclosure = true, full = false, summaryOnly = false, modal = false }: { topic: Topic; compact?: boolean; disclosure?: boolean; full?: boolean; summaryOnly?: boolean; modal?: boolean }) {
     const active = selected === topic.id;
-    return <article className={`sm-node ${active ? 'is-current' : ''} ${compact ? 'is-small' : ''}`} aria-label={topic.label} data-map-node={full ? undefined : topic.id} data-map-detail={full && !modal ? topic.id : undefined} data-card-kind={kindOf(topic)}>
-      <header className="sm-card-head"><div>{variant === 'A' && !full && parent(topic.id)?.id === 'root' && <span className="sm-map-order" aria-hidden="true">{get('root').children.indexOf(topic.id) + 1}</span>}<span className="sm-card-type">{kindOf(topic)}</span>
-        {modal ? <h3>{topic.label}</h3> : <button type="button" className="sm-select" data-map-focus={topic.id} tabIndex={active && !(variant === 'C' && summaryOnly) ? 0 : -1} aria-current={active ? 'location' : undefined} aria-label={`Read ${topic.label}`} onClick={() => choose(topic)} onFocus={event => { if (!focusByMap.current && event.currentTarget.matches(':focus-visible')) revealInMap(event.currentTarget.closest('[data-map-node],[data-map-detail]'), false, false, true); }}><strong>{topic.label}</strong></button>}
+    const number = numberFor(topic.id), owner = parent(topic.id), siblings = owner?.children ?? [topic.id], index = siblings.indexOf(topic.id);
+    const previous = byId.get(siblings[index - 1]), next = byId.get(siblings[index + 1]);
+    const navigate = (destination: Topic) => {
+      choose(destination, { focus: !modal });
+      if (modal) { focusDestination.current = true; setFocused(destination.id); }
+    };
+    return <article className={`sm-node ${active ? 'is-current' : ''} ${compact ? 'is-small' : ''}`} aria-label={`Card ${number}: ${topic.label}`} data-map-node={full ? undefined : topic.id} data-map-detail={full && !modal ? topic.id : undefined} data-card-kind={kindOf(topic)}>
+      <header className="sm-card-head"><div><div className="sm-card-meta"><span className="sm-map-order" aria-label={`Card ${number}`}>{number}</span><span className="sm-card-type">{kindOf(topic)}</span></div>
+        {modal ? <h3 tabIndex={-1}>{topic.label}</h3> : <button type="button" className="sm-select" data-map-focus={topic.id} tabIndex={active && !(variant === 'C' && summaryOnly) ? 0 : -1} aria-current={active ? 'location' : undefined} aria-label={`Read ${topic.label}`} onClick={() => choose(topic)} onFocus={event => { if (!focusByMap.current && event.currentTarget.matches(':focus-visible')) revealInMap(event.currentTarget.closest('[data-map-node],[data-map-detail]'), false, false, true); }}><strong>{topic.label}</strong></button>}
         <code className="sm-symbol">{topic.symbol}</code></div>
         {disclosure && !!topic.children.length && <button type="button" className="sm-expand" aria-label={`${expanded.has(topic.id) ? 'Collapse' : 'Expand'} ${topic.label}`} aria-expanded={expanded.has(topic.id)} onClick={() => toggle(topic.id)}>{expanded.has(topic.id) ? '−' : '+'}</button>}
       </header>
+      {variant === 'A' && overview && !modal ? <div className="sm-card-links-summary" title="Select this card for navigation controls">
+        {owner && <span>{siblings.length > 1 ? `${siblings.length - 1} ${siblings.length === 2 ? 'sibling' : 'siblings'}` : 'No siblings'}</span>}
+        <span>{topic.children.length ? `${topic.children.length} ${topic.children.length === 1 ? 'child' : 'children'}` : 'No children'}</span>
+      </div> : <div className="sm-card-relations" role="group" aria-label={`Card ${number} navigation`} data-card-navigation={topic.id}>
+        {owner && <button type="button" className="sm-parent-card" aria-label={`Parent card ${numberFor(owner.id)}: ${owner.label}`} title={`Parent: ${owner.label} (←)`} onClick={() => navigate(owner)}><span aria-hidden="true">←</span> {numberFor(owner.id)}</button>}
+        {owner && <div className="sm-sibling-cards">
+          <button type="button" disabled={!previous} aria-label={previous ? `Previous sibling ${numberFor(previous.id)}: ${previous.label}` : 'No previous sibling'} title={previous ? `${previous.label} (↑)` : 'First sibling'} onClick={() => previous && navigate(previous)}>↑</button>
+          <span>Sibling <b>{index + 1} / {siblings.length}</b></span>
+          <button type="button" disabled={!next} aria-label={next ? `Next sibling ${numberFor(next.id)}: ${next.label}` : 'No next sibling'} title={next ? `${next.label} (↓)` : 'Last sibling'} onClick={() => next && navigate(next)}>↓</button>
+        </div>}
+        {!!topic.children.length ? <button type="button" className="sm-child-cards" aria-label={`Enter ${topic.children.length} children of card ${number}: ${topic.label}`} onClick={() => navigate(get(topic.children[0]))}>{topic.children.length} {topic.children.length === 1 ? 'child' : 'children'} <span aria-hidden="true">→</span></button> : <span className="sm-no-children">No children</span>}
+      </div>}
       {!summaryOnly && (!compact || active) && Content({ topic, full })}
       {!full && !summaryOnly && <footer className="sm-card-actions"><span>{visited.has(topic.id) ? '✓ Visited' : 'Not visited'}</span><button type="button" onClick={() => openCard(topic)} aria-label={`Focus ${topic.label}`}>Focus card ↗</button></footer>}
     </article>;
@@ -528,7 +558,7 @@ function Prototype({ data }: { data: MapData }) {
 
   return <>
     {createPortal(<div className="sm-story-title">{data.title}</div>, document.querySelector('.ds-reviewchrome-main')!)}
-    {createPortal(<dialog ref={dialog} className="sm-focus-dialog" aria-labelledby="sm-focus-title" onCancel={event => { event.preventDefault(); setFocused(null); }} onKeyDown={event => event.stopPropagation()}><div className="sm-focus-head"><h2 id="sm-focus-title">{focused ? get(focused).label : 'Read card'}</h2><div className="sm-focus-actions">
+    {createPortal(<dialog ref={dialog} className="sm-focus-dialog" aria-labelledby="sm-focus-title" onCancel={event => { event.preventDefault(); setFocused(null); }} onKeyDown={event => event.stopPropagation()}><div className="sm-focus-head"><h2 id="sm-focus-title" tabIndex={-1}>{focused ? `${numberFor(focused)} ${get(focused).label}` : 'Read card'}</h2><div className="sm-focus-actions">
       <button type="button" disabled={transport.disabled} aria-label={transport.accessibleLabel} onClick={() => document.querySelector<HTMLButtonElement>('[data-readaloud]')?.click()}>{transport.label}</button>
       {transport.canStop && <button type="button" onClick={() => document.querySelector<HTMLButtonElement>('[data-aloud-stop]')?.click()}>Stop narration</button>}
       <button type="button" autoFocus onClick={() => setFocused(null)}>Close card</button></div></div>{focused && Node({ topic: get(focused), full: true, disclosure: false, modal: true })}</dialog>, document.body)}

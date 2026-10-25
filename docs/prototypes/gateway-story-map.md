@@ -4,7 +4,8 @@ The owner wants connected story cards with the quality of the Ivy documentation
 map, while preserving CodeStory's native code and diff viewers. The earlier
 scrolling-card implementation copied motion timings but missed Ivy's balanced
 world, camera and visual hierarchy. Variant A now replaces that outer structure.
-Owner comparison remains pending. This is a local prototype on
+The owner approved the animation feel; numbered card navigation is the current
+review question. This is a local prototype on
 `prototype/story-map-gateway`; main and the installed app are unchanged.
 
 Run from this checkout:
@@ -18,6 +19,16 @@ mode, uses a temporary app home, and rejects mutations except local narration.
 It reads the real story and its pinned source; it never rewrites story bytes.
 Map options retains the comparison layouts: A is the Ivy canvas, B is the
 reading tree, and C is focused cards.
+
+Every card has a number derived from its branch: the root is `01`, its chapters
+are `02`–`07`, and their children are `02.1`, `02.2`, and so on. Numbers stay the
+same through expansion, selection, Focus and layout changes. Each card shows
+its parent, sibling position with previous/next controls, and a child count
+that enters its first child. Leaves say “No children”; sibling arrows disable
+at the first/last card. These use the existing navigation and motion. Focus
+navigation keeps the dialog open and moves focus to the destination title.
+The zoomed-out canvas overview shows passive branch counts; selecting a card
+reveals its navigation controls at reading scale.
 
 ## Ivy canvas
 

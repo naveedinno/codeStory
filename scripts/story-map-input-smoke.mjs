@@ -31,13 +31,54 @@ try {
       await page.goto(target.href);
       await page.locator('.sm-prototype').waitFor();
       await page.waitForFunction(() => document.querySelector('[data-step-panel="24"]:not([data-step-lazy]):not([hidden])'));
+      // A reload can restore the persisted native step before the prototype
+      // mounts. Measure map-owned transitions only after the map is ready.
+      await page.evaluate(() => { window.mapTransitions = []; });
     };
     const selected = id => page.waitForFunction(id => document.querySelector('.sm-map [data-map-focus][aria-current]')?.getAttribute('data-map-focus') === id, id);
     const focused = id => page.waitForFunction(id => document.activeElement?.getAttribute('data-map-focus') === id, id);
     const key = async (value, id) => { await page.keyboard.press(value); await selected(id); await focused(id); };
     await go();
+    const card = id => page.locator(variant === 'C' ? `.sm-detail-column > [data-map-detail="${id}"]` : `.sm-map [data-map-node="${id}"]`);
+    const number = id => card(id).locator('.sm-map-order').innerText();
+    const enterChildren = id => card(id).locator('.sm-child-cards').click();
+    assert.equal(await number('root'), '01');
+    if (variant === 'A') {
+      assert.equal(await page.locator('.sm-card-relations button').count(), 0, 'zoomed-out overview has passive branch counts instead of tiny active controls');
+      await card('route').locator('.sm-select').click(); await selected('route');
+      await page.waitForTimeout(750);
+      assert.ok(await card('route').locator('.sm-card-relations button').evaluateAll(buttons => buttons.every(button => { const rect = button.getBoundingClientRect(); return rect.width >= 44 && rect.height >= 44; })), 'direct chapter selection opens full-size navigation, without going through the root first');
+      await go();
+      await card('root').locator('.sm-select').click();
+    }
+    await enterChildren('root'); await selected('route'); await focused('route');
+    assert.equal(await number('route'), '02');
+    await page.waitForTimeout(450);
+    assert.ok(await card('route').locator('.sm-card-relations button').evaluateAll(buttons => buttons.every(button => { const rect = button.getBoundingClientRect(); return rect.width >= 44 && rect.height >= 44; })), 'navigation hit areas remain at least 44px at the readable canvas scale');
+    assert.equal(await card('route').getByRole('button', { name: 'No previous sibling', exact: true }).isDisabled(), true);
+    await enterChildren('route'); await selected('route-1'); await focused('route-1');
+    assert.equal(await number('route-1'), '02.1');
+    assert.equal(await card('route-1').locator('.sm-no-children').innerText(), 'No children');
+    await card('route-1').getByRole('button', { name: /^Next sibling/ }).click(); await selected('route-2'); await focused('route-2');
+    assert.equal(await number('route-2'), '02.2');
+    await key('ArrowUp', 'route-1');
+    await card('route-1').locator('.sm-parent-card').click(); await selected('route'); await focused('route');
+    await card('route').getByRole('button', { name: /^Next sibling/ }).click(); await selected('change'); await focused('change');
+    assert.equal(await number('change'), '03');
+    await card('change').locator('.sm-parent-card').click(); await selected('root');
+    await enterChildren('root'); await selected('route');
+    await page.getByRole('button', { name: 'Focus current card', exact: true }).click();
+    await page.getByRole('dialog').locator('.sm-child-cards').click(); await selected('route-1');
+    await page.waitForFunction(() => document.querySelector('#sm-focus-title')?.textContent.startsWith('02.1 '));
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'sm-focus-title', 'focused navigation moves focus to the new card title');
+    await page.getByRole('dialog').getByRole('button', { name: 'Close card', exact: true }).click();
+    await go();
     // No preliminary focus() call: this was a dead path in the previous version.
     await key('ArrowRight', 'route');
+    if (variant === 'A') {
+      await page.waitForTimeout(750);
+      assert.ok(await page.locator('.sm-canvas-world').evaluate(world => new DOMMatrix(getComputedStyle(world).transform).a >= .95), 'opening from overview settles at readable scale, including late layout refreshes');
+    }
     await key('Home', 'root');
     await key('ArrowDown', 'route');
     await key('ArrowLeft', 'root');
