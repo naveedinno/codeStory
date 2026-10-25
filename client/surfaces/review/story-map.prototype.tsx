@@ -515,7 +515,7 @@ function Prototype({ data }: { data: MapData }) {
           <button type="button" disabled={!next} aria-label={next ? `Next sibling ${numberFor(next.id)}: ${next.label}` : 'No next sibling'} title={next ? `${next.label} (↓)` : 'Last sibling'} onClick={() => next && navigate(next)}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m6 10 6 6 6-6"/></svg></button>
         </div>}
         </div>
-        {modal ? <h3 tabIndex={-1}>{topic.label}</h3> : <button type="button" className="sm-select" data-map-focus={topic.id} tabIndex={active && !(variant === 'C' && summaryOnly) ? 0 : -1} aria-current={active ? 'location' : undefined} aria-label={`Read ${topic.label}`} onClick={() => choose(topic)} onFocus={event => { if (!focusByMap.current && event.currentTarget.matches(':focus-visible')) revealInMap(event.currentTarget.closest('[data-map-node],[data-map-detail]'), false, false, true); }}><strong>{topic.label}</strong></button>}
+        {modal ? <h3 tabIndex={-1}>{topic.label}</h3> : <h3 className="sm-card-heading"><button type="button" className="sm-select" data-map-focus={topic.id} tabIndex={active && !(variant === 'C' && summaryOnly) ? 0 : -1} aria-current={active ? 'location' : undefined} aria-label={`Read ${topic.label}`} onClick={() => choose(topic)} onFocus={event => { if (!focusByMap.current && event.currentTarget.matches(':focus-visible')) revealInMap(event.currentTarget.closest('[data-map-node],[data-map-detail]'), false, false, true); }}><strong>{topic.label}</strong></button></h3>}
         <code className="sm-symbol">{topic.symbol}</code></div>
       </header>
       {!summaryOnly && (!compact || active) && Content({ topic, full })}

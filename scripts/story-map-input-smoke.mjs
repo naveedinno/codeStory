@@ -66,6 +66,11 @@ try {
     assert.equal(await number('route'), '02');
     await page.waitForTimeout(450);
     assert.ok(await hitAreas('route'), 'navigation hit areas remain at least 44px at the readable canvas scale');
+    if (variant === 'A') assert.ok(await card('route').evaluate(card => {
+      const title = card.querySelector('.sm-select'), method = card.querySelector('.sm-symbol');
+      const titleStyle = getComputedStyle(title), cardStyle = getComputedStyle(card), rect = method.getBoundingClientRect(), bounds = card.getBoundingClientRect();
+      return document.activeElement === title && title.matches(':focus-visible') && titleStyle.boxShadow === 'none' && cardStyle.boxShadow !== 'none' && parseFloat(getComputedStyle(method).fontSize) >= 13 && rect.left >= bounds.left && rect.right <= bounds.right;
+    }), 'keyboard focus frames the card, while the plain heading and readable method name remain unobscured');
     if (variant === 'A') assert.ok(await card('route').locator('.sm-child-cards').evaluate(button => { const r = button.getBoundingClientRect(), map = button.closest('.sm-map').getBoundingClientRect(); return r.left >= map.left && r.right <= map.right && r.top >= map.top && r.bottom <= map.bottom; }), 'the branch port stays fully inside the canvas viewport');
     assert.equal(await card('route').getByRole('button', { name: 'No previous sibling', exact: true }).isDisabled(), true);
     await enterChildren('route'); await selected('route-1'); await focused('route-1');

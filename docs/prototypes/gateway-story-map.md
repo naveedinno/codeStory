@@ -4,7 +4,7 @@ The owner wants connected story cards with the quality of the Ivy documentation
 map, while preserving CodeStory's native code and diff viewers. The earlier
 scrolling-card implementation copied motion timings but missed Ivy's balanced
 world, camera and visual hierarchy. Variant A now replaces that outer structure.
-The owner approved the animation feel; numbered card navigation is the current
+The owner approved the animation feel; card presentation is the current
 review question. This is a local prototype on
 `prototype/story-map-gateway`; main and the installed app are unchanged.
 
@@ -35,6 +35,12 @@ Visual references: [Xmind's node-edge fold control](https://xmind.com/user-guide
 and [Whimsical's mind-map examples](https://whimsical.com/learn/get-started/mind-maps).
 The references inform disclosure and hierarchy; native viewers, input ownership
 and the approved animation curves/durations remain unchanged.
+
+Reading cards use a single frame, a restrained number label and a semantic
+heading. The method is a readable 13–14px code label; prose is 16px with a
+comfortable line length. Keyboard focus is shown on the card, never as a box
+around the title. Selected numbers retain the accent; other metadata stays
+secondary. These are presentation changes, not changes to the authored story.
 
 ## Ivy canvas
 
