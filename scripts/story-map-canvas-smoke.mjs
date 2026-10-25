@@ -71,6 +71,22 @@ try {
     const scroll = viewer.locator('.ds-helper-scroll'); await page.waitForTimeout(180);
     const stored = await scroll.evaluate(element => { element.scrollTop = 300; element.scrollLeft = 100; window.canvasScroller = element; window.canvasPanel = element.closest('.sm-native-step'); return [element.scrollTop, element.scrollLeft]; });
     assert.ok(stored[0] > 0, 'probe stores an actual nonzero native scroll offset');
+    if (width === 1440) {
+      await page.locator('[data-map-focus="route"]').focus();
+      await page.setViewportSize({ width: 1920, height: 1000 });
+      await page.waitForFunction(() => document.querySelector('[data-canvas-node="route"]').offsetWidth === 1600);
+      await page.waitForTimeout(100); await scroll.focus();
+      await page.setViewportSize({ width: 1440, height: 1000 });
+      await page.waitForFunction(() => {
+        const card = document.querySelector('[data-canvas-node="route"]'), bounds = card.closest('.sm-map').getBoundingClientRect();
+        return card.offsetWidth >= 1200 && [...card.querySelectorAll('.sm-card-head,.sm-child-cards,.sm-viewer-options>summary')].every(control => {
+          const box = control.getBoundingClientRect(); return box.left >= bounds.left && box.right <= bounds.right;
+        });
+      });
+      assert.ok(await scroll.evaluate(element => element === document.activeElement && element === window.canvasScroller));
+      assert.deepEqual(await scroll.evaluate(element => [element.scrollTop, element.scrollLeft]), stored, 'shrinking a focused wide code card retains its inspection offsets');
+    }
+
     await page.getByRole('button', { name: 'Fit whole map', exact: true }).click(); await page.waitForTimeout(700);
     assert.equal(await map.getAttribute('data-canvas-home'), 'true', 'native viewer paint cannot exit overview');
     assert.equal(await viewer.isVisible(), false);

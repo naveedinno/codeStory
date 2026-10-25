@@ -100,6 +100,19 @@ export class StoryMapCanvas {
             // Reflow samples an unfinished camera flight. Keep its requested
             // reading scale instead of replacing it with that intermediate zoom.
             this.cam.s = requestedScale; this.center(this.nodes.get(this.target), !viewport, true);
+          } else if (viewport) {
+            // Narrowing the canvas must keep the focused card's controls in
+            // reach without recentering its code vertically or changing zoom.
+            const owner = document.activeElement?.closest<HTMLElement>('[data-canvas-node]');
+            const n = this.nodes.get(owner?.dataset.canvasNode ?? this.target);
+            const width = n ? n.w * this.cam.s : 0;
+            if (n && width <= this.map.clientWidth) {
+              const spare = this.map.clientWidth - width, leftPad = Math.min(16, spare / 2);
+              const rightPad = Math.min(this.map.clientWidth > 760 ? 40 : 12, spare - leftPad);
+              const left = this.cam.x + n.x * this.cam.s;
+              this.cam.x += clamp(left, leftPad, this.map.clientWidth - rightPad - width) - left;
+              this.apply(false);
+            }
           }
         });
       }); this.resize.observe(map); this.nodes.forEach(n => this.resize!.observe(n.el));
@@ -126,7 +139,11 @@ export class StoryMapCanvas {
       n.visible = visible;
       const reading = this.readingState(n), kind = n.kind;
       const inspection = reading && (kind === 'Code' || kind === 'Code diff');
-      const width = Math.min(reading && kind === 'Code' && n.id !== 'root' ? 920 : reading && kind === 'Code diff' ? 1040 : n.id === 'root' || !n.parent?.parent ? 720 : 460, Math.max(280, this.map.clientWidth - (inspection ? 24 : 48)));
+      const openedCode = inspection && (n.id !== 'root' || !!n.el.querySelector('.sm-native-disclosure[open]'));
+      // Give live code the desktop canvas, while retaining the existing fit on
+      // smaller screens. The root stays compact until its source is opened.
+      const inspectionWidth = Math.max(kind === 'Code diff' ? 1040 : 920, Math.min(1600, this.map.clientWidth - 80));
+      const width = Math.min(openedCode ? inspectionWidth : n.id === 'root' || !n.parent?.parent ? 720 : 460, Math.max(280, this.map.clientWidth - (inspection ? 24 : 48)));
       if (width !== n.w || reading !== n.reading) n.dirty = true;
       n.w = width; n.reading = reading;
       if (n.dirty) { measuring.push({ n, hidden: n.el.hidden }); n.el.style.width = width + 'px'; n.el.hidden = false; }

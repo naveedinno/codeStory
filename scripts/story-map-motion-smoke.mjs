@@ -69,7 +69,7 @@ try {
     await page.keyboard.press('ArrowDown'); await focus('execution-2');
     await page.keyboard.press('ArrowDown'); await focus('policy'); await page.waitForTimeout(550);
     assert.equal(await page.locator('[data-canvas-node="policy"]').getAttribute('data-reading'), 'true');
-    if (width === 1440) assert.equal(await page.locator('[data-canvas-node="policy"]').evaluate(element => element.offsetWidth), 920, 'code-bearing leaves retain full native inspection width');
+    if (width === 1440) assert.ok(await page.locator('[data-canvas-node="policy"]').evaluate(element => element.offsetWidth) >= 1200, 'opened code leaves use the available desktop width');
     console.log(`PASS A/${width}/${motion}: immediate focus, continuous camera/entrance, reversal, ${layouts} sibling layouts, gesture interruption`);
     await page.close();
   }

@@ -55,7 +55,10 @@ geometry and motion to the existing React cards:
   larger overview titles and heavier root connectors. CodeStory keeps its own
   fonts, surfaces and signal-blue accent; no unauthored actor colours.
 - Whole-map overview shows compact topic cards. Selecting a code/diff topic
-  reveals the actual native viewer at readable scale. Fit restores the overview;
+  reveals the actual native viewer at readable scale. Open code/diff cards grow
+  with the available canvas up to 1600px; narrow screens retain their existing
+  fit. The root expands to code width when its source disclosure opens.
+  Fit restores the overview;
   Find returns to the current reading card. This is selection-based disclosure,
   not a second rendering of code at each zoom tier.
 - Camera framing preserves space beyond edge cards so they can centre. Tall
