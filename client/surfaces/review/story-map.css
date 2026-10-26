@@ -232,14 +232,14 @@ body[data-read-view="tour"] .sm-prototype{display:flex;flex-direction:column}
 .sm-canvas-item>.sm-node{box-shadow:none}
 .sm-canvas-item>.sm-node::after{display:none}
 .sm-canvas-detail>.sm-node{border-radius:18px}
-.sm-canvas-item>.sm-node.is-current{border-color:var(--line)}
-.sm-canvas-item[data-reading-held="true"]>.sm-node{border-color:var(--line)}
+.sm-canvas-item>.sm-node.is-current{border-color:var(--accent-blue);box-shadow:inset 0 0 0 1px var(--accent-blue)}
+.sm-canvas-item[data-reading-held="true"]>.sm-node:not(.is-current){border-color:var(--line)}
 .sm-prototype .sm-select:focus-visible{box-shadow:none;outline:none}
 .sm-node:has(.sm-select:focus-visible){box-shadow:0 0 0 2px var(--muted)}
 .sm-card-head .sm-card-heading{margin:0;font:inherit}
 .sm-canvas-item .sm-card-head{padding:20px 28px 18px;gap:12px;border-bottom:0;margin-bottom:0}
 .sm-canvas-item[data-presented-reading="true"]:not(.sm-canvas-root) .sm-card-head{border-bottom:0;margin-bottom:0}
-.sm-canvas-item .sm-select{width:fit-content;max-width:100%;padding:0;text-wrap:balance}
+.sm-canvas-item .sm-select{width:100%;max-width:100%;padding:0;text-wrap:wrap}
 .sm-canvas-item .sm-select strong{font-size:24px;line-height:1.3;letter-spacing:-.015em;font-weight:600}
 .sm-canvas-detail .sm-select strong{font-size:22px}
 .sm-canvas-root[data-presented-reading="true"] .sm-select strong{font-size:28px}
@@ -256,6 +256,7 @@ body[data-read-view="tour"] .sm-prototype{display:flex;flex-direction:column}
 .sm-focus-dialog .sm-symbol{display:block;width:fit-content;max-width:100%;box-sizing:border-box;padding:4px 8px;border-radius:6px;background:var(--surface-2);color:var(--text);font:400 14px/1.5 var(--mono)}
 .sm-focus-dialog .sm-prose{font-size:16px;line-height:1.6;max-width:68ch}
 @media(max-width:760px){.sm-canvas-item .sm-card-head{padding:18px 20px 16px}.sm-canvas-item .sm-select strong{font-size:22px}.sm-canvas-detail .sm-select strong{font-size:21px}.sm-canvas-root[data-presented-reading="true"] .sm-select strong{font-size:26px}.sm-canvas-item .sm-symbol{font-size:13px}.sm-canvas-item .sm-card-content,.sm-canvas-item[data-presented-reading="true"] .sm-card-content{padding:0 20px 20px}.sm-node:has(>.sm-child-cards) .sm-symbol{padding-right:8px}.sm-canvas-item .sm-node>.sm-child-cards{top:72px}}
+@media(forced-colors:active){.sm-canvas-item>.sm-node.is-current{border-color:Highlight;outline:1px solid Highlight;outline-offset:-2px}.sm-node:has(.sm-select:focus-visible){outline:2px solid Highlight;outline-offset:-4px}}
 
 /* One native toolbar spans the complete viewer, including caller context. */
 .sm-native-step{container-type:inline-size}

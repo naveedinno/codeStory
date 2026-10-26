@@ -97,6 +97,38 @@ try {
     assert.equal(await viewer.evaluate(node => node.firstElementChild === window.savedMapViewer), true);
     await changeLayout('A');
 
+    // Explanation leaves stay visibly selected after focus moves to controls,
+    // and their titles use the same complete content width as other cards.
+    const leaf = byId.get(codeNode.children[0]);
+    await visit(leaf.id);
+    const leafCard = page.locator(`.sm-map [data-map-node="${leaf.id}"]`);
+    const leafTitle = leafCard.locator('[data-map-focus]');
+    await page.getByRole('button', { name: 'Find current card', exact: true }).click();
+    for (const theme of ['dark', 'light']) {
+      await page.evaluate(theme => { document.documentElement.dataset.theme = theme; }, theme);
+      const geometry = await leafCard.evaluate(card => {
+        const title = card.querySelector('[data-map-focus]'), heading = title.closest('h3');
+        const style = getComputedStyle(card), color = value => value.match(/[\d.]+/g).slice(0, 3).map(Number);
+        const luminance = rgb => rgb.map(c => { c /= 255; return c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4; })
+          .reduce((sum, c, i) => sum + c * [.2126, .7152, .0722][i], 0);
+        const a = luminance(color(style.borderTopColor)), b = luminance(color(style.backgroundColor));
+        return { titleWidth: title.getBoundingClientRect().width, headingWidth: heading.getBoundingClientRect().width,
+          contrast: (Math.max(a, b) + .05) / (Math.min(a, b) + .05), selected: card.classList.contains('is-current') };
+      });
+      assert.ok(geometry.selected, 'child remains selected when focus moves to map controls');
+      assert.ok(Math.abs(geometry.titleWidth - geometry.headingWidth) < 1, 'child title uses the whole available heading width');
+      assert.ok(geometry.contrast >= 3, `${theme} selected border is clearly distinct from the card: ${geometry.contrast}`);
+      await page.screenshot({ path: join(output, `${name}-child-${theme}.png`) });
+    }
+    await page.evaluate(() => { document.documentElement.dataset.theme = 'dark'; });
+    await page.keyboard.press('Tab');
+    await leafTitle.focus();
+    assert.equal(await leafTitle.evaluate(title => title.matches(':focus-visible')), true);
+    await page.screenshot({ path: join(output, `${name}-child-keyboard.png`) });
+    await page.keyboard.press('ArrowDown');
+    await selected(codeNode.children[1]);
+    assert.equal(await leafCard.evaluate(card => card.classList.contains('is-current')), false, 'selection leaves the previous explanation');
+
     const diagram = data.nodes.find(node => node.stepId === 'interactive-page');
     await visit(diagram.id);
     const frameSelector = `[data-map-native-viewer="${diagram.content[0].viewerId}"] iframe[src]`;
