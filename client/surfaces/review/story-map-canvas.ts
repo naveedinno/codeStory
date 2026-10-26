@@ -1,4 +1,5 @@
 // the Ivy docs' measured tree, transform camera and reflow, adapted to live CodeStory cards.
+import { mapMotionMs } from './story-map-motion';
 type Topic = { id: string; children: string[] };
 type Card = { id: string; kind: string; el: HTMLElement; x: number; y: number; w: number; h: number; treeW: number; treeH: number; childH: number; visible: boolean; dirty: boolean; reading: boolean; held: boolean; children: Card[]; parent?: Card };
 type Presented = { x: number; y: number; w: number; h: number; clipW: number; clipH: number; sx: number; sy: number; opacity: string; visible: boolean };
@@ -82,7 +83,7 @@ export class StoryMapCanvas {
     let slots = this.slots.get(el); if (!slots) { slots = new Map(); this.slots.set(el, slots); }
     slots.get(slot)?.cancel(); slots.delete(slot); Object.assign(el.style, to);
     if (!duration || reduced()) { if (!slots.size) this.slots.delete(el); done?.(); return; }
-    const animation = el.animate([from, to], { duration, delay, fill: 'both', easing: SPATIAL_EASE }); slots.set(slot, animation);
+    const animation = el.animate([from, to], { duration: mapMotionMs(duration), delay: mapMotionMs(delay), fill: 'both', easing: SPATIAL_EASE }); slots.set(slot, animation);
     if (this.spatialStart != null) animation.startTime = this.spatialStart;
     animation.onfinish = () => { if (slots!.get(slot) !== animation) return; slots!.delete(slot); if (!slots!.size) this.slots.delete(el); animation.cancel(); done?.(); };
   }
@@ -277,7 +278,7 @@ export class StoryMapCanvas {
   private apply(animate: boolean) {
     if (!this.world || !this.map) return;
     const start = animate ? this.spatialStart : null;
-    this.world.style.transition = animate && !reduced() ? start == null ? '' : `transform 440ms ${SPATIAL_EASE}` : 'none';
+    this.world.style.transition = animate && !reduced() ? start == null ? '' : `transform ${mapMotionMs(440)}ms ${SPATIAL_EASE}` : 'none';
     this.world.style.transform = `translate(${this.cam.x}px,${this.cam.y}px) scale(${this.cam.s})`;
     if (animate) {
       if (start != null && !reduced()) for (const animation of this.world.getAnimations()) {

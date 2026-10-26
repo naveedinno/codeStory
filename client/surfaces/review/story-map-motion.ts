@@ -1,5 +1,7 @@
 // branch presence, FLIP and connector drawing adapted from core/docs/site/assets/map.js.
 const BRANCH_EASE = 'cubic-bezier(.22,.8,.22,1)';
+// Slow the map's motion by 20%, including the cleanup that follows it.
+export const mapMotionMs = (milliseconds: number) => milliseconds / .8;
 const reduce = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 type Box = { left: number; top: number; width: number; height: number };
 type Card = Box & { key: string; opacity: string; sx: number; sy: number; exiting: boolean };
@@ -61,7 +63,7 @@ export class MapBranchMotion {
     slots.get(slot)?.cancel(); slots.delete(slot);
     Object.assign(element.style, to);
     if (!duration || reduce()) { if (!slots.size) this.slots.delete(element); done?.(); return; }
-    const animation = element.animate([from, to], { duration, delay, fill: 'both', easing: BRANCH_EASE });
+    const animation = element.animate([from, to], { duration: mapMotionMs(duration), delay: mapMotionMs(delay), fill: 'both', easing: BRANCH_EASE });
     slots.set(slot, animation);
     animation.onfinish = () => { if (slots!.get(slot) !== animation) return; slots!.delete(slot); if (!slots!.size) this.slots.delete(element); animation.cancel(); done?.(); };
   }
@@ -103,7 +105,7 @@ export class MapBranchMotion {
     }
     this.draw(duration > 0);
     clearTimeout(this.holdTimer);
-    this.holdTimer = window.setTimeout(() => { this.holdTimer = 0; this.updateBounds(); this.releaseExtent(); this.draw(); }, duration ? entering ? 670 : 440 : 0);
+    this.holdTimer = window.setTimeout(() => { this.holdTimer = 0; this.updateBounds(); this.releaseExtent(); this.draw(); }, mapMotionMs(duration ? entering ? 670 : 440 : 0));
     this.tick();
     return snapshot.layoutChange;
   }

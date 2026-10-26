@@ -32,14 +32,14 @@ body[data-read-view="tour"] .sm-prototype{display:flex;flex-direction:column}
 .sm-section-label,.sm-card-type{display:block;font:500 10px/1.5 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .sm-prototype button,.sm-focus-dialog button,.sm-options button{font:inherit;cursor:pointer}
 .sm-prototype button:focus-visible,.sm-focus-dialog button:focus-visible,.sm-options :is(button,select,input,summary):focus-visible{outline:none;box-shadow:var(--shadow-focus);position:relative;z-index:2}
-.sm-focus,.sm-root-link,.sm-focus-head button{min-height:44px;padding:8px 12px;border:1px solid var(--line);border-radius:var(--radius-sm);background:transparent;color:var(--text);font-size:12px}
+.sm-root-link,.sm-focus-head button{min-height:44px;padding:8px 12px;border:1px solid var(--line);border-radius:var(--radius-sm);background:transparent;color:var(--text);font-size:12px}
 .sm-command-bar{display:flex;align-items:center;gap:12px;padding:3px 12px;border-bottom:1px solid var(--line-soft);flex:none}
 .sm-breadcrumbs{display:flex;flex:1;min-width:0;overflow:auto;align-items:center;font-size:12px;scrollbar-width:none}
 .sm-breadcrumbs>span{display:inline-flex;align-items:center;gap:4px;flex:none;color:var(--muted)}
 .sm-breadcrumbs button{min-height:44px;padding:6px 8px;border:0;background:transparent;color:var(--muted);text-align:left;white-space:nowrap}
 .sm-breadcrumbs button[aria-current]{color:var(--text)}
 .sm-map-actions{display:flex;gap:4px;flex:none}.sm-map-actions button{display:flex;align-items:center;justify-content:center;gap:8px;min-width:44px;min-height:44px;padding:0 10px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--muted);font-size:13px}.sm-map-actions button:hover{background:var(--fill-1);color:var(--text)}
-.sm-map-actions button:first-child{font-size:23px}.sm-map-actions .sm-focus{color:var(--text)}
+.sm-map-actions button:first-child{font-size:23px}
 .sm-options{position:fixed;inset:80px 24px auto auto;margin:0;width:min(320px,calc(100vw - 24px));max-height:calc(100dvh - 100px);overflow:auto;box-sizing:border-box;padding:12px 16px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);color:var(--text);box-shadow:0 12px 36px rgb(0 0 0 / .22);font:13px/1.5 var(--sans)}
 .sm-options-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}.sm-options button{min-height:44px;padding:7px 10px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--text);text-align:left}.sm-options-head button{min-width:44px;text-align:center;font-size:20px}.sm-options button:hover{background:var(--fill-1)}
 .sm-options label{display:grid;gap:6px;margin-bottom:8px;color:var(--muted)}.sm-options select{box-sizing:border-box;width:100%;min-height:44px;padding:6px 10px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface-2);color:var(--text);font:inherit}
@@ -113,7 +113,7 @@ body[data-read-view="tour"] .sm-prototype{display:flex;flex-direction:column}
  body.sm-prototyping[data-read-view="tour"] .ds-reviewchrome-utilities .ds-tab{min-height:44px;min-width:44px;flex-shrink:0;padding-inline:9px}
  body.sm-prototyping[data-read-view="tour"] .ds-reviewchrome-utilities .ds-viewtoggle{height:auto;padding:0}
  body.sm-prototyping[data-read-view="tour"] .ds-review-file-menu>summary,body.sm-prototyping[data-read-view="tour"] .ds-reviewchrome-utilities :is(.ds-theme-toggle,.ds-back){min-height:44px;min-width:44px}
- .sm-command-bar{padding:2px 6px;gap:4px}.sm-breadcrumbs{font-size:11px}.sm-breadcrumbs>span:not(:last-child){display:none}.sm-breadcrumbs button{max-width:170px;overflow:hidden;text-overflow:ellipsis}.sm-map-actions{gap:0}.sm-map-actions button{padding:0 7px}.sm-focus-label{display:none}
+ .sm-command-bar{padding:2px 6px;gap:4px}.sm-breadcrumbs{font-size:11px}.sm-breadcrumbs>span:not(:last-child){display:none}.sm-breadcrumbs button{max-width:170px;overflow:hidden;text-overflow:ellipsis}.sm-map-actions{gap:0}.sm-map-actions button{padding:0 7px}
  body.sm-prototyping[data-read-view="tour"] .ds-dock-transport{gap:8px;padding:6px 8px;flex-wrap:nowrap;min-height:56px}
  body.sm-prototyping[data-read-view="tour"][data-map-transcript="true"] .ds-dock-transport{flex-wrap:wrap}
  body.sm-prototyping .ds-narration-settings-label{display:none}.sm-playback-context{gap:4px}.sm-playback-label{justify-content:flex-end}.sm-playback-label>span{display:none}.sm-playback-label small{font-size:10px}.sm-beat-controls{gap:0}.sm-options{inset:105px 12px auto auto}.sm-options dl{font-size:11px}
@@ -147,7 +147,7 @@ body[data-read-view="tour"] .sm-prototype{display:flex;flex-direction:column}
 /* Variant A uses the Ivy docs' world, spatial hierarchy and progressive reading surfaces. */
 .sm-canvas{overflow:hidden;touch-action:none;cursor:grab}
 .sm-canvas.is-panning{cursor:grabbing;user-select:none}
-.sm-canvas-world{position:absolute;left:0;top:0;transform-origin:0 0;transition:transform 350ms cubic-bezier(.25,.7,.15,1)}
+.sm-canvas-world{position:absolute;left:0;top:0;transform-origin:0 0;transition:transform 437.5ms cubic-bezier(.25,.7,.15,1)}
 .sm-canvas-item{position:absolute;box-sizing:border-box;transform-origin:left center}
 .sm-canvas-item[hidden]{display:none!important}
 .sm-canvas-world[data-vertical="true"] .sm-canvas-item{transform-origin:top center}
@@ -212,7 +212,7 @@ body[data-read-view="tour"] .sm-prototype{display:flex;flex-direction:column}
 .sm-canvas-detail[data-presented-reading="false"] .sm-prose{display:block;-webkit-line-clamp:unset;overflow:visible}
 .sm-canvas-detail .sm-card-head{border-bottom:1px solid var(--line-soft);margin-bottom:18px}
 .sm-canvas-detail[data-presented-reading="false"] .sm-card-actions{display:flex;visibility:hidden;pointer-events:none}
-.sm-canvas-item .sm-card-content{transition:opacity 180ms cubic-bezier(.22,.8,.22,1)}
+.sm-canvas-item .sm-card-content{transition:opacity 225ms cubic-bezier(.22,.8,.22,1)}
 @starting-style{.sm-canvas-item[data-presented-reading="true"] .sm-card-content{opacity:0}}
 .sm-canvas-item[data-presented-reading="true"] .sm-node{border-color:var(--accent-blue)}
 .sm-canvas-item[data-presented-reading="true"]:not(.sm-canvas-root) .sm-card-head{border-bottom:1px solid var(--line-soft);margin-bottom:18px}

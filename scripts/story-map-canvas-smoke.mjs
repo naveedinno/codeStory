@@ -94,7 +94,7 @@ try {
     assert.equal(await viewer.isVisible(), true);
     assert.equal(await scroll.evaluate(element => element === window.canvasScroller && element.closest('.sm-native-step') === window.canvasPanel), true);
     assert.deepEqual(await scroll.evaluate(element => [element.scrollTop, element.scrollLeft]), stored, 'overview/reading retain both native inspection offsets');
-    await page.getByRole('button', { name: 'Focus current card', exact: true }).click();
+    await page.getByRole('button', { name: 'Expand card', exact: true }).click();
     const dialog = page.getByRole('dialog'); await dialog.waitFor();
     assert.equal(await dialog.locator('.ds-helper-scroll').evaluate(element => element === window.canvasScroller), true);
     await page.keyboard.press('Escape'); await dialog.waitFor({ state: 'hidden' }); await page.waitForTimeout(120);

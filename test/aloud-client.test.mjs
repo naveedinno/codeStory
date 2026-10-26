@@ -44,7 +44,8 @@ const audioHealth = {...HEALTH,capabilities:[...HEALTH.capabilities,'audio-jobs'
 for (const detail of [
   'Kokoro is unavailable. Run: npm run setup:aloud. Kokoro is not installed.',
   'VoxCPM2 is unavailable. Run: npm run setup:voxcpm. Traceback (most recent call last): File "/Users/example/voice.py" FileNotFoundError: [Errno 2] No such file or directory',
-]) for (const failure of ['job','http']) test(`Lino ${failure} failures show recovery guidance instead of ${detail.startsWith('Kokoro')?'Kokoro setup commands':'VoxCPM tracebacks'}`, async () => {
+  'Phonon stopped. Repair it in Manage Voices. spawn /Users/example/Library/Application Support/Aloud/phonon-venv/bin/python ENOENT',
+]) for (const failure of ['job','http']) test(`Lino ${detail.split(' ')[0]} ${failure} failures show recovery guidance`, async () => {
   const fixture=await fakeAloud((req,res)=>{
     req.resume();res.setHeader('Content-Type','application/json');
     if(req.url==='/health')return res.end(JSON.stringify(audioHealth));
@@ -54,13 +55,38 @@ for (const detail of [
   });
   try {
     await assert.rejects(createAloudReader(fixture.url).generateAudio(AUDIO_INPUT,'unused.wav',new AbortController().signal),error=>{
-      assert.match(error.message,/Restart codeStory/);
+      assert.match(error.message,detail.startsWith('Phonon')?/repair/i:/Restart codeStory/);
       assert.match(error.message,/Lino → Settings → Read Aloud/);
-      assert.doesNotMatch(error.message,/Traceback|npm run|\/Users\/|FileNotFoundError/);
+      assert.doesNotMatch(error.message,/Traceback|npm run|\/Users\/|FileNotFoundError|ENOENT/);
       assert.equal(error.cause?.message,detail,'diagnostics remain available outside product copy');
       return true;
     });
   } finally {fixture.server.close();await once(fixture.server,'close');}
+});
+
+test('live playback and preparation replace missing-runtime diagnostics with Lino repair guidance', async () => {
+  const detail = 'Phonon stopped. Repair it in Manage Voices. spawn /Users/example/phonon-venv/bin/python ENOENT';
+  const fixture = await fakeAloud((req,res) => {
+    req.resume(); res.setHeader('Content-Type','application/json');
+    if (req.url === '/health') return res.end(JSON.stringify(HEALTH));
+    if (req.url === '/prepare') return res.end(JSON.stringify({ ...HEALTH,
+      prepare: { id:'failed-prepare', beats:1, ready:0, state:'error', error:detail } }));
+    res.end(JSON.stringify({ ...HEALTH, engine:'phonon', running:false, paused:false,
+      state:{ status:'error', message:detail } }));
+  });
+  try {
+    const reader = createAloudReader(fixture.url);
+    const status = await reader.status();
+    const preparation = await reader.prepare({text:'Read this passage.'});
+    assert.equal(status.engine, 'phonon');
+    assert.equal(status.state.status, 'error');
+    assert.equal(preparation.state, 'error');
+    for (const message of [status.state.message, preparation.error]) {
+      assert.match(message, /Lino → Settings → Read Aloud/);
+      assert.match(message, /repair/i);
+      assert.doesNotMatch(message, /\/Users\/|spawn|ENOENT/);
+    }
+  } finally { fixture.server.close(); await once(fixture.server,'close'); }
 });
 
 test('Lino audio generation uses one idempotency key, authenticated downloads and explicit voice without touching playback', async () => {

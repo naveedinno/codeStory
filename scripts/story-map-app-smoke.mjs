@@ -87,7 +87,7 @@ try {
         await key('ArrowRight', siblings[0]);
         for (let i = 1; i <= siblings.indexOf(node.id); i++) await key('ArrowDown', siblings[i]);
       }
-      await page.waitForTimeout(motion === 'reduce' ? 150 : 750);
+      await page.waitForTimeout(motion === 'reduce' ? 150 : 950);
     };
     const changeLayout = async variant => {
       await page.getByRole('button', { name: 'Map options', exact: true }).click();
@@ -119,7 +119,7 @@ try {
     await page.reload();
     await linkedPosition();
     await viewer.evaluate(node => { window.savedMapViewer = node.firstElementChild; });
-    await page.getByRole('button', { name: 'Focus current card', exact: true }).click();
+    await page.getByRole('button', { name: 'Expand card', exact: true }).click();
     await page.locator('.sm-focus-dialog[open]').waitFor();
     assert.equal(await page.evaluate(() => document.querySelector('.sm-focus-dialog .sm-native-step') === window.savedMapViewer), true);
     await page.keyboard.press('Escape'); await page.locator('.sm-focus-dialog').waitFor({ state: 'hidden' });
@@ -177,7 +177,7 @@ try {
     await (await frame()).locator('body').press('Escape');
     await page.locator('.sm-focus-dialog').waitFor({ state: 'hidden' });
     assert.equal(await (await frame()).evaluate(() => window.count), 1);
-    await page.getByRole('button', { name: 'Focus current card', exact: true }).click();
+    await page.getByRole('button', { name: 'Expand card', exact: true }).click();
     await page.locator('.sm-focus-dialog[open]').waitFor();
     await (await frame()).locator('body').press('Escape');
     await page.locator('.sm-focus-dialog').waitFor({ state: 'hidden' });

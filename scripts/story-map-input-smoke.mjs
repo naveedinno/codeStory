@@ -86,7 +86,7 @@ try {
     assert.equal(await number('change'), '03');
     await card('change').locator('.sm-parent-card').click(); await selected('root');
     await enterChildren('root'); await selected('route');
-    await page.getByRole('button', { name: 'Focus current card', exact: true }).click();
+    await page.getByRole('button', { name: 'Expand card', exact: true }).click();
     await page.getByRole('dialog').locator('.sm-child-cards').click(); await selected('route-1');
     await page.waitForFunction(() => document.querySelector('#sm-focus-title')?.textContent.startsWith('02.1 '));
     assert.equal(await page.evaluate(() => document.activeElement?.id), 'sm-focus-title', 'focused navigation moves focus to the new card title');
@@ -140,7 +140,7 @@ try {
     await key('Escape', inspectionTopic);
     if (inspectionTopic !== 'route') await key('ArrowLeft', 'route');
     // Closing Focus returns to its opener, which must still support map keys.
-    if (variant === 'C') await page.getByRole('button', { name: 'Focus current card', exact: true }).click();
+    if (variant === 'C') await page.getByRole('button', { name: 'Expand card', exact: true }).click();
     else { if (variant === 'A') await page.locator('[data-map-node="route"] .sm-card-actions button').focus(); await page.locator('[data-map-node="route"] .sm-card-actions button').click(); }
     const dialog = page.getByRole('dialog');
     await dialog.waitFor();

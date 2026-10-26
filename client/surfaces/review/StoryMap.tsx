@@ -3,7 +3,7 @@ import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 're
 import { createRoot } from 'react-dom/client';
 import { createPortal } from 'react-dom';
 import type { ReviewPayload } from '../../../src/payloads';
-import { MapBranchMotion, branchExitStyle, mapScrollBounds, mapCardLayoutBox } from './story-map-motion';
+import { MapBranchMotion, branchExitStyle, mapScrollBounds, mapCardLayoutBox, mapMotionMs } from './story-map-motion';
 import { StoryMapCanvas, canvasFor } from './story-map-canvas';
 import { plural } from './format';
 
@@ -65,7 +65,7 @@ function revealInMap(element: HTMLElement | null, center = false, animate = true
   if (Math.abs(toX - fromX) < 1 && Math.abs(toY - fromY) < 1) return;
   const start = performance.now();
   const frame = (now: number) => {
-    const progress = Math.min(1, (now - start) / 350), eased = cameraEase(progress);
+    const progress = Math.min(1, (now - start) / mapMotionMs(350)), eased = cameraEase(progress);
     map.scrollLeft = fromX + (toX - fromX) * eased; map.scrollTop = fromY + (toY - fromY) * eased;
     if (progress < 1) mapFrames.set(map, requestAnimationFrame(frame)); else mapFrames.delete(map);
   };
@@ -271,7 +271,7 @@ function BranchPresence({ open, branchId, as = 'div', className, children }: { o
   useLayoutEffect(() => {
     if (open) { setMounted(true); setShown(true); return; }
     if (!shown) return;
-    const timer = window.setTimeout(() => setShown(false), matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 220);
+    const timer = window.setTimeout(() => setShown(false), matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : mapMotionMs(220));
     return () => clearTimeout(timer);
   }, [open, shown]);
   if (!mounted && !open) return null;
@@ -787,7 +787,7 @@ function StoryMap({ data }: { data: MapData }) {
       <div className="sm-map-actions">
         {variant === 'A' && <><button type="button" aria-label="Fit whole map" title="Whole map" onClick={() => { prepareReflow(); setOverview(true); canvas.fit(!keyboardInput.current); }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M9 3H3v6m12-6h6v6M3 15v6h6m12-6v6h-6"/></svg></button><button type="button" className="sm-zoom-label" aria-label={`Map zoom ${zoom} percent. Reset to readable size`} onClick={() => overview ? findCurrent() : canvas.resetZoom(selectedRef.current)}>{zoom}%</button></>}
         <button type="button" aria-label="Find current card" title="Center current card" onClick={findCurrent}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><circle cx="12" cy="12" r="7"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg></button>
-        <button type="button" className="sm-focus" aria-label="Focus current card" onClick={() => openCard(node)}><span className="sm-focus-label">Focus</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button>
+        <button type="button" className="sm-focus" aria-label="Expand card" aria-haspopup="dialog" title="Expand card" onClick={() => openCard(node)}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button>
         <button ref={optionsTrigger} type="button" aria-label="Map options" aria-haspopup="dialog" aria-expanded={optionsOpen} aria-controls={optionsId} popoverTarget={optionsId} title="Map options"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
       </div>
     </header>

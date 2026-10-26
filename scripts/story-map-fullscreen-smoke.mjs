@@ -74,7 +74,7 @@ try {
     await page.keyboard.press('Escape'); await dialog.waitFor({ state: 'hidden' }); await page.waitForTimeout(150);
     assert.deepEqual(await scroll.evaluate(element => [element.scrollTop, element.scrollLeft]), stored, 'fullscreen clamping preserves requested offsets');
     assert.ok(await scroll.evaluate(element => document.activeElement === element));
-    await page.getByRole('button', { name: 'Focus current card', exact: true }).click(); await dialog.waitFor();
+    await page.getByRole('button', { name: 'Expand card', exact: true }).click(); await dialog.waitFor();
     await page.keyboard.press('f'); await page.waitForTimeout(100);
     await page.keyboard.press('Escape');
     assert.ok(await dialog.evaluate(element => element.open && !element.classList.contains('is-fullscreen')), 'Escape returns to ordinary Focus when opened there');

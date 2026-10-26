@@ -85,8 +85,11 @@ export class AloudUnavailableError extends Error {
   constructor(message = 'Narration is not available. Install Lino and download a voice in Settings → Read Aloud.') {
     // Bundled engines can return Python tracebacks and source-checkout setup
     // commands. Keep those diagnostics as a cause, outside product copy.
-    const technical = /Traceback \(most recent call last\)|npm run setup:|FileNotFoundError:|ModuleNotFoundError:|ImportError:/.test(message);
-    super(technical
+    const missingRuntime = /\bspawn(?:Sync)?\b[^\n]*\b(?:ENOENT|EACCES)\b/.test(message);
+    const technical = missingRuntime || /Traceback \(most recent call last\)|npm run setup:|FileNotFoundError:|ModuleNotFoundError:|ImportError:/.test(message);
+    super(missingRuntime
+      ? 'The selected Lino voice needs repair. Open Lino → Settings → Read Aloud, repair the model, then try again.'
+      : technical
       ? 'Lino could not generate this narration. Restart codeStory and try again. If it still fails, check the selected voice in Lino → Settings → Read Aloud.'
       : message, technical ? { cause: new Error(message) } : undefined);
     this.name = 'AloudUnavailableError';
@@ -193,7 +196,9 @@ export function createAloudReader(endpoint: string | (() => Promise<AloudEndpoin
         throw new AloudUnavailableError('The speech engine returned an incompatible preparation response.');
       }
       const progress = (prepared as { prepare?: AloudPreparation }).prepare;
-      if (progress && typeof progress.id === 'string') return progress;
+      if (progress && typeof progress.id === 'string') return progress.error
+        ? { ...progress, error: new AloudUnavailableError(progress.error).message }
+        : progress;
     },
     async speak(input) {
       const target = await resolve();
@@ -253,6 +258,9 @@ function verifyStatus(value: unknown): AloudStatus {
   const status = value as Partial<AloudStatus>;
   if (typeof status.running !== 'boolean' || typeof status.paused !== 'boolean' || typeof status.state !== 'object') {
     throw new AloudUnavailableError('The speech engine returned an incomplete reader status.');
+  }
+  if (typeof status.state?.message === 'string' && status.state.status === 'error') {
+    return { ...status, state: { ...status.state, message: new AloudUnavailableError(status.state.message).message } } as AloudStatus;
   }
   return status as AloudStatus;
 }

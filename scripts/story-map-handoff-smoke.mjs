@@ -96,7 +96,7 @@ try {
       await page.evaluate(() => document.querySelector('[data-thread-node="4"]').click());
       await selected('a-routing'); await page.waitForTimeout(1100);
       assert.equal(await node('a-fallback').locator('.sm-prose').innerText(), previousPassage, 'outgoing explanation does not reset to its introduction during travel');
-      await page.getByRole('button', { name: 'Focus current card', exact: true }).click();
+      await page.getByRole('button', { name: 'Expand card', exact: true }).click();
       await page.locator('.sm-focus-dialog[open]').waitFor(); await page.keyboard.press('f');
       await page.locator('.sm-focus-dialog.is-fullscreen').waitFor(); await page.keyboard.press('Escape');
       await page.locator('.sm-focus-dialog:not(.is-fullscreen)[open]').waitFor(); await page.keyboard.press('Escape');

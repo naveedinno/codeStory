@@ -64,7 +64,7 @@ try {
     await (await frame()).locator('body').press('Escape');
     await page.locator('.sm-focus-dialog').waitFor({ state: 'hidden' });
     assert.equal(await (await frame()).evaluate(() => window.__mapDiagramState), 42);
-    await page.getByRole('button', { name: 'Focus current card', exact: true }).click();
+    await page.getByRole('button', { name: 'Expand card', exact: true }).click();
     await page.locator('.sm-focus-dialog[open]').waitFor();
     await (await frame()).locator('[data-route="deposit"]').click();
     await (await frame()).locator('body').press('Escape');
@@ -121,7 +121,7 @@ try {
   await page.waitForFunction(() => document.querySelector('[data-step-panel="1"]:not([hidden]):not([data-step-lazy])'));
   await page.locator('[data-readaloud]').click();
   await page.waitForFunction(() => document.querySelector('.sm-map [data-map-focus][aria-current]')?.dataset.mapFocus === 'map-one-trade');
-  await page.getByRole('button', { name: 'Focus current card', exact: true }).click();
+  await page.getByRole('button', { name: 'Expand card', exact: true }).click();
   await page.locator('.sm-focus-dialog[open]').waitFor();
   assert.ok(batches.length > 129, 'whole-tour playback queues the authored explanations, not just the first chapter');
   current = batches.length;
