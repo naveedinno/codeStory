@@ -9,7 +9,6 @@ const SECTION_STARTS = [
   ['Option schemas and the options hook', 'Options and position tokens'],
   ['Invariants that close the tour', 'Closing invariants'],
 ];
-const excerpt = text => { const plain = narrativeText(text); const first = plain.split(/(?<=[.!?])\s/)[0]; return first.length <= 90 ? first : first.slice(0, 87).replace(/\s+\S*$/, '') + '…'; };
 export function fullStoryMap(tour) {
   const steps = [...tour.steps].sort((a,b) => a.order-b.order), nodes = [], viewers = new Map();
   const root = { id:'root', stepId:'map-root', panelIndex:1, label:tour.title, symbol:`${steps.length} steps`, beat:0, beats:0, structural:'tour', children:[], content:[{type:'prose',text:narrativeText(tour.summary ?? '')}] };
@@ -32,10 +31,6 @@ export function fullStoryMap(tour) {
       content.push(step.kind === 'concept' ? {type:'page',viewerId,panelIndex} : {type:'code',viewerId,file:step.file,revision:tour.head,rangesByBeat:(step.beats??[]).map(beat=>beat.highlights??[])});
       const node = {id:step.id,stepId:step.id,panelIndex,label:narrativeText(step.title),symbol:step.landing?.symbol || (step.kind==='concept'?'':step.file),beat:0,beats:step.beats?.length ?? 0,children:[],content};
       viewers.set(viewerId,panelIndex-1);nodes.push(node);group.children.push(node.id);
-      for (const [beat, passage] of (step.beats??[]).entries()) if (beat > 0) {
-        const id=`${step.id}-beat-${beat}`;node.children.push(id);
-        nodes.push({...node,id,label:excerpt(passage.text),beat,children:[],content:[{type:'text',panelIndex,beat}]});
-      }
     }
   }
   for (const part of nodes.filter(node=>node.structural==='section')) {

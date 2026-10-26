@@ -65,15 +65,9 @@ export function buildStoryMap(tour: Tour, base: string, head?: string): StoryMap
     const node: StoryMapTopic = { id, stepId: step.id, panelIndex, label: narrativeText(step.title),
       symbol: step.kind === 'concept' ? '' : step.landing?.symbol || step.file,
       beat: 0, beats: step.kind === 'concept' ? 0 : step.beats?.length ?? 0, children: [], content };
+    // Narration beats update this card's text and native highlights in place;
+    // they are not separate topics in the map hierarchy.
     nodes.push(node); chapter.children.push(id); path.push(id);
-    if (step.kind !== 'concept') for (const [beat, passage] of (step.beats ?? []).entries()) {
-      if (!beat) continue;
-      const plain = narrativeText(passage.text), first = plain.split(/(?<=[.!?])\s/)[0];
-      const leaf = `${id}-beat-${beat}`;
-      node.children.push(leaf);
-      nodes.push({ ...node, id: leaf, label: first.length <= 90 ? first : first.slice(0, 87).replace(/\s+\S*$/, '') + '…',
-        beat, children: [], content: [{ type: 'text', panelIndex, beat }] });
-    }
   }
   for (const group of nodes.filter(node => node.structural === 'chapter')) {
     group.symbol = `${group.children.length} ${group.children.length === 1 ? 'step' : 'steps'}`;

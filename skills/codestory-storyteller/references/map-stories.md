@@ -55,7 +55,8 @@ know the subject, what decision is being explained and why it matters. Code
 cards still need the full landing in their first beat; do not repeat the whole
 file/caller introduction in every subsequent beat.
 
-Later beats can become selectable explanation children. Put their useful
+Later beats update the explanation and highlights inside the same code card;
+they do not create child cards. Put their useful
 subject and decision early: "The wallet route rejects an approver, so it does
 not enter the timelock path." Avoid an isolated "Otherwise, it rejects it."
 Name the route or value instead of relying on the preceding screen. Keep
@@ -104,10 +105,10 @@ It has no old side; a diff story instead uses its actual base/head and ledger.
   "head": "a7125fe15baf1292435c56905d15c76c695e47e2",
   "mode": "guided",
   "title": "How an authored tour becomes map cards",
-  "summary": "First distinguish a card from its viewer, then inspect how authored steps and later explanations retain their source identity.",
+  "summary": "First distinguish a card from its viewer, then inspect how each authored step keeps its narration and highlights in place.",
   "intent": {
     "goal": "Understand how the full-story map organizes a tour while retaining native code and page content.",
-    "design": "The adapter derives cards from authored steps and points their media at native viewers; later beats become explanation children.",
+    "design": "The adapter derives cards from authored steps and points their media at native viewers; beats advance inside the same card.",
     "sources": ["code-derived"]
   },
   "storyArc": { "shape": "map-then-path", "readingPath": "card and viewer -> chapter hierarchy -> adapter source" },
@@ -127,9 +128,9 @@ It has no old side; a diff story instead uses its actual base/head and ledger.
       "order": 2,
       "chapter": "From tour to map",
       "kind": "concept",
-      "title": "Chapters group steps, and later beats explain them",
-      "page": "<!doctype html><html><head><style>body{margin:0;padding:20px;font:16px/1.5 system-ui;color:var(--ds-text)}ol{list-style:none;margin:0;padding:0;display:grid;gap:20px}li{position:relative;padding:12px;border:1px solid var(--ds-line);border-radius:8px}li+li:before{content:'↓';position:absolute;top:-23px;left:18px}small{display:block;color:var(--ds-text-2)}</style></head><body><ol aria-label=\"Map hierarchy\"><li>Chapter<small>Groups authored step cards</small></li><li>Step<small>Retains its native viewer</small></li><li>Later beats<small>Become explanation children of the step</small></li></ol></body></html>",
-      "narration": "A chapter groups authored steps. Each step keeps its native viewer. Beats after the introduction become explanation children of that step, rather than separate source owners.",
+      "title": "Chapters group steps, and beats stay inside each step",
+      "page": "<!doctype html><html><head><style>body{margin:0;padding:20px;font:16px/1.5 system-ui;color:var(--ds-text)}ol{list-style:none;margin:0;padding:0;display:grid;gap:20px}li{position:relative;padding:12px;border:1px solid var(--ds-line);border-radius:8px}li+li:before{content:'↓';position:absolute;top:-23px;left:18px}small{display:block;color:var(--ds-text-2)}</style></head><body><ol aria-label=\"Map hierarchy\"><li>Chapter<small>Groups authored step cards</small></li><li>Step<small>Retains its native viewer, explanation, and highlights</small></li></ol></body></html>",
+      "narration": "A chapter groups authored steps. Each step keeps its native viewer. Narration and highlight changes advance inside that step's card.",
       "preparesFor": ["adapter"]
     },
     {
@@ -137,17 +138,17 @@ It has no old side; a diff story instead uses its actual base/head and ledger.
       "order": 3,
       "chapter": "From tour to map",
       "kind": "context",
-      "title": "The adapter preserves step identity for native media and explanation children",
+      "title": "The adapter preserves step identity and narrated highlights",
       "file": "scripts/story-map-full-data.mjs",
-      "range": [29, 38],
+      "range": [29, 33],
       "viewport": [13, 38],
-      "highlights": [[13, 18], [29, 34], [35, 38]],
+      "highlights": [[13, 18], [29, 31], [31, 33]],
       "landing": { "symbol": "fullStoryMap()", "role": { "who": "prototype server" }, "when": "when opening a full tour" },
-      "why": "If explanation children lost their step identity, selecting a detail would no longer identify its source panel and beat.",
+      "why": "Keeping beat text and highlights attached to the step lets the reader follow the code without changing cards.",
       "beats": [
         { "text": "In <code>story-map-full-data.mjs</code>, <code>fullStoryMap()</code> is what the prototype server uses to organize an authored tour into cards while retaining its step order.", "highlights": [[13, 18]] },
-        { "text": "Each authored step receives a viewer identity and panel index; concept pages and code keep distinct native content references.", "highlights": [[29, 34]] },
-        { "text": "Later beats become text explanation children that retain the original step and panel identity, so a detail still identifies its source.", "highlights": [[35, 38]] }
+        { "text": "Each authored step receives a viewer identity and panel index; concept pages and code keep distinct native content references.", "highlights": [[29, 31]] },
+        { "text": "The code card retains its beat count and highlight ranges, so narration advances in the same viewer without adding child cards.", "highlights": [[31, 33]] }
       ]
     }
   ]

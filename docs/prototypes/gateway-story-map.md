@@ -32,8 +32,9 @@ http://localhost:7799/repo/core/review?story=stories%2Fcode-complete-tour.json&s
 
 This view keeps all 129 authored steps, their 32 chapters and pinned source at
 `6399ecf`. Seven section branches group the existing chapter boundaries; they
-add navigation, not new protocol claims. Step cards retain their authored order,
-and explanation leaves retain the original step/beat ownership. The original
+add navigation, not new protocol claims. Step cards retain their authored order.
+Narration beats update the explanation and highlights inside each code card;
+they do not create explanation children. The original
 story file is never rewritten. The smaller curated gateway view remains the
 default without `scope=full`.
 
@@ -217,8 +218,8 @@ the canvas camera rather than leaving an independent browser scroll offset.
 
 Selection and narration still use the existing source step/beat controller.
 Manual selection stops the previous playback and scopes reading to the chosen
-branch; explanation leaves keep their helper scope. Narration selects the
-corresponding card and Focus follows it. Caller Return reaches the actual
+branch. Narration selects the authored step card and advances its explanation
+and highlights in place; Focus follows it. Caller Return reaches the actual
 caller, including the executeSigned submission card. Hidden native step/mode
 updates bypass workspace snapshot animations; Story/Files changes retain them.
 The compact native narration strip keeps its optional transcript and mirrored

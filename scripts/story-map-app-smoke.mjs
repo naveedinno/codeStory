@@ -10,6 +10,7 @@ import { chromium } from 'playwright-core';
 import { serve } from '../dist/server.js';
 import { videoCapabilities } from '../dist/video-export.js';
 import { loadTour } from '../dist/tour.js';
+import { narrativeText } from '../dist/narrative.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const scratch = mkdtempSync(join(tmpdir(), 'codestory-map-app-'));
@@ -24,6 +25,14 @@ story.version = 4;
 story.steps.unshift({ id: 'interactive-page', kind: 'concept', order: 1, preparesFor: [story.steps[0].id],
   title: 'Interactive diagram', chapter: 'Diagram', narration: 'An interactive diagram retains its state.',
   page: '<!doctype html><html><body><button id="counter">0</button><script>window.count=0;document.querySelector("#counter").addEventListener("click",event=>{event.target.textContent=++window.count})</script></body></html>' });
+const source = story.steps.find(step => step.kind !== 'concept');
+story.steps.push({ id: 'source-highlight-check', kind: 'context', order: story.steps.length + 1, chapter: 'Source highlights',
+  title: 'Keep source explanations in the code card', file: source.file, range: source.range, viewport: source.viewport,
+  why: 'The code stays visible while its narration advances.', beats: [
+    { text: 'Focus the request boundary.', highlights: [[4, 6]] },
+    { text: 'Follow the highlighted decision.', highlights: [[8, 12]] },
+    { text: 'Follow the accepted path in the same source card.', highlights: [[14, 15]] },
+  ] });
 story.steps.forEach((step, index) => { step.order = index + 1; step.chapter ||= 'Change'; });
 writeFileSync(storyPath, JSON.stringify(story));
 loadTour(storyPath);
@@ -53,6 +62,8 @@ try {
     await page.waitForFunction(() => document.querySelector('.sm-map [aria-current="location"]'));
     const data = await page.locator('#__CODESTORY_DATA__').evaluate(node => JSON.parse(node.textContent).storyMap);
     assert.equal(data.path.length, story.steps.length);
+    assert.equal(data.nodes.filter(node => !node.structural).length, story.steps.length, 'only authored steps become content cards');
+    assert.ok(data.nodes.filter(node => !node.structural).every(node => node.children.length === 0), 'narration beats never create child cards');
     assert.ok(!requests.some(url => url.includes('/_prototype/')), 'shipped mode needs no prototype server');
     assert.equal(await page.locator('[data-map-native-viewer]').count(), 0, 'root summary does not load media');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
@@ -118,6 +129,29 @@ try {
     await linkedPosition();
     await page.reload();
     await linkedPosition();
+    await page.getByRole('button', { name: 'Next explanation', exact: true }).click();
+    await page.waitForFunction(index => document.querySelector(`[data-dock-step="${index}"] [data-story-beat].is-selected`)?.getAttribute('data-focus-group') === '1', codeNode.panelIndex);
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await page.screenshot({ path: join(output, `${name}-highlighted-code.png`) });
+    assert.equal(await page.locator('.sm-map [data-map-focus][aria-current]').getAttribute('data-map-focus'), codeNode.id,
+      'advancing a highlighted explanation keeps the code card selected instead of its text child');
+    const explanation = async (topic, beat) => {
+      await page.waitForFunction(({ index, beat }) => document.querySelector(`[data-dock-step="${index}"] [data-story-beat].is-selected`)?.getAttribute('data-focus-group') === String(beat), { index: topic.panelIndex, beat });
+      await selected(topic.id);
+      const prose = page.locator('.sm-map .sm-node.is-current .sm-card-content .sm-prose:not(.sm-prose-measure)');
+      await page.waitForFunction(({ id, text }) => {
+        const card = document.querySelector(`.sm-map [data-map-detail="${id}"],.sm-map [data-map-node="${id}"]`);
+        return card?.querySelector('.sm-card-content .sm-prose:not(.sm-prose-measure)')?.textContent === text;
+      }, { id: topic.id, text: narrativeText(story.steps[topic.panelIndex - 1].beats[beat].text) });
+      assert.equal(await prose.count(), 1, 'the current explanation is shown inside the code card');
+      const block = topic.content.find(block => block.type === 'code' || block.type === 'diff');
+      if (block.rangesByBeat[beat].length) {
+        await page.waitForFunction(({ viewer, ranges }) => [...document.querySelectorAll(`[data-map-native-viewer="${viewer}"] .is-story-focus[data-line]`)]
+          .some(row => row.getAttribute('data-side') !== 'left' && ranges.some(([from, to]) => Number(row.dataset.line) >= from && Number(row.dataset.line) <= to)),
+        { viewer: block.viewerId, ranges: block.rangesByBeat[beat] });
+      }
+    };
+    await explanation(codeNode, 1);
     await viewer.evaluate(node => { window.savedMapViewer = node.firstElementChild; });
     await page.getByRole('button', { name: 'Expand card', exact: true }).click();
     await page.locator('.sm-focus-dialog[open]').waitFor();
@@ -128,20 +162,23 @@ try {
     await page.screenshot({ path: join(output, `${name}-code.png`) });
     await changeLayout('B');
     assert.equal(await viewer.evaluate(node => node.firstElementChild === window.savedMapViewer), true);
+    await page.getByRole('button', { name: 'Next explanation', exact: true }).click();
+    await explanation(codeNode, 2);
     await changeLayout('C');
     assert.equal(await viewer.evaluate(node => node.firstElementChild === window.savedMapViewer), true);
+    await page.getByRole('button', { name: 'Previous explanation', exact: true }).click();
+    await explanation(codeNode, 1);
     await changeLayout('A');
 
-    // Explanation leaves stay visibly selected after focus moves to controls,
-    // and their titles use the same complete content width as other cards.
-    const leaf = byId.get(codeNode.children[0]);
-    await visit(leaf.id);
-    const leafCard = page.locator(`.sm-map [data-map-node="${leaf.id}"]`);
-    const leafTitle = leafCard.locator('[data-map-focus]');
+    // Authored code cards stay visibly selected after focus moves to controls,
+    // and their titles use the whole available content width.
+    await visit(codeNode.id);
+    const codeCard = page.locator(`.sm-map [data-map-node="${codeNode.id}"]`);
+    const codeTitle = codeCard.locator('[data-map-focus]');
     await page.getByRole('button', { name: 'Find current card', exact: true }).click();
     for (const theme of ['dark', 'light']) {
       await page.evaluate(theme => { document.documentElement.dataset.theme = theme; }, theme);
-      const geometry = await leafCard.evaluate(card => {
+      const geometry = await codeCard.evaluate(card => {
         const title = card.querySelector('[data-map-focus]'), heading = title.closest('h3');
         const style = getComputedStyle(card), color = value => value.match(/[\d.]+/g).slice(0, 3).map(Number);
         const luminance = rgb => rgb.map(c => { c /= 255; return c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4; })
@@ -150,19 +187,31 @@ try {
         return { titleWidth: title.getBoundingClientRect().width, headingWidth: heading.getBoundingClientRect().width,
           contrast: (Math.max(a, b) + .05) / (Math.min(a, b) + .05), selected: card.classList.contains('is-current') };
       });
-      assert.ok(geometry.selected, 'child remains selected when focus moves to map controls');
-      assert.ok(Math.abs(geometry.titleWidth - geometry.headingWidth) < 1, 'child title uses the whole available heading width');
+      assert.ok(geometry.selected, 'code card remains selected when focus moves to map controls');
+      assert.ok(Math.abs(geometry.titleWidth - geometry.headingWidth) < 1, 'code title uses the whole available heading width');
       assert.ok(geometry.contrast >= 3, `${theme} selected border is clearly distinct from the card: ${geometry.contrast}`);
-      await page.screenshot({ path: join(output, `${name}-child-${theme}.png`) });
+      await page.screenshot({ path: join(output, `${name}-card-${theme}.png`) });
     }
     await page.evaluate(() => { document.documentElement.dataset.theme = 'dark'; });
     await page.keyboard.press('Tab');
-    await leafTitle.focus();
-    assert.equal(await leafTitle.evaluate(title => title.matches(':focus-visible')), true);
-    await page.screenshot({ path: join(output, `${name}-child-keyboard.png`) });
+    await codeTitle.focus();
+    assert.equal(await codeTitle.evaluate(title => title.matches(':focus-visible')), true);
+    await page.screenshot({ path: join(output, `${name}-card-keyboard.png`) });
     await page.keyboard.press('ArrowDown');
-    await selected(codeNode.children[1]);
-    assert.equal(await leafCard.evaluate(card => card.classList.contains('is-current')), false, 'selection leaves the previous explanation');
+    const siblings = parents.get(codeNode.id).children;
+    await selected(siblings[siblings.indexOf(codeNode.id) + 1]);
+    assert.equal(await codeCard.evaluate(card => card.classList.contains('is-current')), false, 'selection moves to the next authored step');
+
+    const sourceNode = data.nodes.find(node => node.stepId === 'source-highlight-check');
+    await visit(sourceNode.id);
+    await page.locator('[data-readaloud]').click();
+    await page.waitForFunction(() => document.querySelector('[data-readaloud]')?.getAttribute('aria-label')?.startsWith('Pause'));
+    current = 2;
+    await explanation(sourceNode, 1);
+    current = 3;
+    await explanation(sourceNode, 2);
+    await page.screenshot({ path: join(output, `${name}-source-narration.png`) });
+    await page.locator('[data-aloud-stop]').click(); running = false; current = 1;
 
     const diagram = data.nodes.find(node => node.stepId === 'interactive-page');
     await visit(diagram.id);

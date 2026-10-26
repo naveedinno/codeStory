@@ -16,8 +16,27 @@ test('production map preserves step order, repeated chapters, and authored IDs w
   const chapters = data.nodes.filter(node => node.structural === 'chapter');
   assert.deepEqual(chapters.map(node => node.label), ['Start', 'Next', 'Start']);
   assert.deepEqual(chapters.flatMap(node => node.children), data.path);
-  const beat = data.nodes.find(node => node.id === 'step-2-beat-1');
-  assert.equal(beat.stepId, 'step-1'); assert.equal(beat.panelIndex, 2); assert.equal(beat.beat, 1);
+  assert.deepEqual(data.nodes.filter(node => !node.structural).map(node => node.stepId), ['root', 'step-1', 'chapter-0']);
+});
+
+test('narration beats stay inside their code card instead of becoming explanation children', () => {
+  const source = step('source', 1, 'Source', 'context');
+  const changed = step('change', 2, 'Source');
+  changed.beats.push({ text: 'Read the highlighted lines from before the change.', oldHighlights: [[2, 2]] });
+  const tour = { version: 4, title: 'Read the code', steps: [source, changed] };
+  const before = JSON.stringify(tour);
+  const data = buildStoryMap(tour, 'base', 'head');
+  const cards = data.nodes.filter(node => !node.structural);
+  assert.equal(cards.length, 2, 'each authored source or diff step produces one card');
+  for (const card of cards) {
+    assert.deepEqual(card.children, []);
+    assert.equal(card.panelIndex, tour.steps.findIndex(item => item.id === card.stepId) + 1);
+  }
+  assert.equal(cards[0].beats, 2);
+  assert.deepEqual(cards[0].content[1].rangesByBeat, [[[1, 2]], [[3, 3]]]);
+  assert.equal(cards[1].beats, 3);
+  assert.deepEqual(cards[1].content[1].rangesByBeat, [[[1, 2]], [[3, 3]], []]);
+  assert.equal(JSON.stringify(tour), before, 'authored narration and highlights remain intact');
 });
 
 test('production media distinguishes actual diffs, source context and sandboxed pages', () => {

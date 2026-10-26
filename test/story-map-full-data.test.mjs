@@ -8,10 +8,10 @@ const fixture=()=>({title:'Original tour',summary:'An <code>authored</code> summ
  {id:'two',order:3,kind:'context',chapter:'Finish',title:'The last function',file:'two.sol',beats:[{text:'The end.',highlights:[[5,6]]}]},
 ]});
 test('full map covers every authored step in order and never changes the story',()=>{const story=fixture(),before=JSON.stringify(story);const {data,viewers}=fullStoryMap(story);assert.deepEqual(data.path,['diagram','one','two']);assert.equal(viewers.size,3);assert.equal(new Set(data.nodes.map(x=>x.id)).size,data.nodes.length);assert.equal(data.nodes.filter(x=>!x.structural&&x.beat===0).length,3);assert.equal(JSON.stringify(story),before);});
-test('sections/chapters and explanation leaves retain original source ownership',()=>{const {data}=fullStoryMap(fixture());const leaf=data.nodes.find(x=>x.id==='one-beat-1');assert.equal(leaf.panelIndex,2);assert.equal(leaf.stepId,'one');assert.equal(leaf.beat,1);assert.equal(leaf.label,'A check fails before spending.');assert.ok(data.nodes.some(x=>x.structural==='chapter'&&x.children.includes('one')));assert.ok(data.nodes.every(x=>x.id==='root'||data.nodes.some(p=>p.children.includes(x.id))));});
+test('sections and chapters own authored code cards while narration stays inside its source',()=>{const {data}=fullStoryMap(fixture());const code=data.nodes.find(x=>x.id==='one');assert.equal(code.panelIndex,2);assert.equal(code.stepId,'one');assert.equal(code.beats,2);assert.deepEqual(code.children,[]);assert.deepEqual(code.content[1].rangesByBeat,[[[1,2]],[[3,4]]]);assert.equal(data.nodes.some(x=>x.id==='one-beat-1'),false);assert.ok(data.nodes.some(x=>x.structural==='chapter'&&x.children.includes('one')));assert.ok(data.nodes.every(x=>x.id==='root'||data.nodes.some(p=>p.children.includes(x.id))));});
 test('authored HTML pages remain leased native viewer content, never injected into map metadata',()=>{const {data,viewers}=fullStoryMap(fixture());assert.deepEqual(data.nodes.find(x=>x.id==='diagram').content,[{type:'page',viewerId:'story-diagram',panelIndex:1}]);assert.equal(viewers.get('story-diagram'),0);assert.ok(!JSON.stringify(data).includes('<script>'));});
 
-test('the map-authoring example validates and retains native media and explanation ownership', () => {
+test('the map-authoring example validates and retains native media and in-card narration', () => {
   const reference = readFileSync(new URL('../skills/codestory-storyteller/references/map-stories.md', import.meta.url), 'utf8');
   const story = JSON.parse(/```json\n([\s\S]*?)\n```/.exec(reference)[1]);
   assert.deepEqual(validateTour(story), []);
@@ -24,10 +24,9 @@ test('the map-authoring example validates and retains native media and explanati
   const code = data.nodes.find(n => n.id === 'adapter');
   assert.equal(code.content[1].type, 'code');
   assert.equal(code.content[1].revision, story.head);
-  const detail = data.nodes.find(n => n.id === 'adapter-beat-2');
-  assert.equal(detail.stepId, code.stepId);
-  assert.equal(detail.panelIndex, code.panelIndex);
-  assert.equal(detail.beat, 2);
+  assert.deepEqual(code.children, []);
+  assert.equal(code.beats, story.steps.find(step => step.id === 'adapter').beats.length);
+  assert.deepEqual(code.content[1].rangesByBeat, story.steps.find(step => step.id === 'adapter').beats.map(beat => beat.highlights ?? []));
   assert.equal(viewers.size, 3);
   assert.equal(JSON.stringify(story), before);
 });
