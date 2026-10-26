@@ -40,6 +40,7 @@ import { Sidebar } from "./Sidebar";
 import { StoryView } from "./StoryView";
 import { VideoExport } from "./VideoExport";
 import { formatCount, plural } from "./format";
+import { mountStoryMap } from "./StoryMap";
 
 const ICONS = {
   menu: <path d="M4 6h16M4 12h16M4 18h16" />,
@@ -392,6 +393,10 @@ export function ReviewApp({ payload }: { payload: ReviewPayload }) {
     stagedWorktreeDivergentFiles: divergent,
   } = payload;
   const started = useRef(false);
+  const modeUrl = new URL(typeof location === 'undefined' ? 'http://localhost/' : location.href);
+  const classic = modeUrl.searchParams.get('mode') === 'classic';
+  if (classic) modeUrl.searchParams.delete('mode');
+  else modeUrl.searchParams.set('mode', 'classic');
   useBodyFacts(payload);
 
   useEffect(() => {
@@ -403,6 +408,12 @@ export function ReviewApp({ payload }: { payload: ReviewPayload }) {
         payload.commentAnchors.map((a) => [a.id, a]),
       ),
     });
+    // The comparison runner supplies its own curated map. Normal reviews use
+    // the complete story and the same leased fragments as the walkthrough.
+    if (payload.storyMap && new URL(location.href).searchParams.get('mode') !== 'classic'
+      && !document.querySelector('script[src="/_prototype/map.js"]')) {
+      void mountStoryMap(payload, payload.storyMap);
+    }
   }, [payload]);
 
   useEffect(() => initVerification({
@@ -531,7 +542,13 @@ export function ReviewApp({ payload }: { payload: ReviewPayload }) {
                 </span>
               </button>
             </div>
-            {!storyless && payload.steps.length > 0 ? <VideoExport pageToken={payload.pageToken} /> : null}
+            {!storyless && payload.steps.length > 0 ? <>
+              <a className="ds-story-mode" href={modeUrl.pathname + modeUrl.search} aria-label={classic ? 'Story map' : 'Walkthrough'} title={classic ? 'Switch to Story map' : 'Switch to the classic walkthrough and story overview'}>
+                <span className="ds-story-mode-full">{classic ? 'Story map' : 'Walkthrough'}</span>
+                <span className="ds-story-mode-short" aria-hidden="true">{classic ? 'Map' : 'Steps'}</span>
+              </a>
+              <VideoExport pageToken={payload.pageToken} />
+            </> : null}
             <EditorMenu compact />
             <ThemeMenu />
             <div className="ds-actions">

@@ -202,6 +202,7 @@ export interface StoriesPayload {
 
 import type { Comment, ReviewFileIndexEntry, StoryAudience, StoryMode, StoryStepSceneLayout, StoryStepWeight } from "./types.js";
 import type { ReviewExclusionMetadata } from "./noise.js";
+import type { StoryMapData } from "./story-map.js";
 
 /** A projected narrative: sanitized HTML, flat text, and the spoken form. */
 export interface ReviewProse {
@@ -533,6 +534,8 @@ export interface ReviewPayload {
  currentDiffHash: string;
 
  story: ReviewStoryView;
+ /** Navigation metadata; media still loads through the exact page lease. */
+ storyMap?: StoryMapData;
  steps: ReviewStepView[];
  files: ReviewFileRow[];
  hotspots: ReviewHotspotView[];

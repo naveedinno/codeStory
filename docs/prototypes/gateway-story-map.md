@@ -5,8 +5,10 @@ map, while preserving CodeStory's native code and diff viewers. The earlier
 scrolling-card implementation copied motion timings but missed Ivy's balanced
 world, camera and visual hierarchy. Variant A now replaces that outer structure.
 The owner approved the animation feel; card presentation is the current
-review question. This is a local prototype on
-`prototype/story-map-gateway`; main and the installed app are unchanged.
+review question. The branch has now been merged into main. Normal saved-story
+reviews use the complete Story map by default, with leased native viewers;
+the toolbar's Walkthrough link opens the previous view and story overview.
+The standalone runner below remains a read-only gateway comparison fixture.
 
 Run from this checkout:
 

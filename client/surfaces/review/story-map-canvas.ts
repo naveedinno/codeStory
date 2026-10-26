@@ -1,4 +1,4 @@
-// THROWAWAY: the Ivy docs' measured tree, transform camera and reflow, adapted to live CodeStory cards.
+// the Ivy docs' measured tree, transform camera and reflow, adapted to live CodeStory cards.
 type Topic = { id: string; children: string[] };
 type Card = { id: string; kind: string; el: HTMLElement; x: number; y: number; w: number; h: number; treeW: number; treeH: number; childH: number; visible: boolean; dirty: boolean; reading: boolean; held: boolean; children: Card[]; parent?: Card };
 type Presented = { x: number; y: number; w: number; h: number; clipW: number; clipH: number; sx: number; sy: number; opacity: string; visible: boolean };

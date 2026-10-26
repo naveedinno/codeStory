@@ -94,7 +94,7 @@ const bundled = await build({ entryPoints: [join(root, 'client/surfaces/review/s
   // Keep readable output and an explicit diagnostics option for development.
   define: { 'process.env.NODE_ENV': JSON.stringify(args.includes('--react-development') ? 'development' : 'production') }, minify: false });
 const js = bundled.outputFiles[0].text;
-const css = readFileSync(join(root, 'client/surfaces/review/story-map.prototype.css'), 'utf8');
+const css = readFileSync(join(root, 'client/surfaces/review/story-map.css'), 'utf8');
 const home = mkdtempSync(join(tmpdir(), 'codestory-map-prototype-'));
 const backend = serve({ repo, homeOverride: home, port: 0, open: false });
 await once(backend, 'listening');

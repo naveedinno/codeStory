@@ -1,4 +1,4 @@
-// THROWAWAY: branch presence, FLIP and connector drawing adapted from core/docs/site/assets/map.js.
+// branch presence, FLIP and connector drawing adapted from core/docs/site/assets/map.js.
 const BRANCH_EASE = 'cubic-bezier(.22,.8,.22,1)';
 const reduce = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 type Box = { left: number; top: number; width: number; height: number };

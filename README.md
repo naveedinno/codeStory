@@ -50,6 +50,13 @@ runs its local server from that checkout.
 Then open **codeStory** from Spotlight, Finder, or Launchpad. There is no
 codeStory CLI and no terminal review workflow.
 
+Saved stories open in **Story map**, with connected chapter, step, and
+explanation cards. **Map options → Layout** switches between Content map,
+Reading tree, and Focused cards. Native source/diff viewers and interactive
+diagrams stay live while you change layouts or use Focus and full screen.
+Use **Walkthrough** in the toolbar for the previous view and story overview;
+**Story map** returns to the map.
+
 Optional: install Claude or Codex on your PATH if you want generated stories.
 
 ## Demo

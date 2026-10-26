@@ -249,7 +249,8 @@ async function renderVideo(input: RenderInput): Promise<void> {
     await context.addInitScript(({ theme }) => { localStorage.setItem("ds-theme", theme); }, { theme: options.theme });
     const page = await context.newPage();
     page.setDefaultTimeout(30000);
-    await page.goto(`${input.origin}/video-render?view=tour&step=0`, { waitUntil: "networkidle" });
+    // Export composes its own scene per step; use the walkthrough renderer.
+    await page.goto(`${input.origin}/video-render?view=tour&step=0&mode=classic`, { waitUntil: "networkidle" });
     await page.locator("[data-thread-node='0']").waitFor({ state: "attached" });
     await page.addStyleTag({ content: `
       *,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}

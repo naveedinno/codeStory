@@ -4512,7 +4512,7 @@ export function startReviewEngine(options){
     prepareStepNarration(active===0?1:active);
   }
 
-  // THROWAWAY bridge: map cards use the ordinary renderer and delegated viewer
+  // Native viewer bridge: map cards use the ordinary renderer and delegated viewer
   // controls. Their display fragments are not duplicate narrative step panels.
   document.addEventListener('codestory:map-viewer',function(event){
     var root=event.target,detail=event.detail||{};

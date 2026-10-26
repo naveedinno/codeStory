@@ -1,4 +1,9 @@
-/* THROWAWAY: cards are the story surface; the legacy panels retain only narration state. */
+/* Cards are the story surface; the walkthrough panels retain narration state. */
+.ds-story-mode{display:inline-flex;align-items:center;min-height:44px;padding:0 10px;color:var(--muted);font:12px var(--sans);text-decoration:none;white-space:nowrap;border-radius:var(--radius-sm)}
+.ds-story-mode:hover{background:var(--fill-1);color:var(--text)}
+.ds-story-mode:focus-visible{outline:2px solid var(--accent-blue);outline-offset:2px}
+.ds-story-mode-short{display:none}
+@media(max-width:760px){.ds-story-mode{padding-inline:6px}.ds-story-mode-full{display:none}.ds-story-mode-short{display:inline}}
 body.sm-prototyping{padding-bottom:0}
 body.sm-prototyping[data-read-view="tour"] .ds-landing-host{display:none}
 body.sm-prototyping[data-read-view="tour"] .ds-titlewrap[data-landing-fallback]{display:none}

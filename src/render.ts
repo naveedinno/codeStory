@@ -56,6 +56,7 @@ import type {
   Tour,
 } from "./types.js";
 import type { ReviewStateSummary } from "./review-state.js";
+import { buildStoryMap } from "./story-map.js";
 import type { ReviewExclusionMetadata } from "./noise.js";
 import type {
   CommentAnchorView,
@@ -1819,6 +1820,7 @@ export function renderReviewShell(input: ReviewShellInput): string {
           }
         : {}),
     },
+    ...(!storyless && tour.steps.length ? { storyMap: buildStoryMap(tour, tour.base ?? baseLabel, headRef) } : {}),
     steps: model.steps.map(stepView),
     // The challenge pass audits a change; a code story's Review page has none.
     challengeTargets: codeStory
