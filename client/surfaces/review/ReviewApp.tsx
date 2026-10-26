@@ -543,7 +543,7 @@ export function ReviewApp({ payload }: { payload: ReviewPayload }) {
               </button>
             </div>
             {!storyless && payload.steps.length > 0 ? <>
-              <a className="ds-story-mode" href={modeUrl.pathname + modeUrl.search} aria-label={classic ? 'Story map' : 'Walkthrough'} title={classic ? 'Switch to Story map' : 'Switch to the classic walkthrough and story overview'}>
+              <a className="ds-story-mode" href={modeUrl.pathname + modeUrl.search} aria-label={classic ? 'Story map' : 'Steps walkthrough'} title={classic ? 'Switch to Story map' : 'Switch to the classic walkthrough and story overview'}>
                 <span className="ds-story-mode-full">{classic ? 'Story map' : 'Walkthrough'}</span>
                 <span className="ds-story-mode-short" aria-hidden="true">{classic ? 'Map' : 'Steps'}</span>
               </a>

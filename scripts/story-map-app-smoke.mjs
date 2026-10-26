@@ -54,9 +54,26 @@ try {
     const data = await page.locator('#__CODESTORY_DATA__').evaluate(node => JSON.parse(node.textContent).storyMap);
     assert.equal(data.path.length, story.steps.length);
     assert.ok(!requests.some(url => url.includes('/_prototype/')), 'shipped mode needs no prototype server');
-    assert.equal(await page.locator('[data-map-native-viewer]').count(), 0, 'overview does not load media');
+    assert.equal(await page.locator('[data-map-native-viewer]').count(), 0, 'root summary does not load media');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    await page.waitForFunction(() => {
+      const map = document.querySelector('.sm-map');
+      return map?.dataset.mapOverview === 'false' && Number(map.dataset.mapZoom) >= 95;
+    });
+    assert.equal(await page.locator('.sm-map [data-map-node="root"] .sm-prose').isVisible(), true, 'entry starts at the readable story summary');
+    await page.screenshot({ path: join(output, `${name}-entry.png`) });
+    await page.waitForFunction(() => new URL(location.href).searchParams.get('card') === 'root');
+    await page.reload();
+    await page.waitForFunction(() => document.querySelector('.sm-map [data-map-focus][aria-current]')?.dataset.mapFocus === 'root');
+    assert.equal(await page.locator('.sm-map [data-map-node="root"] .sm-prose').isVisible(), true, 'reload keeps the root summary rather than opening its shared native step');
+    await page.getByRole('button', { name: 'Fit whole map', exact: true }).click();
+    await page.waitForFunction(() => document.querySelector('.sm-map')?.dataset.mapOverview === 'true');
     await page.screenshot({ path: join(output, `${name}-overview.png`) });
+    await page.getByRole('button', { name: 'Find current card', exact: true }).click();
+    await page.waitForFunction(() => {
+      const map = document.querySelector('.sm-map');
+      return map?.dataset.mapOverview === 'false' && Number(map.dataset.mapZoom) >= 95;
+    });
     const byId = new Map(data.nodes.map(node => [node.id, node]));
     const parents = new Map(data.nodes.flatMap(node => node.children.map(id => [id, node])));
     const ancestors = id => parents.has(id) ? [...ancestors(parents.get(id).id), parents.get(id)] : [];
@@ -79,10 +96,28 @@ try {
       await page.waitForTimeout(200);
     };
     const codeNode = data.nodes.find(node => node.content.some(block => block.type === 'diff'));
+    const chapterNode = data.nodes.find(node => node.structural === 'chapter');
+    await visit(chapterNode.id);
+    await page.reload();
+    await selected(chapterNode.id);
     await visit(codeNode.id);
     const media = codeNode.content.find(block => block.type === 'diff');
     const viewer = page.locator(`[data-map-native-viewer="${media.viewerId}"]`);
     await viewer.locator('.ds-code:visible').first().waitFor();
+    const linkedUrl = new URL(url);
+    linkedUrl.searchParams.set('view', 'tour');
+    linkedUrl.searchParams.set('step', String(codeNode.panelIndex));
+    const linkedPosition = async () => {
+      await selected(codeNode.id);
+      await viewer.locator('.ds-code:visible').first().waitFor();
+      await page.waitForFunction(({ index, count }) => document.querySelector('.sm-playback-label small')?.textContent === `Step ${index}/${count}`, { index: codeNode.panelIndex, count: story.steps.length });
+      assert.equal(new URL(page.url()).searchParams.get('step'), String(codeNode.panelIndex), 'linked source step stays in the URL');
+      assert.equal(await page.locator('.sm-map').getAttribute('data-map-overview'), 'false', 'linked source opens at readable scale');
+    };
+    await page.goto(linkedUrl.href);
+    await linkedPosition();
+    await page.reload();
+    await linkedPosition();
     await viewer.evaluate(node => { window.savedMapViewer = node.firstElementChild; });
     await page.getByRole('button', { name: 'Focus current card', exact: true }).click();
     await page.locator('.sm-focus-dialog[open]').waitFor();

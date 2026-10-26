@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import type { ReviewPayload } from '../../../src/payloads';
 import { MapBranchMotion, branchExitStyle, mapScrollBounds, mapCardLayoutBox } from './story-map-motion';
 import { StoryMapCanvas, canvasFor } from './story-map-canvas';
+import { plural } from './format';
 
 import type { StoryMapContent as ContentBlock, StoryMapTopic as Topic, StoryMapData as MapData } from '../../../src/story-map';
 const hasMedia = (topic: Topic) => topic.content.some(block => block.type === 'code' || block.type === 'diff' || block.type === 'diagram' || block.type === 'page');
@@ -291,24 +292,35 @@ function StoryMap({ data }: { data: MapData }) {
     const index = owner.children.indexOf(id);
     return owner.id === 'root' ? String(index + 2).padStart(2, '0') : `${numberFor(owner.id)}.${index + 1}`;
   };
+  // The native engine restores and mirrors its reading position before the map
+  // mounts. Structural cards share panel indexes, so restore the actual step.
+  const [initialTopic] = useState(() => {
+    const params = new URL(location.href).searchParams;
+    const panelIndex = Number(params.get('step'));
+    const card = byId.get(params.get('card') ?? '');
+    if (card && card.panelIndex === panelIndex) return card;
+    return Number.isInteger(panelIndex) && panelIndex > 0
+      ? data.nodes.find(topic => !topic.structural && topic.beat === 0 && topic.panelIndex === panelIndex) ?? get('root')
+      : get('root');
+  });
   const [variant, setVariant] = useState<Variant>(readVariant);
-  const [selected, setSelected] = useState('root');
+  const [selected, setSelected] = useState(initialTopic.id);
   const [navigation, setNavigation] = useState(0);
-  const selectedRef = useRef('root');
+  const selectedRef = useRef(initialTopic.id);
   const [branchMotion] = useState(() => new MapBranchMotion(new Map(data.nodes.flatMap(node => node.children.map(child => [child, node.id] as const)))));
   const [canvas] = useState(() => new StoryMapCanvas(data.nodes));
   const [zoom, setZoom] = useState(100);
-  const [overview, setOverview] = useState(true);
+  const [overview, setOverview] = useState(false);
   const reflowed = useRef(false), focusByMap = useRef(false);
   const keyboardInput = useRef(false);
   const keyHandler = useRef<(event: KeyboardEvent) => void>(() => {});
   const pendingSource = useRef<{ panelIndex: number; beat: number } | null>(null);
-  const [sourcePosition, setSourcePosition] = useState({ panelIndex: get('root').panelIndex, beat: 0 });
+  const [sourcePosition, setSourcePosition] = useState({ panelIndex: initialTopic.panelIndex, beat: initialTopic.beat });
   const sourcePositionRef = useRef(sourcePosition); sourcePositionRef.current = sourcePosition;
   const lastBeats = useRef(new Map<number, number>()); lastBeats.current.set(sourcePosition.panelIndex, sourcePosition.beat);
-  const [expanded, setExpanded] = useState(new Set(['root']));
+  const [expanded, setExpanded] = useState(new Set(['root', ...ancestors(initialTopic.id).map(topic => topic.id)]));
   const expandedRef = useRef(expanded); expandedRef.current = expanded;
-  const [visited, setVisited] = useState(new Set(['root']));
+  const [visited, setVisited] = useState(new Set(['root', initialTopic.id]));
   const [focused, setFocused] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [fullscreenMedia, setFullscreenMedia] = useState<string | undefined>();
@@ -527,6 +539,13 @@ function StoryMap({ data }: { data: MapData }) {
     document.body.dataset.mapVariant = variant;
   }, [variant]);
   useEffect(() => {
+    // Structural cards and explanation leaves can share one native step. Keep
+    // their identity beside the engine-owned step so reload restores the card.
+    const url = new URL(location.href);
+    url.searchParams.set('card', selected);
+    history.replaceState(null, '', url);
+  }, [selected]);
+  useEffect(() => {
     setFocused(current => {
       if (!current) return current;
       const topic = get(selected), shown = get(current), owner = parent(topic.id);
@@ -551,6 +570,7 @@ function StoryMap({ data }: { data: MapData }) {
     revealRequest.current = null;
     if (focused) { cancelMapMotion(map.current); return; }
     if (variant === 'A' && overview) { canvas.fit(!keyboardInput.current); return; }
+    const initialReveal = !lastRevealedSelection.current.id;
     const changed = lastRevealedSelection.current.id !== selected || lastRevealedSelection.current.variant !== variant;
     lastRevealedSelection.current = { id: selected, variant };
     // Native activation acknowledges the same selection in a second commit.
@@ -561,7 +581,7 @@ function StoryMap({ data }: { data: MapData }) {
     if (request?.focus) focusCard(selected);
     // Narration follows headers without taking the viewport away from inspection.
     if (!request && document.activeElement?.closest('[data-map-native-viewer]')) return;
-    const animate = variant === 'A' ? changed || !!request || reflowed.current : reflowed.current || (!!request && !request.keyboard);
+    const animate = !initialReveal && (variant === 'A' ? changed || !!request || reflowed.current : reflowed.current || (!!request && !request.keyboard));
     revealInMap(card, !!request?.center || reflowed.current, animate, !request?.center && !reflowed.current && (!request || request.keyboard));
   }, [selected, variant, focused, navigation, expanded, overview]);
   useEffect(() => { document.body.dataset.mapTranscript = String(transcript); }, [transcript]);
@@ -620,7 +640,7 @@ function StoryMap({ data }: { data: MapData }) {
   }, []);
   useEffect(() => {
     document.body.dataset.prototypeReadingPath = data.path.map(id => get(id).panelIndex).join(',');
-    void selectSource(get('root'));
+    void selectSource(initialTopic);
     const returned = (event: Event) => {
       const topic = data.nodes.find(item => !item.structural && item.panelIndex === (event as CustomEvent<number>).detail);
       if (topic) { choose(topic); requestAnimationFrame(() => { const code = document.querySelector<HTMLDetailsElement>(`.sm-map [data-map-node="${topic.id}"] .sm-native-disclosure`); if (code) code.open = true; }); }
@@ -782,7 +802,7 @@ function StoryMap({ data }: { data: MapData }) {
     <nav ref={map} className={`sm-map ${variant === 'A' ? 'sm-canvas' : ''}`} data-map-overview={overview} tabIndex={-1} aria-label={data.scope === 'full' ? 'Full story map' : 'Gateway story map'} aria-describedby="sm-map-key-help" onClick={mapClick}>{variant === 'A' ? VariantA() : variant === 'B' ? VariantB() : VariantC()}</nav>
     {outside && <div className="sm-outside">Reading elsewhere in the story.<button type="button" onClick={() => choose(node)}>Return to this branch</button></div>}
     <span id="sm-map-key-help" className="ds-sr-only">Arrow keys navigate the map. Enter centers the current card. Escape returns from code to the map.</span>
-    <span className="ds-sr-only" role="status">{outside || `Reading ${node.label}. ${visited.size} topics visited.`}</span>
+    <span className="ds-sr-only" role="status">{outside || `Reading ${node.label}. ${visited.size} ${plural(visited.size, 'topic')} visited.`}</span>
     {createPortal(<div className="sm-playback-context"><div className="sm-playback-label"><span>{node.label}</span><small>{data.scope === 'full' ? `Step ${sourcePosition.panelIndex}/${payload.steps.length}` : `${reading === 'Gateway' ? 'Gateway' : 'Branch'} · ${sourcePosition.beat + 1} / ${payload.steps[sourcePosition.panelIndex - 1]?.beats.length || 1}`}</small></div><div className="sm-beat-controls" role="group" aria-label="Explanation navigation">
       <button type="button" aria-label="Previous explanation" disabled={!beatNav.previous} onClick={() => document.querySelector<HTMLButtonElement>('.ds-dock-stage [data-beat-dock]:not([hidden]) [data-beat-move="-1"]')?.click()}>←</button>
       <button type="button" aria-label="Next explanation" disabled={!beatNav.next} onClick={() => document.querySelector<HTMLButtonElement>('.ds-dock-stage [data-beat-dock]:not([hidden]) [data-beat-move="1"]')?.click()}>→</button>
